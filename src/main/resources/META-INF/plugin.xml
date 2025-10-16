@@ -1,15 +1,58 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
-    <id>com.github.lmrb1968.intellijplugin</id>
-    <name>intellij-plugin</name>
-    <vendor>lmrb-1968</vendor>
+    <id>xygeni-plugin</id>
+    <name>__NAME__</name>
+    <version>__VERSION__</version>
+    <vendor>xygeni</vendor>
 
     <depends>com.intellij.modules.platform</depends>
 
     <resource-bundle>messages.MyBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow factoryClass="com.github.lmrb1968.intellijplugin.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
-        <postStartupActivity implementation="com.github.lmrb1968.intellijplugin.startup.MyProjectActivity" />
+        <projectConfigurable
+                instance="com.github.xygeni.intellij.settings.XygeniSettingsConfigurable"
+                displayName="Xygeni"
+                parentId="tools"
+                id="com.github.xygeni.intellij.settings.XygeniSettingsConfigurable"/>
+
+        <toolWindow factoryClass="com.github.xygeni.intellij.toolWindow.XygeniWindowFactory"
+                    id="Xygeni plugin"
+                    icon="Icons.XYGENI_ICON"
+        />
+        <toolWindow id="Xygeni console"
+                    anchor="bottom"
+                    factoryClass="com.github.xygeni.intellij.toolWindow.ConsoleWindowFactory"
+                    icon="Icons.MESSAGES_ICON"
+        />
     </extensions>
+
+    <actions>
+        <!-- Definimos un grupo -->
+        <group id="Xygeni"
+               text="Xygeni"
+               description="Xygeni tools"
+               popup="true"
+               icon="Icons.XYGENI_ICON">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+
+            <action id="Xygeni.InstallAction"
+                    class="com.github.xygeni.intellij.actions.InstallAction"
+                    text="Install"
+                    icon="Icons.INSTALL_ICON">
+            </action>
+
+            <action id="Xygeni.ScanAction"
+                    class="com.github.xygeni.intellij.actions.ScanAction"
+                    text="Scan"
+                    icon="Icons.RUN_ICON">
+            </action>
+
+            <action id="Xygeni.SecretAction"
+                    class="com.github.xygeni.intellij.actions.SecretsAction"
+                    text="Secret"
+                    icon="Icons.SECRET_ICON">
+            </action>
+        </group>
+    </actions>
 </idea-plugin>

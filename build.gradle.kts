@@ -5,6 +5,7 @@ import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 plugins {
     id("java") // Java support
     alias(libs.plugins.kotlin) // Kotlin support
+    alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.intelliJPlatform) // IntelliJ Platform Gradle Plugin
     alias(libs.plugins.changelog) // Gradle Changelog Plugin
     alias(libs.plugins.qodana) // Gradle Qodana Plugin
@@ -19,6 +20,7 @@ kotlin {
     jvmToolchain(21)
 }
 
+
 // Configure project's dependencies
 repositories {
     mavenCentral()
@@ -31,8 +33,14 @@ repositories {
 
 // Dependencies are managed with Gradle version catalog - read more: https://docs.gradle.org/current/userguide/platforms.html#sub:version-catalog
 dependencies {
+
+    implementation("com.squareup.okhttp3:okhttp:4.11.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
+    implementation(kotlin("stdlib", libs.versions.kotlin.get()))
+
     testImplementation(libs.junit)
     testImplementation(libs.opentest4j)
+
 
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
@@ -134,6 +142,11 @@ tasks {
     publishPlugin {
         dependsOn(patchChangelog)
     }
+
+    runIde {
+        dependsOn(patchPluginXml)
+    }
+
 }
 
 intellijPlatformTesting {

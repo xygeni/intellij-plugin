@@ -1,0 +1,116 @@
+package com.github.xygeni.intellij.services
+
+import com.github.xygeni.intellij.logger.Logger
+import com.intellij.execution.process.*
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.util.Key
+import java.io.File
+
+
+class DefaultProcessExecutorService : ProcessExecutorService() {}
+
+abstract class ProcessExecutorService {
+
+    /**
+     * Executes a script  (.ps1, .sh) o a fin (.exe, ELF) asynchronous
+     *
+     * @param path Path to exe file
+     * @param args process arguments
+     * @param onComplete Callback with true when the process exits successfully, false if it failed.
+     */
+    fun executeProcess(
+        path: String,
+        args: Map<String, String>,
+        workingDir: File? = null,
+        onComplete: (success: Boolean) -> Unit
+    ) {
+        ApplicationManager.getApplication().executeOnPooledThread {
+            var success = false
+
+            try {
+                val file = File(path)
+                if (!file.exists()) {
+                    Logger.error("❌ The file $path does not exist")
+                    ApplicationManager.getApplication().invokeLater { onComplete(false) }
+                    return@executeOnPooledThread
+                }
+
+                val command = buildCommand(path, args)
+                Logger.log("🔹 Executing: ${command.joinToString(" ")}")
+
+                val processBuilder = ProcessBuilder(command)
+                    // .directory(file.parentFile)
+                    .redirectErrorStream(false)
+
+                if (workingDir != null) {
+                    processBuilder.directory(workingDir)
+                }
+                val process = processBuilder.start()
+
+                val handler = OSProcessHandler(process, command.joinToString(" "))
+
+                handler.addProcessListener(object : ProcessAdapter() {
+
+                    override fun onTextAvailable(event: ProcessEvent, outputType: Key<*>) {
+                        val text = event.text.trimEnd()
+                        if (text.isNotBlank()) {
+                            when (outputType) {
+                                ProcessOutputTypes.STDOUT -> Logger.log(text)
+                                ProcessOutputTypes.STDERR -> Logger.error(text)
+                                else -> Logger.log(text)
+                            }
+                        }
+                    }
+
+                    override fun processTerminated(event: ProcessEvent) {
+                        val exitCode = event.exitCode
+                        success = exitCode == 0
+
+                        if (success) {
+                            Logger.log("✅ Process finished successfully")
+                        } else {
+                            Logger.error("❌ Process finished with errors (exitCode=$exitCode)")
+                        }
+
+                        // Notificamos en el hilo de la UI
+                        ApplicationManager.getApplication().invokeLater {
+                            onComplete(success)
+                        }
+                    }
+                })
+
+                handler.startNotify()
+
+            } catch (e: Exception) {
+                Logger.error("💥 Error Executing the process", e)
+                ApplicationManager.getApplication().invokeLater { onComplete(false) }
+            }
+        }
+    }
+
+    private fun buildCommand(path: String, args: Map<String, String>): MutableList<String> {
+        val isWindows = System.getProperty("os.name").lowercase().contains("win")
+        val file = File(path)
+        val extension = file.extension.lowercase()
+
+        val baseCommand = when {
+            extension == "ps1" && isWindows -> mutableListOf(
+                "powershell.exe",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                path
+            )
+
+            extension == "sh" && !isWindows -> mutableListOf("bash", path)
+            else -> mutableListOf(path) // exe
+        }
+
+        args.forEach { (flag, value) ->
+            baseCommand.add(flag)
+            if (value.isNotBlank()) baseCommand.add(value)
+        }
+
+        return baseCommand
+    }
+}
