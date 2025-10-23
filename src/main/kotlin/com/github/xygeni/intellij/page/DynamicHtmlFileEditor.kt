@@ -6,9 +6,11 @@ import com.intellij.openapi.fileEditor.FileEditorStateLevel
 import com.intellij.openapi.util.UserDataHolderBase
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.jcef.JBCefBrowser
+import java.awt.BorderLayout
 import java.beans.PropertyChangeListener
 import javax.swing.JComponent
 import javax.swing.JPanel
+import javax.swing.JScrollPane
 import javax.swing.SwingUtilities
 
 /**
@@ -19,7 +21,7 @@ import javax.swing.SwingUtilities
  **/
 class DynamicHtmlFileEditor(private val file: VirtualFile) : UserDataHolderBase(), FileEditor {
 
-    private val panel = JPanel()
+    private val panel = JPanel(BorderLayout())
     private var browser: JBCefBrowser? = null
     private var initialized = false
 
@@ -30,14 +32,22 @@ class DynamicHtmlFileEditor(private val file: VirtualFile) : UserDataHolderBase(
         SwingUtilities.invokeLater {
             if (browser == null) {
                 browser = JBCefBrowser()
-                panel.add(browser!!.component)
+
+                val scrollPane = JScrollPane(browser!!.component).apply {
+                    horizontalScrollBarPolicy = JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED
+                    verticalScrollBarPolicy = JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED
+                }
+
+                panel.add(scrollPane, BorderLayout.CENTER)
+
+                // load HTML content
                 browser!!.loadHTML(String(file.contentsToByteArray()))
             }
         }
     }
 
     override fun getComponent(): JComponent {
-        initBrowser()  // Inicializa el browser solo cuando se llama a getComponent()
+        initBrowser()
         return panel
     }
 

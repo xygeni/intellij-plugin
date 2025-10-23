@@ -17,12 +17,15 @@
                 instance="com.github.xygeni.intellij.settings.XygeniSettingsConfigurable"
                 displayName="Xygeni"
                 parentId="tools"
-                id="com.github.xygeni.intellij.settings.XygeniSettingsConfigurable"/>
+                id="com.github.xygeni.intellij.settings.XygeniSettingsConfigurable"
+        />
 
         <toolWindow factoryClass="com.github.xygeni.intellij.toolWindow.XygeniWindowFactory"
                     id="Xygeni plugin"
                     icon="Icons.XYGENI_ICON"
+                    anchor="right"
         />
+
         <toolWindow id="Xygeni console"
                     anchor="bottom"
                     factoryClass="com.github.xygeni.intellij.toolWindow.ConsoleWindowFactory"
@@ -59,11 +62,11 @@
                     icon="Icons.RUN_ICON">
             </action>
             <separator/>
-            <action id="Xygeni.SecretAction"
+            <!--<action id="Xygeni.SecretAction"
                     class="com.github.xygeni.intellij.actions.SecretsAction"
                     text="Secret"
                     icon="Icons.SECRET_ICON">
-            </action>
+            </action>-->
         </group>
     </actions>
 </idea-plugin>

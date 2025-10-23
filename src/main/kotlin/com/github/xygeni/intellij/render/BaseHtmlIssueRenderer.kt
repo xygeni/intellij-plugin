@@ -37,13 +37,7 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
                 " --intellij-font-family: '${font.family}';\n" +
                 " --intellij-foreground: ${colorToCss(fg)};\n" +
                 " --intellij-background: ${colorToCss(bg)};\n" +
-                "}\n" +
-                "body {\n" +
-                " font-family: var(--intellij-font-family);\n" +
-                " font-size: var(--intellij-font-size);\n" +
-                " color: var(--intellij-foreground);\n" +
-                " background-color: var(--intellij-background);\n" +
-                "            }"
+                "}\n"
 
         val cssFile = File("src/main/resources/html/xygeni.css")
         val cssContent = if (cssFile.exists()) {
@@ -77,31 +71,22 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
         }
     }
 
-    /*
-    <section class="xy-tabs-section">
-    <input type="radio" name="tabs" id="tab-1" checked="">
-    <label for="tab-1">ISSUE DETAILS</label>
-    <input type="radio" name="tabs" id="tab-2">
-    <label for="tab-2">CODE SNIPPET</label>
-    <input type="radio" name="tabs" id="tab-3">
-    <label id="tab-3-label" for="tab-3">FIX IT</label>
-     */
     protected open fun renderTabs(issue: T): String {
         val detail = renderCustomIssueDetails(issue)
         val code = renderCustomCodeSnippet(issue)
         val fix = renderCustomFix(issue)
         return createHTML().section(classes = "xy-tabs-section") {
-            if (detail.isNotEmpty() ){
-                input(type = InputType.radio, name = "tabs") { id = "tab-1"; checked=true}
-                label { htmlFor = "tab-1"; +"ISSUE DETAILS"}
+            if (detail.isNotEmpty()) {
+                input(type = InputType.radio, name = "tabs") { id = "tab-1"; checked = true }
+                label { htmlFor = "tab-1"; +"ISSUE DETAILS" }
             }
             if (code.isNotEmpty()) {
-                input(type = InputType.radio, name = "tabs") {id = "tab-2"}
-                label {htmlFor = "tab-2"; +"CODE SNIPPET"}
+                input(type = InputType.radio, name = "tabs") { id = "tab-2" }
+                label { htmlFor = "tab-2"; +"CODE SNIPPET" }
             }
             if (fix.isNotEmpty()) {
-                input(type = InputType.radio, name = "tabs") {id = "tab-3"}
-                label { htmlFor = "tab-3"; +"FIX IT"}
+                input(type = InputType.radio, name = "tabs") { id = "tab-3" }
+                label { htmlFor = "tab-3"; +"FIX IT" }
             }
         }
     }
@@ -109,7 +94,6 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
     protected open fun renderCustomIssueDetails(issue: T): String = "asdasd"
     protected open fun renderCustomCodeSnippet(issue: T): String = "asdasd"
     protected open fun renderCustomFix(issue: T): String = "adsasd"
-
 
 
     protected abstract fun renderCustomHeader(issue: T): String

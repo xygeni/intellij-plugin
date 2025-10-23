@@ -22,8 +22,10 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.LightVirtualFile
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.jcef.JBCefApp
+import com.intellij.ui.jcef.JBCefBrowser
 import com.intellij.ui.treeStructure.Tree
 import icons.Icons
+import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Dimension
 import java.awt.event.MouseAdapter
@@ -34,7 +36,7 @@ import javax.swing.border.MatteBorder
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
 
-abstract class BaseView<T: BaseXygeniIssue>(
+abstract class BaseView<T : BaseXygeniIssue>(
     protected val project: Project,
     private val title: String,
     protected val service: BaseReportService<T>,
@@ -206,6 +208,7 @@ abstract class BaseView<T: BaseXygeniIssue>(
             }
         })
     }
+
     protected open fun getItems(): List<T> = service.issues
     protected open fun buildNode(item: T): DefaultMutableTreeNode = DefaultMutableTreeNode(item.toString())
 
@@ -223,4 +226,5 @@ abstract class BaseView<T: BaseXygeniIssue>(
         val file = LightVirtualFile(fileName, content).apply { isWritable = false }
         FileEditorManager.getInstance(project).openFile(file, true)
     }
+
 }

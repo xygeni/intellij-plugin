@@ -1,6 +1,13 @@
+ body, html{
+  background-color: var(--intellij-background);
+  color: var(--intellij-foreground);
+  font-family: var(--intellij-font-family);
+  font-size: var(--intellij-font-size);
+}
+
 a {
-    color: #3794FF;
-    text-decoration: underline;
+  color: #3794FF;
+  text-decoration: underline;
 }
 
 a:hover {
@@ -77,25 +84,6 @@ a:hover {
   font-weight: 700;
   display: none;
 }
-
-/*.xy-tabs-section label {
-  display: inline-block;
-  padding: 5px 15px;
-  text-align: center;
-  border-bottom: 3px solid;
-  border-color: #d4c7e3;
-  cursor: pointer;
-  margin-right: 10px;
-}
-
-.xy-tabs-section input[type="radio"]:checked + label {
-  border-color: #a788ce;
-  display: inline-block;
-  padding: 5px 15px;
-  text-align: center;
-  border-bottom: 3px solid;
-  cursor: pointer;
-}*/
 
 .xy-tabs-section label {
   display: inline-block;
