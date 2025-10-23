@@ -1,4 +1,4 @@
-package com.github.xygeni.intellij.plugin.actions
+package com.github.xygeni.intellij.actions
 
 /**
  * InstallAction

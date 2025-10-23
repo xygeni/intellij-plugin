@@ -25,6 +25,7 @@ object Icons {
     @JvmField val SAST_ICON = getIcon("/icons/sast.svg", Icons::class.java)
     @JvmField val IAC_ICON = getIcon("/icons/swiftPackage.svg", Icons::class.java)
     @JvmField val CICD_ICON = getIcon("/icons/relay.svg", Icons::class.java)
+    @JvmField val SCA_ICON = getIcon("/icons/sca.svg", Icons::class.java)
 
 
     @JvmField val CRITICAL_ICON = getIcon("/icons/error.svg", Icons::class.java)

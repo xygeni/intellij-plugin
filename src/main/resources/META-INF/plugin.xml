@@ -7,9 +7,12 @@
 
     <depends>com.intellij.modules.platform</depends>
 
+
     <resource-bundle>messages.MyBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
+        <fileEditorProvider implementation="com.github.xygeni.intellij.page.DynamicHtmlEditorProvider"/>
+
         <projectConfigurable
                 instance="com.github.xygeni.intellij.settings.XygeniSettingsConfigurable"
                 displayName="Xygeni"
@@ -25,6 +28,14 @@
                     factoryClass="com.github.xygeni.intellij.toolWindow.ConsoleWindowFactory"
                     icon="Icons.MESSAGES_ICON"
         />
+
+        <toolWindow id="HTML Preview"
+                    factoryClass="com.github.xygeni.intellij.toolWindow.HtmlPreviewToolWindowFactory"
+                    anchor="right"
+                    secondary="true"
+                    icon="Icons.MESSAGES_ICON"
+        />
+
     </extensions>
 
     <actions>
@@ -41,13 +52,13 @@
                     text="Install"
                     icon="Icons.INSTALL_ICON">
             </action>
-
+            <separator/>
             <action id="Xygeni.ScanAction"
                     class="com.github.xygeni.intellij.actions.ScanAction"
                     text="Scan"
                     icon="Icons.RUN_ICON">
             </action>
-
+            <separator/>
             <action id="Xygeni.SecretAction"
                     class="com.github.xygeni.intellij.actions.SecretsAction"
                     text="Secret"

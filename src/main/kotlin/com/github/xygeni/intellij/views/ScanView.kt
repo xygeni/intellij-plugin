@@ -6,9 +6,9 @@ import com.github.xygeni.intellij.events.SCAN_STATE_TOPIC
 import com.github.xygeni.intellij.events.ScanStateListener
 import com.github.xygeni.intellij.services.ScanService
 import com.intellij.openapi.project.Project
-import com.intellij.ui.JBColor
 import com.intellij.util.ui.JBUI
 import icons.Icons
+import java.awt.Color
 import java.awt.Cursor
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
@@ -35,7 +35,7 @@ class ScanView(private val project: Project) : JPanel() {
 
     init {
         layout = BoxLayout(this, BoxLayout.Y_AXIS)
-        border = MatteBorder(0, 0, 1, 0, JBColor.LIGHT_GRAY)
+        border = MatteBorder(0, 0, 1, 0, Color.LIGHT_GRAY)
     }
 
     fun initialize() {

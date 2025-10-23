@@ -37,4 +37,5 @@ interface BaseXygeniIssue {
             else -> Icons.LOW_ICON
         }
     }
+
 }

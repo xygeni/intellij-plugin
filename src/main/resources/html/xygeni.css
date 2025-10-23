@@ -1,0 +1,197 @@
+a {
+    color: #3794FF;
+    text-decoration: underline;
+}
+
+a:hover {
+    color: #569CD6;
+}
+
+.xy-slide-critical {
+  color: white;
+  font-weight: bold;
+  background-color: #E06C75;
+  padding: 0 10px;
+  border-radius: 4px;
+  margin-right: 16px;
+}
+
+.xy-slide-high {
+  color: white;
+  font-weight: bold;
+  background-color: #D19A66;
+  padding: 0 10px;
+  border-radius: 4px;
+  margin-right: 16px;
+}
+
+.xy-slide-low {
+  color: #333333;
+  font-weight: bold;
+  background-color: #FAC711;
+  padding: 0 10px;
+  border-radius: 4px;
+  margin-right: 16px;
+}
+
+.xy-slide-info {
+  color: #333333;
+  font-weight: bold;
+  background-color: #E5C07B;
+  padding: 0 10px;
+  border-radius: 4px;
+  margin-right: 16px;
+}
+
+.xy-container-chip {
+  display: flex;
+  align-items: start;
+  gap: 2px;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.xy-blue-chip {
+  font-size: 10px !important;
+  font-weight: 500;
+  position: relative;
+  border-radius: 7px !important;
+  box-sizing: border-box;
+  background-color: transparent !important;
+  color: #536DF7;
+  border: 1px solid #536DF7;
+  min-height: 22px !important;
+  padding: 5px 2px 0 2px;
+  margin-right: 2px;
+  white-space: nowrap;
+}
+
+.xy-tabs-section {
+  max-width: 800px;
+  min-width: 250px;
+  width: 100%;
+  margin: 20px auto 0 auto;
+}
+
+.xy-tabs-section input[type="radio"] {
+  font-weight: 700;
+  display: none;
+}
+
+/*.xy-tabs-section label {
+  display: inline-block;
+  padding: 5px 15px;
+  text-align: center;
+  border-bottom: 3px solid;
+  border-color: #d4c7e3;
+  cursor: pointer;
+  margin-right: 10px;
+}
+
+.xy-tabs-section input[type="radio"]:checked + label {
+  border-color: #a788ce;
+  display: inline-block;
+  padding: 5px 15px;
+  text-align: center;
+  border-bottom: 3px solid;
+  cursor: pointer;
+}*/
+
+.xy-tabs-section label {
+  display: inline-block;
+  padding: 5px 15px 8px 15px;
+  text-align: center;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  margin-right: 10px;
+  border-radius: 4px 4px 0 0;
+  background-color: rgba(0,0,0,0.05);
+}
+
+.xy-tabs-section input[type="radio"]:checked + label {
+  border-color: #a788ce;
+  background-color: rgba(167,136,206,0.1);
+}
+
+.xy-tabs-section #tab-content-1,
+.xy-tabs-section #tab-content-2,
+.xy-tabs-section #tab-content-3 {
+  display: none;
+  margin: 10px;
+  overflow-x: auto;
+}
+
+.xy-tabs-section #tab-1:checked ~ #tab-content-1,
+.xy-tabs-section #tab-2:checked ~ #tab-content-2,
+.xy-tabs-section #tab-3:checked ~ #tab-content-3 {
+  display: block;
+}
+
+.xy-tabs-section .code {
+  border-left: 3px solid rgb(128, 127, 127);
+  line-height: 1.6;
+  margin-bottom: 1.6em;
+  max-width: 100%;
+  min-width: 0;
+  overflow: auto;
+  padding: 1em 1.5em;
+  display: block;
+}
+
+.xy-tabs-section th {
+  font-weight: 300;
+  text-align: left;
+  padding: 3px 20px 3px 10px;
+}
+
+.xy-tabs-section td {
+  font-weight: 500;
+  color: #BBBBBB;
+}
+
+.xy-tabs-section .file {
+  font-weight: 400;
+  text-align: left;
+}
+
+.xy-tabs-section .code-snippet-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.xy-tabs-section .line-number {
+  text-align: right;
+  user-select: none;
+  width: 1%;
+  padding-right: 1em;
+}
+
+.xy-tabs-section .code-line {
+  padding-left: 10px;
+  white-space: pre;
+}
+
+.xy-button {
+  background-color: #3C3F41; /* color neutro que funciona en claro y oscuro */
+  color: #FFFFFF;
+  padding: 6px 12px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  margin: 4px 4px 4px 0;
+}
+
+.xy-button:hover {
+  background-color: #505354;
+}
+
+.xy-button:focus {
+  outline: 1px solid #569CD6;
+  outline-offset: 1px;
+}
+
+.xy-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

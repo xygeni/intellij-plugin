@@ -10,13 +10,18 @@ import com.github.xygeni.intellij.events.READ_TOPIC
 import com.github.xygeni.intellij.events.ReadListener
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.model.report.BaseXygeniIssue
+import com.github.xygeni.intellij.model.report.secret.SecretsXygeniIssue
+import com.github.xygeni.intellij.render.BaseHtmlIssueRenderer
+import com.github.xygeni.intellij.render.SecretIssueRenderer
 import com.github.xygeni.intellij.services.report.BaseReportService
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.testFramework.LightVirtualFile
 import com.intellij.ui.components.JBScrollPane
+import com.intellij.ui.jcef.JBCefApp
 import com.intellij.ui.treeStructure.Tree
 import icons.Icons
 import java.awt.Color
@@ -29,7 +34,7 @@ import javax.swing.border.MatteBorder
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
 
-open class BaseView<T: BaseXygeniIssue>(
+abstract class BaseView<T: BaseXygeniIssue>(
     protected val project: Project,
     private val title: String,
     protected val service: BaseReportService<T>,
@@ -81,7 +86,8 @@ open class BaseView<T: BaseXygeniIssue>(
         subscribeToMessage()
     }
 
-    // Toggle mostrar/ocultar el árbol
+    protected abstract val renderer: BaseHtmlIssueRenderer<T>
+
     private fun toggle() {
         treeScrollPane.isVisible = !treeScrollPane.isVisible
         header.icon = if (treeScrollPane.isVisible) Icons.CHEVRON_DOWN_ICON else Icons.CHEVRON_RIGHT_ICON
@@ -132,11 +138,45 @@ open class BaseView<T: BaseXygeniIssue>(
             }
         }
 
-        tree.addTreeSelectionListener { event ->
-            val node = event.path.lastPathComponent as? DefaultMutableTreeNode
-            val data = node?.userObject as? NodeData
-            data?.onClick?.invoke()
-        }
+        tree.addMouseListener(object : MouseAdapter() {
+            private var clickTimer: Timer? = null
+            override fun mouseClicked(e: MouseEvent) {
+                val selPath = tree.getPathForLocation(e.x, e.y)
+                selPath?.lastPathComponent?.let { node ->
+                    if (node is DefaultMutableTreeNode) {
+                        val data = node.userObject as? NodeData
+                        if (e.clickCount == 2) {
+                            clickTimer?.stop()
+                            data?.onDoubleClick?.invoke()
+                        } else if (e.clickCount == 1) {
+                            clickTimer = Timer(200) {
+                                data?.onClick?.invoke()
+                            }.apply { isRepeats = false; start() }
+                        }
+                    }
+                }
+            }
+
+            /*override fun mouseClicked(e: MouseEvent) {
+                val selPath = tree.getPathForLocation(e.x, e.y)
+                selPath?.lastPathComponent?.let { node ->
+                    if (node is DefaultMutableTreeNode) {
+                        val data = node.userObject as? NodeData
+                        when (e.clickCount) {
+                            1 -> data?.onClick?.invoke()
+                            2 -> data?.onDoubleClick?.invoke()
+
+                        }
+                    }
+                }
+            }*/
+        })
+
+        //tree.addTreeSelectionListener { event ->
+        //    val node = event.path.lastPathComponent as? DefaultMutableTreeNode
+        //    val data = node?.userObject as? NodeData
+        //    data?.onClick?.invoke()
+        //}
     }
 
     fun openFileInEditor(project: Project, relativePath: String, line: Int = 0, column: Int = 0) {
@@ -169,4 +209,18 @@ open class BaseView<T: BaseXygeniIssue>(
     protected open fun getItems(): List<T> = service.issues
     protected open fun buildNode(item: T): DefaultMutableTreeNode = DefaultMutableTreeNode(item.toString())
 
+    protected open fun openDynamicHtml(project: Project, item: T) {
+        val fileName = if (JBCefApp.isSupported()) {
+            // DynamicHtmlEditorProvider con JCEF
+            "${item.type}.dynamic.html" // DynamicHtmlEditorProvider con JCEF
+        } else {
+            "${item.type}.html" // normal
+        }
+
+        val content = renderer.render(item)
+        println(content)
+
+        val file = LightVirtualFile(fileName, content).apply { isWritable = false }
+        FileEditorManager.getInstance(project).openFile(file, true)
+    }
 }

@@ -12,5 +12,6 @@ data class NodeData(
     val text: String,
     val icon: Icon? = null,
     val tooltip: String? = null,
-    val onClick: (() -> Unit)? = null
+    val onClick: (() -> Unit)? = null,
+    val onDoubleClick: (() -> Unit)? = null
 )

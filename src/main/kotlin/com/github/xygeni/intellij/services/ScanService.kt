@@ -32,7 +32,8 @@ class ScanService : ProcessExecutorService() {
         "-f" to "json",
         "-d" to ".",
         "-o" to this.pluginContext.xygeniReportSuffix,
-        "--no-upload" to ""
+        "--no-upload" to "",
+        "--include-vulnerabilities" to ""
     )
 
     private fun buildArgs(changingValue: String): Map<String, String> {

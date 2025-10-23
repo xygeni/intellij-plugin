@@ -46,10 +46,8 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
         add(Box.createVerticalStrut(4))
         add(content)
 
-        // Carga inicial en background
         loadSettingsAsync()
 
-        // Suscripción a cambios de configuración
         project.messageBus.connect()
             .subscribe(SETTINGS_CHANGED_TOPIC, object : SettingsChangeListener {
                 override fun settingsChanged() {
@@ -71,7 +69,7 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
     }
 
     private fun createHeader() {
-        header = JLabel("XYGENI CONFIGURATION").apply {
+        header = JLabel("CONFIGURATION").apply {
             cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
             alignmentX = LEFT_ALIGNMENT
             icon = Icons.CHEVRON_RIGHT_ICON

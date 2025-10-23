@@ -1,6 +1,7 @@
 package com.github.xygeni.intellij.views.report
 
 import com.github.xygeni.intellij.model.report.iac.IacXygeniIssue
+import com.github.xygeni.intellij.render.IacIssueRenderer
 import com.github.xygeni.intellij.services.report.IacService
 import com.intellij.openapi.project.Project
 import icons.Icons
@@ -19,6 +20,8 @@ class IacScanView(project: Project) : BaseView<IacXygeniIssue>(
     Icons.IAC_ICON
 ) {
 
+    override val renderer = IacIssueRenderer()
+
     override fun buildNode(item: IacXygeniIssue): DefaultMutableTreeNode {
         return DefaultMutableTreeNode(
             NodeData(
@@ -27,6 +30,9 @@ class IacScanView(project: Project) : BaseView<IacXygeniIssue>(
                 tooltip = item.explanation,
                 onClick = {
                     openFileInEditor(project, item.file, item.beginLine, item.beginColumn)
+                },
+                onDoubleClick = {
+                    this.openDynamicHtml(project, item)
                 }
             ))
     }

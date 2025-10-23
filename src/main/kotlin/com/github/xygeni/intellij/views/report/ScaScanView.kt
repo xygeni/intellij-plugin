@@ -1,10 +1,8 @@
 package com.github.xygeni.intellij.views.report
 
 import com.github.xygeni.intellij.model.report.sca.ScaXygeniIssue
-import com.github.xygeni.intellij.model.report.secret.SecretsXygeniIssue
 import com.github.xygeni.intellij.render.ScaIssueRenderer
-import com.github.xygeni.intellij.render.SecretIssueRenderer
-import com.github.xygeni.intellij.services.report.SecretService
+import com.github.xygeni.intellij.services.report.ScaService
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
 import com.intellij.testFramework.LightVirtualFile
@@ -13,28 +11,33 @@ import icons.Icons
 import javax.swing.tree.DefaultMutableTreeNode
 
 /**
- * SecretsScanView
+ * ScaScanView
  *
  * @author : Carmendelope
- * @version : 14/10/25 (Carmendelope)
+ * @version : 21/10/25 (Carmendelope)
  **/
-class SecretsScanView(project: Project) : BaseView<SecretsXygeniIssue>(
+
+
+class ScaScanView (project: Project) : BaseView<ScaXygeniIssue>(
     project,
-    "SECRETS",
-    project.getService(SecretService::class.java),
-    Icons.SECRET_ICON
-) {
+    "SCA",
+    project.getService(ScaService::class.java),
+    Icons.SCA_ICON
+){
 
-    override val renderer = SecretIssueRenderer()
+    override val renderer = ScaIssueRenderer()
 
-    override fun buildNode(item: SecretsXygeniIssue): DefaultMutableTreeNode {
+    override fun buildNode(item: ScaXygeniIssue): DefaultMutableTreeNode {
         return DefaultMutableTreeNode(
             NodeData(
                 text = "(${item.type}) - ${item.file}",
                 icon = item.getIcon(),
-                tooltip = "secret of type '${item.type}' detected by '${item.detector}' ",
+                tooltip = item.explanation,
                 onClick = {
-                    openFileInEditor(project, item.file, item.beginLine, item.beginColumn)
+                    val firstPath = item.dependencyPaths?.firstOrNull()
+                    if (firstPath != null) {
+                        openFileInEditor(project, firstPath, item.beginLine, item.beginColumn)
+                    }
                 },
                 onDoubleClick = {
                     this.openDynamicHtml(project, item)
