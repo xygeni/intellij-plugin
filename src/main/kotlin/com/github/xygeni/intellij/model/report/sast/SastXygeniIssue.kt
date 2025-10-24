@@ -28,12 +28,11 @@ data class SastXygeniIssue(
     override val code: String = "",
     override val explanation: String,
     override val tags: List<String> = emptyList(),
-    override val url: String = "",
+
     // -- Sast --
     val kind: String = "",
     val branch: String = "",
     val cwe: Int = 0,
     val cwes: List<String> = emptyList(),
-    val container: String = "",
     val language: String = "",
 ): BaseXygeniIssue

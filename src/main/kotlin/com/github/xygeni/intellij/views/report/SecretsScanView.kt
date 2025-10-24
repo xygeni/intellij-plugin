@@ -26,7 +26,7 @@ class SecretsScanView(project: Project) : BaseView<SecretsXygeniIssue>(
 ) {
 
     override val renderer = SecretIssueRenderer()
-
+/*
     override fun buildNode(item: SecretsXygeniIssue): DefaultMutableTreeNode {
         return DefaultMutableTreeNode(
             NodeData(
@@ -41,5 +41,5 @@ class SecretsScanView(project: Project) : BaseView<SecretsXygeniIssue>(
                 }
             ))
     }
-
+*/
 }

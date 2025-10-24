@@ -1,8 +1,13 @@
  body, html{
   background-color: var(--intellij-background);
   color: var(--intellij-foreground);
-  font-family: var(--intellij-font-family);
+  /*font-family: var(--intellij-font-family);*/
+  font-family: "Courier New", "Segoe UI", "Helvetica Neue", Arial, sans-serif !important;
   font-size: var(--intellij-font-size);
+  min-width: max-content;
+  /*overflow-x: auto;
+  overflow: hidden*/
+  margin-left: 15px;
 }
 
 a {
@@ -59,7 +64,7 @@ a:hover {
 }
 
 .xy-blue-chip {
-  font-size: 10px !important;
+  font-size: 12px !important;
   font-weight: 500;
   position: relative;
   border-radius: 7px !important;
@@ -121,7 +126,7 @@ a:hover {
   margin-bottom: 1.6em;
   max-width: 100%;
   min-width: 0;
-  overflow: auto;
+  /*overflow: auto;*/
   padding: 1em 1.5em;
   display: block;
 }
@@ -134,7 +139,7 @@ a:hover {
 
 .xy-tabs-section td {
   font-weight: 500;
-  color: #BBBBBB;
+  color: #888888;
 }
 
 .xy-tabs-section .file {

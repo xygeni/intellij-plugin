@@ -23,9 +23,10 @@ class SecretService(project: Project) : BaseReportService<SecretsXygeniIssue>(
     override fun processReport(jsonString: String): List<SecretsXygeniIssue> {
         val report = JsonConfig.relaxed.decodeFromString<SecretsReport>(jsonString)
         val toolName = report.metadata.reportProperties["tool.name"]
+        val branch = report.currentBranch
 
         val parsedIssues = report.secrets.map { raw ->
-            raw.toIssue(toolName)
+            raw.toIssue(toolName, branch)
         }
         return parsedIssues
     }

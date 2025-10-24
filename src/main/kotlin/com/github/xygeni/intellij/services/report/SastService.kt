@@ -22,9 +22,9 @@ class SastService(project: Project) : BaseReportService<SastXygeniIssue>(
     override fun processReport(jsonString : String): List<SastXygeniIssue> {
         val report = JsonConfig.relaxed.decodeFromString<SastReport>(jsonString)
         val toolName = report.metadata.reportProperties["tool.name"]
-
+        val branch = report.currentBranch
         val parsedIssues = report.vulnerabilities.map { raw ->
-            raw.toIssue(toolName)
+            raw.toIssue(toolName, branch)
         }
         return parsedIssues
     }

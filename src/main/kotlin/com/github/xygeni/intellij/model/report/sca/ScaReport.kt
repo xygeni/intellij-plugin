@@ -3,7 +3,10 @@ package com.github.xygeni.intellij.model.report.sca
 import com.github.xygeni.intellij.model.report.RawIssueLocation
 import com.github.xygeni.intellij.model.report.RawReportMetadata
 import kotlinx.serialization.Serializable
-
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 /**
  * ScaReport
  *
@@ -115,6 +118,14 @@ data class ScaRaw(
             publicationDate: publishDate.toLocaleString(), //  format '2021-01-29T21:15:08Z' as '29 ene, 2021, 21: 15'
  */
 
+fun formatIsoDateToUtc(isoDate: String?): String {
+    if ( isoDate.isNullOrBlank()) return ""
+    val instant = Instant.parse(isoDate)
+    val zoned = instant.atZone(ZoneId.of("UTC"))
+    val formatter = DateTimeFormatter.ofPattern("dd MMM, yyyy, HH:mm", Locale("es"))
+    return zoned.format(formatter)
+}
+
 fun ScaRaw.toIssue(toolName: String?): List<ScaXygeniIssue> {
     val loc = paths?.locations?.get(0) ?: null
     return vulnerabilities
@@ -128,7 +139,7 @@ fun ScaRaw.toIssue(toolName: String?): List<ScaXygeniIssue> {
                 confidence = "",
                 category = "sca",
                 categoryName = "Vulnerability",
-                file = displayFileName,
+                file = paths?.dependencyPaths?.first() ?: "", //displayFileName, // item.dependencyPaths?.firstOrNull()
                 explanation = vuln.description ?: "Vulnerability " + vuln.cve,
                 tags = (tags ?: emptyList()) + listOfNotNull(remediable?.remediableLevel),
                 url = vuln.source?.url ?: "",
@@ -145,13 +156,13 @@ fun ScaRaw.toIssue(toolName: String?): List<ScaXygeniIssue> {
                 name = name,
                 version = version,
                 dependencyPaths = paths?.dependencyPaths,
-                directDependency = paths?.directDependency,
+                directDependency = paths?.directDependency ?: false,
                 baseScore = vuln.overallCvssScore,
                 weakness = vuln.cwes,
                 references = vuln.references,
                 vector = vuln.ratings?.lastOrNull()?.vector ?: "",
                 language = language ?: "",
-
+                publicationDate = formatIsoDateToUtc(vuln.publishDate)
 
                 )
         }.orEmpty()

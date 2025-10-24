@@ -1,11 +1,9 @@
 package com.github.xygeni.intellij.render
 
 import com.github.xygeni.intellij.model.report.sast.SastXygeniIssue
-import kotlinx.html.a
-import kotlinx.html.p
+import icons.Icons
+import kotlinx.html.*
 import kotlinx.html.stream.createHTML
-import kotlinx.html.title
-import kotlinx.html.unsafe
 
 /**
  * SastIssueRenderer
@@ -23,11 +21,34 @@ class SastIssueRenderer : BaseHtmlIssueRenderer<SastXygeniIssue>() {
 
             issue.cwes?.forEach { cve ->
                 val value = cve.substringAfterLast("-")
-                a (href = "https://cwe.mitre.org/data/definitions/$value.html", target = "_blank") {
-                    text(cve)
-                }
-                unsafe { +"&nbsp;&nbsp;&nbsp;" }
+                unsafe { +renderLink("https://cwe.mitre.org/data/definitions/$value.html", cve)
+                    "&nbsp;&nbsp;&nbsp;" }
             }
         }
     }
+
+    override fun renderCustomIssueDetails(issue: SastXygeniIssue): String {
+        val svgContent = Icons::class.java.getResource("/icons/branch.svg")
+            ?.readText()
+
+        val tags = renderTags(issue.tags)
+        return createHTML().div {
+            id = "tab-content-1"
+            table {
+                tbody {
+                    tr { th { +"Explanation" }; td { +issue.explanation } }
+                    tr { th { +"Type" }; td { +issue.kind } }
+                    tr { th { +"Where" }; td {
+                        unsafe{ +svgContent.orEmpty() }
+                        +issue.branch } }
+                    tr { th { +"Language" }; td { +issue.language } }
+                    tr { th { +"Location" }; td { +issue.file } }
+                    tr { th { +"Found by" }; td { +(issue.detector ?: "") } }
+                    tr { th { +"Tags" }; td {  unsafe { +tags } } }
+                }
+            }
+
+        }
+    }
+
 }

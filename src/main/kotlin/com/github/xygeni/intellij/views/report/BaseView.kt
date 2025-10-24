@@ -6,26 +6,30 @@ package com.github.xygeni.intellij.views.report
  * @author : Carmendelope
  * @version : 14/10/25 (Carmendelope)
  **/
+
 import com.github.xygeni.intellij.events.READ_TOPIC
 import com.github.xygeni.intellij.events.ReadListener
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.model.report.BaseXygeniIssue
-import com.github.xygeni.intellij.model.report.secret.SecretsXygeniIssue
 import com.github.xygeni.intellij.render.BaseHtmlIssueRenderer
-import com.github.xygeni.intellij.render.SecretIssueRenderer
 import com.github.xygeni.intellij.services.report.BaseReportService
+import com.intellij.openapi.editor.DefaultLanguageHighlighterColors
+import com.intellij.openapi.editor.colors.TextAttributesKey
+import com.intellij.openapi.editor.markup.EffectType
+import com.intellij.openapi.editor.markup.HighlighterLayer
+import com.intellij.openapi.editor.markup.TextAttributes
+import com.intellij.openapi.editor.markup.HighlighterTargetArea
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.LightVirtualFile
+import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.jcef.JBCefApp
-import com.intellij.ui.jcef.JBCefBrowser
 import com.intellij.ui.treeStructure.Tree
 import icons.Icons
-import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Dimension
 import java.awt.event.MouseAdapter
@@ -181,6 +185,122 @@ abstract class BaseView<T : BaseXygeniIssue>(
         //}
     }
 
+    fun openFileInEditorNew(
+        project: Project,
+        relativePath: String,
+        line: Int = 1,
+        column: Int = 0,
+        endLine: Int = -1,
+        endColumn: Int = -1
+    ) {
+
+        println("line: $line, column: $column, endLine: $endLine, endColumn: $endColumn")
+
+        val basePath = project.basePath ?: return
+        val absolutePath = "$basePath/$relativePath"
+        val vFile: VirtualFile = LocalFileSystem.getInstance().findFileByPath(absolutePath) ?: return
+
+        val beginLine0 = (line - 1).coerceAtLeast(0)
+        val beginColumn0 = (column-1).coerceAtLeast(0)
+        val endLine0 = if (endLine >= 0) (endLine - 1).coerceAtLeast(0) else -1
+
+        // Open file and pos the cursor
+        val editor = FileEditorManager.getInstance(project)
+            .openTextEditor(OpenFileDescriptor(project, vFile, beginLine0, beginColumn0), true)
+            ?: return
+
+        // mark the text
+        val document = editor.document
+        val markup = editor.markupModel
+
+        fun lineColToOffset(lineNum: Int, colNum: Int): Int {
+            val safeLine = lineNum.coerceIn(0, document.lineCount - 1)
+            val start = document.getLineStartOffset(safeLine)
+            val end = document.getLineEndOffset(safeLine)
+            return (start + colNum).coerceIn(start, end)
+        }
+
+        when {
+            // Rango informado
+            endLine0 >= 0 && endColumn >= 0 -> {
+                val startOffset: Int
+                val endOffset: Int
+
+                if (beginLine0 == endLine0 && column == endColumn) {
+                    // Rango vacío → resaltar toda la línea
+                    startOffset = document.getLineStartOffset(beginLine0)
+                    endOffset = document.getLineEndOffset(beginLine0)
+                } else {
+                    startOffset = lineColToOffset(beginLine0, column)
+                    endOffset = lineColToOffset(endLine0, endColumn)
+                }
+
+                // 1️⃣ Fondo amarillo para toda la línea
+                val lineStartOffset = document.getLineStartOffset(beginLine0)
+                val lineEndOffset = document.getLineEndOffset(endLine0)
+                val bgAttributes = TextAttributes().apply {
+                    effectType = null
+                    backgroundColor = JBColor(Color(255, 255, 0, 50), Color(255, 255, 60, 60))
+                }
+                markup.addRangeHighlighter(
+                    lineStartOffset,
+                    lineEndOffset,
+                    HighlighterLayer.SELECTION - 1,
+                    bgAttributes,
+                    HighlighterTargetArea.EXACT_RANGE
+                )
+
+                // 2️⃣ Recuadro BOXED alrededor del rango real
+                val boxAttributes = TextAttributes().apply {
+                    effectType = EffectType.BOXED
+                    effectColor = JBColor(Color(255, 255, 0), Color(255, 255, 120))
+                }
+                markup.addRangeHighlighter(
+                    startOffset,
+                    endOffset,
+                    0,
+                    boxAttributes,
+                    HighlighterTargetArea.EXACT_RANGE
+                )
+            }
+
+            // Solo línea informada → resaltar toda la línea
+            line > 0 -> {
+                val startOffset = document.getLineStartOffset(beginLine0)
+                val endOffset = document.getLineEndOffset(beginLine0)
+
+                // Fondo amarillo
+                val bgAttributes = TextAttributes().apply {
+                    effectType = null
+                    backgroundColor = JBColor(Color(255, 255, 0, 50), Color(255, 255, 60, 60))
+                }
+                markup.addRangeHighlighter(
+                    startOffset,
+                    endOffset,
+                    HighlighterLayer.SELECTION - 1,
+                    bgAttributes,
+                    HighlighterTargetArea.EXACT_RANGE
+                )
+
+                // Recuadro BOXED en toda la línea
+                val boxAttributes = TextAttributes().apply {
+                    effectType = EffectType.BOXED
+                    effectColor = JBColor(Color(255, 255, 0), Color(255, 255, 120))
+                }
+                markup.addRangeHighlighter(
+                    startOffset,
+                    endOffset,
+                    0,
+                    boxAttributes,
+                    HighlighterTargetArea.EXACT_RANGE
+                )
+            }
+
+            else -> Unit
+        }
+    }
+
+
     fun openFileInEditor(project: Project, relativePath: String, line: Int = 0, column: Int = 0) {
         val basePath = project.basePath
         val absolutePath = "$basePath/$relativePath"
@@ -189,10 +309,22 @@ abstract class BaseView<T : BaseXygeniIssue>(
             val linePos = (line - 1).coerceAtLeast(0)
             val columnPos = (column - 1).coerceAtLeast(0)
 
-            FileEditorManager.getInstance(project).openTextEditor(
+            val editor = FileEditorManager.getInstance(project).openTextEditor(
                 OpenFileDescriptor(project, vFile, linePos, columnPos),
                 true
-            )
+            ) ?: return
+
+            val attributes = TextAttributes().apply {
+                effectType = EffectType.BOXED
+                effectColor = JBColor(Color(255, 255, 0), Color(255, 255, 100))
+                backgroundColor = JBColor(Color(255, 255, 0, 50), Color(255, 255, 50, 80))
+
+            }
+            println("line: $linePos, column: $columnPos")
+            println("line: $line, column: $columnPos")
+            editor.markupModel.addLineHighlighter(linePos, 0, attributes)
+
+
         } else {
             Logger.log("File not found: $absolutePath")
         }
@@ -210,18 +342,34 @@ abstract class BaseView<T : BaseXygeniIssue>(
     }
 
     protected open fun getItems(): List<T> = service.issues
-    protected open fun buildNode(item: T): DefaultMutableTreeNode = DefaultMutableTreeNode(item.toString())
+
+    protected open fun buildNode(item: T): DefaultMutableTreeNode {
+        return DefaultMutableTreeNode(
+        NodeData(
+            text = "(${item.type}) - ${item.file}",
+            icon = item.getIcon(),
+            tooltip = item.explanation,
+            onClick = {
+                println("Clicked on ${item}")
+                // openFileInEditor(project, item.file, item.beginLine, item.beginColumn)
+                openFileInEditorNew(project, item.file, item.beginLine, item.beginColumn,
+                    item.endLine, item.endColumn)
+            },
+            onDoubleClick = {
+                this.openDynamicHtml(project, item)
+            }
+        ))
+    }
 
     protected open fun openDynamicHtml(project: Project, item: T) {
         val fileName = if (JBCefApp.isSupported()) {
-            // DynamicHtmlEditorProvider con JCEF
             "${item.type}.dynamic.html" // DynamicHtmlEditorProvider con JCEF
         } else {
             "${item.type}.html" // normal
         }
 
         val content = renderer.render(item)
-        println(content)
+        println(item)
 
         val file = LightVirtualFile(fileName, content).apply { isWritable = false }
         FileEditorManager.getInstance(project).openFile(file, true)

@@ -21,7 +21,7 @@ class IacScanView(project: Project) : BaseView<IacXygeniIssue>(
 ) {
 
     override val renderer = IacIssueRenderer()
-
+/*
     override fun buildNode(item: IacXygeniIssue): DefaultMutableTreeNode {
         return DefaultMutableTreeNode(
             NodeData(
@@ -36,5 +36,5 @@ class IacScanView(project: Project) : BaseView<IacXygeniIssue>(
                 }
             ))
     }
-
+*/
 }

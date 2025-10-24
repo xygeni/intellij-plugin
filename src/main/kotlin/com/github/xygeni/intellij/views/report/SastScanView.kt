@@ -23,7 +23,7 @@ class SastScanView (project: Project) : BaseView<SastXygeniIssue>(
 ) {
 
     override val renderer = SastIssueRenderer()
-
+/*
     override fun buildNode(item: SastXygeniIssue): DefaultMutableTreeNode {
         return DefaultMutableTreeNode(
             NodeData(
@@ -38,6 +38,6 @@ class SastScanView (project: Project) : BaseView<SastXygeniIssue>(
                 }
             ))
     }
-
+ */
 
 }

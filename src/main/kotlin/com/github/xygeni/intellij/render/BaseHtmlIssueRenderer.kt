@@ -34,7 +34,7 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
         var root = ":root {\n" +
                 // " --intellij-font-size: ${font.size}px;\n" +
                 " --intellij-font-size: 15px;\n" +
-                " --intellij-font-family: '${font.family}';\n" +
+                //" --intellij-font-family: '${font.family}';\n" +
                 " --intellij-foreground: ${colorToCss(fg)};\n" +
                 " --intellij-background: ${colorToCss(bg)};\n" +
                 "}\n"
@@ -88,13 +88,56 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
                 input(type = InputType.radio, name = "tabs") { id = "tab-3" }
                 label { htmlFor = "tab-3"; +"FIX IT" }
             }
+            unsafe { +detail }
+            unsafe { +code }
         }
     }
 
-    protected open fun renderCustomIssueDetails(issue: T): String = "asdasd"
-    protected open fun renderCustomCodeSnippet(issue: T): String = "asdasd"
+    protected open fun renderCustomIssueDetails(issue: T): String = ""
+    protected open fun renderCustomCodeSnippet(issue: T): String {
+        val code = issue.code
+        val file = issue.file
+        val beginLine = issue.beginLine
+        if (code.isEmpty() || file.isEmpty()) return ""
+        return renderCodeSnippet(file, code, beginLine)
+    }
     protected open fun renderCustomFix(issue: T): String = "adsasd"
 
+    protected open fun renderTags(tags: List<String>): String {
+        return createHTML().div(classes = "xy-container-chip") {
+            tags.forEach { tag ->
+                div(classes = "xy-blue-chip") {
+                    +tag
+                }
+            }
+        }
+    }
+    protected open fun renderLink(link: String, text: String):String{
+        return createHTML().a (href = "$link", target = "_blank") {
+            text(text)
+        }
+    }
+
+    private fun renderCodeSnippet(file: String, code: String, beginLine: Int): String {
+        if (code.isEmpty()) return ""
+        return createHTML().div {
+            id = "tab-content-2"
+            p (classes ="file" ){
+                text(file)
+            }
+            table {
+                tbody {
+                    code.lines().mapIndexed { index, line ->
+                        tr {
+                            val pos = beginLine + index
+                            td(classes = "line-number"){+"$pos"}
+                            td(classes= "code-line"){unsafe{+line}}
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     protected abstract fun renderCustomHeader(issue: T): String
 

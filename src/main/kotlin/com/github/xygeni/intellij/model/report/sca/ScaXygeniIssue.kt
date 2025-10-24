@@ -23,7 +23,6 @@ data class ScaXygeniIssue(
     override val file: String = "",
     override val explanation: String,
     override val tags: List<String> = emptyList(),
-    override val url: String = "",
 
     // -- location
     override val beginLine: Int = 0,
@@ -40,8 +39,7 @@ data class ScaXygeniIssue(
     val name: String? = null,
     val version: String? = null,
     val dependencyPaths: List<String>? = null,
-    val directDependency: Boolean? = null,
-
+    val directDependency: Boolean = false,
     val baseScore: Double? = null ,
     val publicationDate: String = "",
     val weakness: List<String>? = null,
@@ -50,5 +48,6 @@ data class ScaXygeniIssue(
     val vector: String = "",
     val remediableLevel: String = "",
     val language: String = "",
+    val url: String = "",
 
     ) : BaseXygeniIssue

@@ -34,11 +34,11 @@ class XygeniWindowFactory : ToolWindowFactory {
 
         // ----------------- Reports -----------------
 
-        val scaView = ScaScanView(project)
-        menuPanel.add(scaView)
-
         val sastView = SastScanView(project)
         menuPanel.add(sastView)
+
+        val scaView = ScaScanView(project)
+        menuPanel.add(scaView)
 
         val cicdView = CicdScanView(project)
         menuPanel.add(cicdView)

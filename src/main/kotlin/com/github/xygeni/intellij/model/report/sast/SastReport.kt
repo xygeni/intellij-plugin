@@ -14,40 +14,34 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class SastReport(
     val metadata: RawReportMetadata,
-    val vulnerabilities: List<RawSast>
+    val vulnerabilities: List<RawSast>,
+    val currentBranch: String? = null
 )
 
 @Serializable
 data class RawSast (
     val issueId: String,
-    val type: String? = null,
-    val hash: String? = null,
     val detector: String? = null,
-    val severity: String = "high",
-    val confidence: String = "high",
-    val resource: String? = "",
-    val location: RawIssueLocation? = null,
-    val tags: List<String>? = null,
-    val url: String? = null,
-    val explanation: String? = null,
-    val currentBranch: String? = null,
-    val cwe: Int? = null,
-    val cwes: List<String>? = null,
-    val container: String? = null,
     val kind: String? = null,
-    val language: String? = null
+    val type: String? = null,
+    val severity: String = "",
+    val location: RawIssueLocation? = null,
+    val language: String? = null,
+    val cwes: List<String>? = null,
+    val cwe: Int? = null,
+    val explanation: String? = null,
+    val tags: List<String>? = null,
 )
 
-fun RawSast.toIssue(toolName: String?): SastXygeniIssue {
+fun RawSast.toIssue(toolName: String?, currentBranch: String?): SastXygeniIssue {
     val loc = this.location
 
     return SastXygeniIssue(
         id = issueId,
-        type = type?: "",
+        type = kind ?: "",
         detector = detector,
         tool = toolName,
         severity = severity,
-        confidence = confidence,
         file = loc?.filepath ?: "",
         beginLine = loc?.beginLine ?: 0,
         endLine = loc?.endLine ?: 0,
@@ -56,11 +50,9 @@ fun RawSast.toIssue(toolName: String?): SastXygeniIssue {
         code = loc?.code ?: "",
         explanation = explanation?: "",
         tags = tags?: emptyList(),
-        url = url ?: "",
         branch = currentBranch ?: "",
         cwe = cwe ?: 0,
         cwes = cwes ?: emptyList(),
-        container = container ?: "",
         language = language ?: "",
         kind = kind ?: ""
     )

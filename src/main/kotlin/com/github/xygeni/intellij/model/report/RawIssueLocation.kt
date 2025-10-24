@@ -16,9 +16,6 @@ data class RawIssueLocation(
     val beginColumn: Int? = 0,
     val endColumn: Int? = 0,
     val code: String? = "",
-    val secret: String? = "",
     val timeAdded: Long? = 0L,
-    val branch: String? = "",
-    val commitHash: String? = "",
     val user: String? = ""
 )

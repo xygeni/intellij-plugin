@@ -27,7 +27,6 @@ interface BaseXygeniIssue {
     val code: String
     val explanation: String
     val tags: List<String>
-    val url: String
 
     fun getIcon(): Icon {
         return when(severity.lowercase()) {

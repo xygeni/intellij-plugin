@@ -13,7 +13,7 @@ import kotlinx.serialization.Serializable
 data class SecretsXygeniIssue(
     override val id: String,
     override val type: String,
-    override val detector: String? = null,
+    override val detector: String = "",
     override val tool: String? = null,
     override val severity: String,
     override val confidence: String = "",
@@ -27,9 +27,10 @@ data class SecretsXygeniIssue(
     override val code: String = "",
     override val explanation: String,
     override val tags: List<String> = emptyList(),
-    override val url: String = "",
+
     // -- Secret --
-    val hash: String? = null,
+    val hash: String = "",
+    val key: String = "",
     val secret: String = "",
     val timeAdded: Long = 0L,
     val branch: String = "",

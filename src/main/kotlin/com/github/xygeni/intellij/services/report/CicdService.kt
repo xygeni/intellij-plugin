@@ -21,7 +21,9 @@ class CicdService (project: Project) : BaseReportService<CicdXygeniIssue>(
         val toolName = report.metadata.reportProperties["tool.name"]
 
         val parsedIssues = report.misconfigurations.map { raw ->
-            raw.toIssue(toolName)
+            val t = raw.toIssue(toolName, report.currentBranch)
+            //println(t)
+            t
         }
         return parsedIssues
     }

@@ -23,9 +23,10 @@ class IacService(project: Project) : BaseReportService<IacXygeniIssue>(
     override fun processReport(jsonString: String): List<IacXygeniIssue> {
         val report = JsonConfig.relaxed.decodeFromString<IacReport>(jsonString)
         val toolName = report.metadata.reportProperties["tool.name"]
+        val branch = report.currentBranch
 
         val parsedIssues = report.flaws.map { raw ->
-            raw.toIssue(toolName)
+            raw.toIssue(toolName, branch)
         }
         return parsedIssues
     }
