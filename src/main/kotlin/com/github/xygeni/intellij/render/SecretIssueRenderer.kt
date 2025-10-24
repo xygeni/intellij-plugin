@@ -23,25 +23,21 @@ import kotlinx.html.unsafe
 class SecretIssueRenderer : BaseHtmlIssueRenderer<SecretsXygeniIssue>() {
     override fun renderCustomHeader(issue: SecretsXygeniIssue): String {
         return createHTML().p {
-            unsafe { +"Secret&nbsp;&nbsp;&nbspFamily:&nbsp;&nbsp;${issue.type}&nbsp;&nbsp;&nbsp;" }
+            unsafe { +"${issue.categoryName}&nbsp;&nbsp;&nbspFamily:&nbsp;&nbsp;${issue.type}&nbsp;&nbsp;&nbsp;" }
         }
     }
 
     override fun renderCustomIssueDetails(issue: SecretsXygeniIssue): String {
-        val svgContent = Icons::class.java.getResource("/icons/branch.svg")
-            ?.readText()
         return createHTML().div {
             id = "tab-content-1"
             table {
                 tbody {
-                    tr { th { +"Type" }; td { +issue.type } }
-                    tr { th { +"Secret" }; td { +issue.secret } }
-                    tr { th { +"Found by" }; td { +(issue.detector) } }
-                    tr { th { +"Where" }; td {
-                        unsafe{ +svgContent.orEmpty() }
-                        +issue.branch } }
-                    tr { th { +"Resource" }; td { +issue.resource } }
-                    tr { th { +"Tags" }; td {  unsafe { +renderTags(issue.tags) } } }
+                    unsafe { +renderDetailTableLine("Type", issue.type) }
+                    unsafe { +renderDetailTableLine("Secret", issue.secret) }
+                    unsafe { +renderDetailTableLine("Found by", issue.detector) }
+                    unsafe { +renderDetailBranch(issue.branch) }
+                    unsafe { +renderDetailTableLine("Resource", issue.resource) }
+                    unsafe { +renderDetailTags(issue.tags) }
                 }
             }
         }

@@ -9,12 +9,9 @@ package com.github.xygeni.intellij.views.report
 
 import com.github.xygeni.intellij.events.READ_TOPIC
 import com.github.xygeni.intellij.events.ReadListener
-import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.model.report.BaseXygeniIssue
 import com.github.xygeni.intellij.render.BaseHtmlIssueRenderer
 import com.github.xygeni.intellij.services.report.BaseReportService
-import com.intellij.openapi.editor.DefaultLanguageHighlighterColors
-import com.intellij.openapi.editor.colors.TextAttributesKey
 import com.intellij.openapi.editor.markup.EffectType
 import com.intellij.openapi.editor.markup.HighlighterLayer
 import com.intellij.openapi.editor.markup.TextAttributes
@@ -185,7 +182,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
         //}
     }
 
-    fun openFileInEditorNew(
+    fun openFileInEditor(
         project: Project,
         relativePath: String,
         line: Int = 1,
@@ -194,7 +191,6 @@ abstract class BaseView<T : BaseXygeniIssue>(
         endColumn: Int = -1
     ) {
 
-        println("line: $line, column: $column, endLine: $endLine, endColumn: $endColumn")
 
         val basePath = project.basePath ?: return
         val absolutePath = "$basePath/$relativePath"
@@ -227,7 +223,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
                 val endOffset: Int
 
                 if (beginLine0 == endLine0 && column == endColumn) {
-                    // Rango vacío → resaltar toda la línea
+                    // resaltar toda la línea
                     startOffset = document.getLineStartOffset(beginLine0)
                     endOffset = document.getLineEndOffset(beginLine0)
                 } else {
@@ -235,7 +231,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
                     endOffset = lineColToOffset(endLine0, endColumn)
                 }
 
-                // 1️⃣ Fondo amarillo para toda la línea
+                // Fondo amarillo para toda la línea
                 val lineStartOffset = document.getLineStartOffset(beginLine0)
                 val lineEndOffset = document.getLineEndOffset(endLine0)
                 val bgAttributes = TextAttributes().apply {
@@ -250,7 +246,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
                     HighlighterTargetArea.EXACT_RANGE
                 )
 
-                // 2️⃣ Recuadro BOXED alrededor del rango real
+                // Recuadro BOXED alrededor del rango real
                 val boxAttributes = TextAttributes().apply {
                     effectType = EffectType.BOXED
                     effectColor = JBColor(Color(255, 255, 0), Color(255, 255, 120))
@@ -300,36 +296,6 @@ abstract class BaseView<T : BaseXygeniIssue>(
         }
     }
 
-
-    fun openFileInEditor(project: Project, relativePath: String, line: Int = 0, column: Int = 0) {
-        val basePath = project.basePath
-        val absolutePath = "$basePath/$relativePath"
-        val vFile: VirtualFile? = LocalFileSystem.getInstance().findFileByPath(absolutePath)
-        if (vFile != null) {
-            val linePos = (line - 1).coerceAtLeast(0)
-            val columnPos = (column - 1).coerceAtLeast(0)
-
-            val editor = FileEditorManager.getInstance(project).openTextEditor(
-                OpenFileDescriptor(project, vFile, linePos, columnPos),
-                true
-            ) ?: return
-
-            val attributes = TextAttributes().apply {
-                effectType = EffectType.BOXED
-                effectColor = JBColor(Color(255, 255, 0), Color(255, 255, 100))
-                backgroundColor = JBColor(Color(255, 255, 0, 50), Color(255, 255, 50, 80))
-
-            }
-            println("line: $linePos, column: $columnPos")
-            println("line: $line, column: $columnPos")
-            editor.markupModel.addLineHighlighter(linePos, 0, attributes)
-
-
-        } else {
-            Logger.log("File not found: $absolutePath")
-        }
-    }
-
     protected open fun subscribeToMessage() {
         project.messageBus.connect().subscribe(READ_TOPIC, object : ReadListener {
             override fun readCompleted(project: Project?, reportType: String?) {
@@ -350,9 +316,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
             icon = item.getIcon(),
             tooltip = item.explanation,
             onClick = {
-                println("Clicked on ${item}")
-                // openFileInEditor(project, item.file, item.beginLine, item.beginColumn)
-                openFileInEditorNew(project, item.file, item.beginLine, item.beginColumn,
+                openFileInEditor(project, item.file, item.beginLine, item.beginColumn,
                     item.endLine, item.endColumn)
             },
             onDoubleClick = {

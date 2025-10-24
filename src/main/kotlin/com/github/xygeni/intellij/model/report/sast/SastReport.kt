@@ -38,6 +38,8 @@ fun RawSast.toIssue(toolName: String?, currentBranch: String?): SastXygeniIssue 
 
     return SastXygeniIssue(
         id = issueId,
+        category = "sast",
+        categoryName = "SAST",
         type = kind ?: "",
         detector = detector,
         tool = toolName,

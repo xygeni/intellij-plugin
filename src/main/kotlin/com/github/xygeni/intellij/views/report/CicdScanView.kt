@@ -32,7 +32,7 @@ class CicdScanView(project: Project) : BaseView<CicdXygeniIssue>(
                 tooltip = item.explanation,
                 onClick = {
                     // openFileInEditor(project, item.file, item.beginLine, item.beginColumn)
-                    openFileInEditorNew(project, item.file, item.beginLine, item.beginColumn,
+                    openFileInEditor(project, item.file, item.beginLine, item.beginColumn,
                         item.endLine, item.endColumn)
                 },
                 onDoubleClick = {

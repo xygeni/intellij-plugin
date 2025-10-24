@@ -2,6 +2,7 @@ package com.github.xygeni.intellij.render
 
 import com.github.xygeni.intellij.model.report.BaseXygeniIssue
 import com.intellij.util.ui.UIUtil
+import icons.Icons
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 import java.awt.Color
@@ -14,6 +15,9 @@ import java.io.File
  * @version : 21/10/25 (Carmendelope)
  **/
 abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
+
+    protected val branchIcon = Icons::class.java.getResource("/icons/branch.svg")
+        ?.readText()
 
     private fun HEAD.inlineCss(css: String) {
         unsafe {
@@ -51,6 +55,7 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
         return root + cssContent
     }
 
+    // HEADER
     protected open fun renderCommonHeader(issue: T): String {
         val text =
             if (issue.explanation.length > 50) {
@@ -70,7 +75,17 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
             }
         }
     }
+    protected abstract fun renderCustomHeader(issue: T): String
 
+    // CODE SNIPPET
+    protected open fun renderCustomIssueDetails(issue: T): String = ""
+    protected open fun renderCustomCodeSnippet(issue: T): String {
+        val code = issue.code
+        val file = issue.file
+        val beginLine = issue.beginLine
+        if (code.isEmpty() || file.isEmpty()) return ""
+        return renderCodeSnippet(file, code, beginLine)
+    }
     protected open fun renderTabs(issue: T): String {
         val detail = renderCustomIssueDetails(issue)
         val code = renderCustomCodeSnippet(issue)
@@ -92,32 +107,6 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
             unsafe { +code }
         }
     }
-
-    protected open fun renderCustomIssueDetails(issue: T): String = ""
-    protected open fun renderCustomCodeSnippet(issue: T): String {
-        val code = issue.code
-        val file = issue.file
-        val beginLine = issue.beginLine
-        if (code.isEmpty() || file.isEmpty()) return ""
-        return renderCodeSnippet(file, code, beginLine)
-    }
-    protected open fun renderCustomFix(issue: T): String = "adsasd"
-
-    protected open fun renderTags(tags: List<String>): String {
-        return createHTML().div(classes = "xy-container-chip") {
-            tags.forEach { tag ->
-                div(classes = "xy-blue-chip") {
-                    +tag
-                }
-            }
-        }
-    }
-    protected open fun renderLink(link: String, text: String):String{
-        return createHTML().a (href = "$link", target = "_blank") {
-            text(text)
-        }
-    }
-
     private fun renderCodeSnippet(file: String, code: String, beginLine: Int): String {
         if (code.isEmpty()) return ""
         return createHTML().div {
@@ -139,7 +128,50 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
         }
     }
 
-    protected abstract fun renderCustomHeader(issue: T): String
+    // FIX
+    protected open fun renderCustomFix(issue: T): String = "adsasd"
+
+    // HELPERS
+    protected fun renderTags(tags: List<String>): String {
+        return createHTML().div(classes = "xy-container-chip") {
+            tags.forEach { tag ->
+                div(classes = "xy-blue-chip") {
+                    +tag
+                }
+            }
+        }
+    }
+    protected fun renderLink(link: String, text: String):String{
+        return createHTML().a (href = "$link", target = "_blank") {
+            text(text)
+        }
+    }
+
+    protected fun renderDetailTableLine(key: String?, value: String?) :String{
+        if (key.isNullOrBlank() || value.isNullOrBlank()) return ""
+        return createHTML().tr {
+            th { +key }
+            td { +value } }
+    }
+
+    protected fun renderDetailBranch(branch: String?) :String{
+        if (branch.isNullOrBlank()) return ""
+        return createHTML().tr { th { +"Where" }; td {
+            unsafe{ +branchIcon.orEmpty() }
+            +branch } }
+    }
+
+    protected fun renderDetailTags(issueTags: List<String>?) :String{
+        if (issueTags.isNullOrEmpty()) return ""
+        val tags = renderTags(issueTags)
+        if (tags.isEmpty()) return ""
+
+        return createHTML().tr {
+            th { +"Tags" }
+            td { unsafe { +tags } }
+        }
+
+    }
 
     override fun render(issue: T): String {
         val cssContent = loadCssResource()

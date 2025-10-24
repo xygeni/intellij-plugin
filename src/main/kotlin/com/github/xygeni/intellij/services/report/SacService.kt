@@ -22,9 +22,9 @@ class ScaService(project: Project) : BaseReportService<ScaXygeniIssue>(
     override fun processReport(jsonString: String): List<ScaXygeniIssue> {
         val report = JsonConfig.relaxed.decodeFromString<ScaReport>(jsonString)
         val toolName = report.metadata.reportProperties["tool.name"]
-
+        val branch = report.currentBranch
         val parsedIssues = report.dependencies.flatMap { raw ->
-            raw.toIssue(toolName)
+            raw.toIssue(toolName, branch)
         }
         return parsedIssues
     }

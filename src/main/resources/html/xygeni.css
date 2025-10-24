@@ -1,12 +1,9 @@
  body, html{
   background-color: var(--intellij-background);
   color: var(--intellij-foreground);
-  /*font-family: var(--intellij-font-family);*/
   font-family: "Courier New", "Segoe UI", "Helvetica Neue", Arial, sans-serif !important;
   font-size: var(--intellij-font-size);
   min-width: max-content;
-  /*overflow-x: auto;
-  overflow: hidden*/
   margin-left: 15px;
 }
 
@@ -126,7 +123,6 @@ a:hover {
   margin-bottom: 1.6em;
   max-width: 100%;
   min-width: 0;
-  /*overflow: auto;*/
   padding: 1em 1.5em;
   display: block;
 }
@@ -134,7 +130,7 @@ a:hover {
 .xy-tabs-section th {
   font-weight: 300;
   text-align: left;
-  padding: 3px 20px 3px 10px;
+  padding: 4px 20px 4px 10px;
 }
 
 .xy-tabs-section td {
@@ -165,7 +161,7 @@ a:hover {
 }
 
 .xy-button {
-  background-color: #3C3F41; /* color neutro que funciona en claro y oscuro */
+  background-color: #3C3F41;
   color: #FFFFFF;
   padding: 6px 12px;
   border-radius: 3px;

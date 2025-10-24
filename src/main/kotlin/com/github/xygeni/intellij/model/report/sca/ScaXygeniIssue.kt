@@ -1,7 +1,6 @@
 package com.github.xygeni.intellij.model.report.sca
 
 import com.github.xygeni.intellij.model.report.BaseXygeniIssue
-import kotlinx.html.B
 import kotlinx.serialization.Serializable
 
 /**
@@ -17,9 +16,9 @@ data class ScaXygeniIssue(
     override val detector: String? = null,
     override val tool: String? = null,
     override val severity: String,
-    override val confidence: String = "high",
-    override val category: String = "sca",
-    override val categoryName: String = "SCA",
+    override val confidence: String = "",
+    override val category: String = "",
+    override val categoryName: String = "",
     override val file: String = "",
     override val explanation: String,
     override val tags: List<String> = emptyList(),
@@ -49,5 +48,7 @@ data class ScaXygeniIssue(
     val remediableLevel: String = "",
     val language: String = "",
     val url: String = "",
+
+    val branch: String = ""
 
     ) : BaseXygeniIssue

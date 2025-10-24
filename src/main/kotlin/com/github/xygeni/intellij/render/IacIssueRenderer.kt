@@ -31,28 +31,24 @@ class IacIssueRenderer : BaseHtmlIssueRenderer<IacXygeniIssue>() {
     override fun renderCustomHeader(issue: IacXygeniIssue): String {
         return createHTML().p {
             unsafe {
-                +"IaC&nbsp;&nbsp;&nbsp;${issue.type}"
+                +"${issue.category}&nbsp;&nbsp;&nbsp;${issue.type}"
             }
         }
     }
     override fun renderCustomIssueDetails(issue: IacXygeniIssue): String {
-        val svgContent = Icons::class.java.getResource("/icons/branch.svg")
-            ?.readText()
         return createHTML().div{
             id = "tab-content-1"
             table {
                 tbody {
-                    tr { th { +"Explanation" }; td { +issue.explanation } }
-                    tr { th { +"Type" }; td { +issue.type } }
-                    tr { th { +"Provider" }; td { +issue.provider } }
-                    tr { th { +"Framework" }; td { +issue.framework } }
-                    tr { th { +"Where" }; td {
-                        unsafe{ +svgContent.orEmpty() }
-                        +issue.where } }
-                    tr { th { +"Location" }; td { +issue.file  } }
-                    tr { th { +"Resource" }; td { +issue.resource } }
-                    tr { th { +"Found by" }; td { +issue.detector } }
-                    tr { th { +"Tags" }; td {  unsafe { +renderTags(issue.tags) } } }
+                    unsafe { +renderDetailTableLine("Explanation", issue.explanation) }
+                    unsafe { +renderDetailTableLine("Type", issue.type) }
+                    unsafe { +renderDetailTableLine("Provider", issue.provider) }
+                    unsafe { +renderDetailTableLine("Framework", issue.framework) }
+                    unsafe { +renderDetailBranch(issue.where) }
+                    unsafe { +renderDetailTableLine("Location", issue.file) }
+                    unsafe { +renderDetailTableLine("Resource", issue.resource) }
+                    unsafe { +renderDetailTableLine("Found by", issue.detector) }
+                    unsafe { +renderDetailTags(issue.tags) }
                 }
             }
         }

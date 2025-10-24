@@ -16,7 +16,7 @@ class ScaIssueRenderer: BaseHtmlIssueRenderer<ScaXygeniIssue>() {
     override fun renderCustomHeader(issue: ScaXygeniIssue): String {
         return createHTML().p {
             unsafe {
-                +"Vulnerability&nbsp;&nbsp;&nbsp;"
+                +"${issue.category}&nbsp;&nbsp;&nbsp;"
             }
             unsafe { +renderLink(issue.url, issue.id) }
             unsafe { +"&nbsp;&nbsp;&nbsp;" }
@@ -32,17 +32,22 @@ class ScaIssueRenderer: BaseHtmlIssueRenderer<ScaXygeniIssue>() {
     }
 
     override fun renderCustomIssueDetails(issue: ScaXygeniIssue): String {
+
+        println(issue)
+
         return createHTML().div {
             id = "tab-content-1"
             table {
                 tbody {
-                    tr { th { +"Published" }; td { +issue.publicationDate } }
-                    tr { th { +"Affecting" }; td { +issue.file } }
-                    tr { th { +"Versions" }; td { +issue.versions } }
-                    tr { th { +"File" }; td { +( issue.dependencyPaths?.firstOrNull() ?: "") } }
-                    tr { th { +"Direct dependency" }; td { +(if (issue.directDependency) "true" else "false") } }
-                    tr { th { +"Vector" }; td { +issue.vector } }
-                    tr { th { +"Tags" }; td {  unsafe { +renderTags(issue.tags) } } }
+                    unsafe { +renderDetailTableLine("Explanation", issue.explanation) }
+                    unsafe { +renderDetailTableLine("Published", issue.publicationDate) }
+                    unsafe { +renderDetailBranch(issue.branch) }
+                    unsafe { +renderDetailTableLine("Affecting", issue.displayFileName) }
+                    unsafe { +renderDetailTableLine("Versions", issue.versions) }
+                    unsafe { +renderDetailTableLine("File", issue.dependencyPaths?.firstOrNull()) }
+                    unsafe { +renderDetailTableLine("Direct dependency", (if (issue.directDependency) "true" else "false") ) }
+                    unsafe { +renderDetailTableLine("Vector", issue.vector) }
+                    unsafe { +renderDetailTags(issue.tags) }
                 }
             }
             div{

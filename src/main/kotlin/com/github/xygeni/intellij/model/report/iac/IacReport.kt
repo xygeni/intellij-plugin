@@ -40,6 +40,8 @@ fun IacRaw.toIssue(toolName: String?,  branch: String?): IacXygeniIssue {
     val loc = this.location
     return IacXygeniIssue(
         id = issueId,
+        category = "Iac",
+        categoryName = "IAC",
         type = type?: "",
         detector = detector ?: "",
         tool = toolName,

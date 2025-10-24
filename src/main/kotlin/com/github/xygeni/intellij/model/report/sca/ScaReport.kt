@@ -17,7 +17,8 @@ import java.util.Locale
 @Serializable
 data class ScaReport(
     val metadata: RawReportMetadata,
-    val dependencies: List<ScaRaw>
+    val dependencies: List<ScaRaw>,
+    val currentBranch: String? = null,
 )
 
 @Serializable
@@ -126,20 +127,20 @@ fun formatIsoDateToUtc(isoDate: String?): String {
     return zoned.format(formatter)
 }
 
-fun ScaRaw.toIssue(toolName: String?): List<ScaXygeniIssue> {
+fun ScaRaw.toIssue(toolName: String?, branch: String?): List<ScaXygeniIssue> {
     val loc = paths?.locations?.get(0) ?: null
     return vulnerabilities
         ?.map { vuln ->
             ScaXygeniIssue(
                 id = vuln.id,
                 type = vuln.id,
-                detector = vuln.source?.name ?: "unknown",
+                detector = vuln.source?.name ?: "",
                 tool = toolName,
-                severity = vuln.severity ?: "unknown",
+                severity = vuln.severity ?: "",
                 confidence = "",
-                category = "sca",
-                categoryName = "Vulnerability",
-                file = paths?.dependencyPaths?.first() ?: "", //displayFileName, // item.dependencyPaths?.firstOrNull()
+                category = "Vulnerability",
+                categoryName = "SCA",
+                file = paths?.dependencyPaths?.first() ?: "",
                 explanation = vuln.description ?: "Vulnerability " + vuln.cve,
                 tags = (tags ?: emptyList()) + listOfNotNull(remediable?.remediableLevel),
                 url = vuln.source?.url ?: "",
@@ -162,8 +163,8 @@ fun ScaRaw.toIssue(toolName: String?): List<ScaXygeniIssue> {
                 references = vuln.references,
                 vector = vuln.ratings?.lastOrNull()?.vector ?: "",
                 language = language ?: "",
-                publicationDate = formatIsoDateToUtc(vuln.publishDate)
-
+                publicationDate = formatIsoDateToUtc(vuln.publishDate),
+                branch = branch ?: ""
                 )
         }.orEmpty()
 }
