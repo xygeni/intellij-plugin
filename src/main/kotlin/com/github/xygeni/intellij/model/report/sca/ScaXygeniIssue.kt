@@ -13,7 +13,8 @@ import kotlinx.serialization.Serializable
 data class ScaXygeniIssue(
     override val id: String,
     override val type: String,
-    override val detector: String? = null,
+    override val kind: String = "",
+    override val detector: String = "",
     override val tool: String? = null,
     override val severity: String,
     override val confidence: String = "",

@@ -186,6 +186,22 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
                 inlineCss(cssContent)
             }
             body {
+                h1 {
+                    id = "title"
+                    text("Loading...")
+                }
+                script {
+                    unsafe {
+                        +"""
+            window.renderData = function(data) {
+                if (typeof data === 'string')  data = JSON.parse(data);                
+                document.getElementById('title').innerText = data.descriptionDoc || 'Sin título';
+            };
+             window.domReady = true;
+        """.trimIndent()
+                    }
+                }
+
                 unsafe {
                     +header
                     +customHeader

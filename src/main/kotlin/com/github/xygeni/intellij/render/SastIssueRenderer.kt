@@ -14,7 +14,7 @@ class SastIssueRenderer : BaseHtmlIssueRenderer<SastXygeniIssue>() {
     override fun renderCustomHeader(issue: SastXygeniIssue): String {
         return createHTML().p {
             unsafe {
-                +"${issue.categoryName}&nbsp;&nbsp;&nbsp;${issue.type}&nbsp;&nbsp;&nbsp;"
+                +"${issue.categoryName}&nbsp;&nbsp;&nbsp;${issue.kind}&nbsp;&nbsp;&nbsp;"
             }
             issue.cwes?.forEach { cve ->
                 val value = cve.substringAfterLast("-")
@@ -33,7 +33,7 @@ class SastIssueRenderer : BaseHtmlIssueRenderer<SastXygeniIssue>() {
             table {
                 tbody {
                     unsafe { +renderDetailTableLine("Explanation", issue.explanation) }
-                    unsafe { +renderDetailTableLine("Type", issue.kind) }
+                    unsafe { +renderDetailTableLine("Type", issue.type) }
                     unsafe { +renderDetailBranch(issue.branch) }
                     unsafe { +renderDetailTableLine("Language", issue.language) }
                     unsafe { +renderDetailTableLine("Location", issue.file) }

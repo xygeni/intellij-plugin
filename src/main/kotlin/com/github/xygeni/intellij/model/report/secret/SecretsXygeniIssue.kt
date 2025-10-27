@@ -13,6 +13,7 @@ import kotlinx.serialization.Serializable
 data class SecretsXygeniIssue(
     override val id: String,
     override val type: String,
+    override val kind: String = "secret",
     override val detector: String = "",
     override val tool: String? = null,
     override val severity: String,

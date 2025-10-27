@@ -40,8 +40,6 @@ fun CicdRaw.toIssue(toolName: String?, branch: String?): CicdXygeniIssue {
         tool = toolName,
         severity = severity ?: "",
         confidence = confidence ?: "",
-        category = "Misconfiguration",
-        categoryName = "CICD",
         explanation = explanation ?: "",
         tags = tags ?: emptyList(),
         // -- location

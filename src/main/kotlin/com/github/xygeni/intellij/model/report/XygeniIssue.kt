@@ -1,5 +1,6 @@
 package com.github.xygeni.intellij.model.report
 
+import com.github.xygeni.intellij.services.server.ServerClient
 import icons.Icons
 import javax.swing.Icon
 
@@ -12,8 +13,9 @@ import javax.swing.Icon
 
 interface BaseXygeniIssue {
     val id: String
+    val kind: String
     val type: String
-    val detector: String?
+    val detector: String
     val tool: String?
     val severity: String
     val confidence: String
@@ -35,6 +37,12 @@ interface BaseXygeniIssue {
             "info" -> Icons.INFO_ICON
             else -> Icons.LOW_ICON
         }
+    }
+
+    fun fetchData() : String{
+        println("--> $this")
+        val data = ServerClient().getDetectorDetails(tool ?: "xygeni", kind, detector)
+        return data
     }
 
 }

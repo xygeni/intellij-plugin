@@ -40,8 +40,8 @@ fun RawSast.toIssue(toolName: String?, currentBranch: String?): SastXygeniIssue 
         id = issueId,
         category = "sast",
         categoryName = "SAST",
-        type = kind ?: "",
-        detector = detector,
+        kind = "code_vulnerability",
+        detector = detector ?: "",
         tool = toolName,
         severity = severity,
         file = loc?.filepath ?: "",
@@ -56,6 +56,6 @@ fun RawSast.toIssue(toolName: String?, currentBranch: String?): SastXygeniIssue 
         cwe = cwe ?: 0,
         cwes = cwes ?: emptyList(),
         language = language ?: "",
-        kind = kind ?: ""
+        type = kind ?: ""
     )
 }

@@ -6,6 +6,7 @@ package com.github.xygeni.intellij.page
  * @author : Carmendelope
  * @version : 21/10/25 (Carmendelope)
  **/
+
 import com.intellij.openapi.fileEditor.FileEditor
 import com.intellij.openapi.fileEditor.FileEditorPolicy
 import com.intellij.openapi.fileEditor.FileEditorProvider

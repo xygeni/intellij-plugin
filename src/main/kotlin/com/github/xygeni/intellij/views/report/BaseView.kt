@@ -10,8 +10,10 @@ package com.github.xygeni.intellij.views.report
 import com.github.xygeni.intellij.events.READ_TOPIC
 import com.github.xygeni.intellij.events.ReadListener
 import com.github.xygeni.intellij.model.report.BaseXygeniIssue
+import com.github.xygeni.intellij.page.DynamicHtmlFileEditor
 import com.github.xygeni.intellij.render.BaseHtmlIssueRenderer
 import com.github.xygeni.intellij.services.report.BaseReportService
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.markup.EffectType
 import com.intellij.openapi.editor.markup.HighlighterLayer
 import com.intellij.openapi.editor.markup.TextAttributes
@@ -19,6 +21,7 @@ import com.intellij.openapi.editor.markup.HighlighterTargetArea
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.Key
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.LightVirtualFile
@@ -333,10 +336,27 @@ abstract class BaseView<T : BaseXygeniIssue>(
         }
 
         val content = renderer.render(item)
-        println(item)
+        //println(content)
 
-        val file = LightVirtualFile(fileName, content).apply { isWritable = false }
+        val file = LightVirtualFile(fileName, content).apply {
+            isWritable = false
+        }
         FileEditorManager.getInstance(project).openFile(file, true)
+
+        if (item.kind != "") {
+            ApplicationManager.getApplication().executeOnPooledThread {
+                val data = item.fetchData()
+                println(data)
+                ApplicationManager.getApplication().invokeLater {
+                    val editor = FileEditorManager.getInstance(project)
+                        .getEditors(file)
+                        .filterIsInstance<DynamicHtmlFileEditor>()
+                        .firstOrNull()
+                    editor?.renderData(data)
+                }
+            }
+        }
     }
+
 
 }

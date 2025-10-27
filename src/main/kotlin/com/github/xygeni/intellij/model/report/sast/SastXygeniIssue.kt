@@ -14,12 +14,12 @@ import kotlinx.serialization.Serializable
 data class SastXygeniIssue(
     override  val id: String,
     override val type: String,
-    override val detector: String? = null,
+    override val detector: String = "",
     override val tool: String? = null,
     override val severity: String,
     override val confidence: String = "high",
-    override val category: String = "sast",
-    override val categoryName: String = "SAST",
+    override val category: String = "",
+    override val categoryName: String = "",
     override val file: String = "",
     override val beginLine: Int = 0,
     override val endLine: Int = 0,
@@ -28,9 +28,10 @@ data class SastXygeniIssue(
     override val code: String = "",
     override val explanation: String,
     override val tags: List<String> = emptyList(),
+    override val kind: String = "",
 
     // -- Sast --
-    val kind: String = "",
+    // val kind: String = "",
     val branch: String = "",
     val cwe: Int = 0,
     val cwes: List<String> = emptyList(),

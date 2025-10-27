@@ -32,7 +32,7 @@ data class RawSecret(
     val tags: List<String>? = null,
 )
 
-fun RawSecret.toIssue(toolName: String?, branch: String? ): SecretsXygeniIssue {
+fun RawSecret.toIssue(toolName: String?, branch: String?): SecretsXygeniIssue {
     val loc = this.location
 
     return SecretsXygeniIssue(
@@ -51,7 +51,7 @@ fun RawSecret.toIssue(toolName: String?, branch: String? ): SecretsXygeniIssue {
         endColumn = loc?.endColumn ?: 0,
         code = loc?.code ?: "",
         explanation = "Secret of type '$type' detected by '$detector'",
-        tags = tags ?: emptyList() ,
+        tags = tags ?: emptyList(),
         secret = secret ?: "",
         timeAdded = loc?.timeAdded ?: 0L,
         branch = branch ?: "",

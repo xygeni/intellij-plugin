@@ -14,12 +14,13 @@ import kotlinx.serialization.json.JsonElement
 data class IacXygeniIssue(
     override val id: String,
     override val type: String,
+    override val kind: String = "iac_flaw",
     override val detector: String = "",
     override val tool: String? = null,
     override val severity: String,
     override val confidence: String = "",
-    override val category: String = "",
-    override val categoryName: String = "",
+    override val category: String = "Iac",
+    override val categoryName: String = "IAC",
     override val explanation: String,
     override val tags: List<String> = emptyList(),
 
