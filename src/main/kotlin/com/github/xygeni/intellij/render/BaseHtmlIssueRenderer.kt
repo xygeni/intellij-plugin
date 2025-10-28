@@ -75,6 +75,7 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
             }
         }
     }
+
     protected abstract fun renderCustomHeader(issue: T): String
 
     // CODE SNIPPET
@@ -86,6 +87,7 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
         if (code.isEmpty() || file.isEmpty()) return ""
         return renderCodeSnippet(file, code, beginLine)
     }
+
     protected open fun renderTabs(issue: T): String {
         val detail = renderCustomIssueDetails(issue)
         val code = renderCustomCodeSnippet(issue)
@@ -103,15 +105,17 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
                 input(type = InputType.radio, name = "tabs") { id = "tab-3" }
                 label { htmlFor = "tab-3"; +"FIX IT" }
             }
-            unsafe { +detail }
+            unsafe {
+                +detail }
             unsafe { +code }
         }
     }
+
     private fun renderCodeSnippet(file: String, code: String, beginLine: Int): String {
         if (code.isEmpty()) return ""
         return createHTML().div {
             id = "tab-content-2"
-            p (classes ="file" ){
+            p(classes = "file") {
                 text(file)
             }
             table {
@@ -119,8 +123,8 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
                     code.lines().mapIndexed { index, line ->
                         tr {
                             val pos = beginLine + index
-                            td(classes = "line-number"){+"$pos"}
-                            td(classes= "code-line"){unsafe{+line}}
+                            td(classes = "line-number") { +"$pos" }
+                            td(classes = "code-line") { unsafe { +line } }
                         }
                     }
                 }
@@ -141,27 +145,32 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
             }
         }
     }
-    protected fun renderLink(link: String, text: String):String{
-        return createHTML().a (href = "$link", target = "_blank") {
+
+    protected fun renderLink(link: String, text: String): String {
+        return createHTML().a(href = "$link", target = "_blank") {
             text(text)
         }
     }
 
-    protected fun renderDetailTableLine(key: String?, value: String?) :String{
+    protected fun renderDetailTableLine(key: String?, value: String?): String {
         if (key.isNullOrBlank() || value.isNullOrBlank()) return ""
         return createHTML().tr {
             th { +key }
-            td { +value } }
+            td { +value }
+        }
     }
 
-    protected fun renderDetailBranch(branch: String?) :String{
+    protected fun renderDetailBranch(branch: String?): String {
         if (branch.isNullOrBlank()) return ""
-        return createHTML().tr { th { +"Where" }; td {
-            unsafe{ +branchIcon.orEmpty() }
-            +branch } }
+        return createHTML().tr {
+            th { +"Where" }; td {
+            unsafe { +branchIcon.orEmpty() }
+            +branch
+        }
+        }
     }
 
-    protected fun renderDetailTags(issueTags: List<String>?) :String{
+    protected fun renderDetailTags(issueTags: List<String>?): String {
         if (issueTags.isNullOrEmpty()) return ""
         val tags = renderTags(issueTags)
         if (tags.isEmpty()) return ""
@@ -171,6 +180,22 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
             td { unsafe { +tags } }
         }
 
+    }
+
+    //<p><span id="xy-detector-doc"></span></p>
+    protected fun renderDetectorInfo(issue: T): String {
+        if (issue.kind == "") {
+            return ""
+        }
+        return createHTML().p {
+            span {id = "xy-detector-doc"; text("Loading...") }
+            p{}
+            a(href = "#", target = "_blank") {
+                id = "xy-detector-link"
+                hidden = true
+                text("Link to documentation")
+            }
+        }
     }
 
     override fun render(issue: T): String {
@@ -186,19 +211,17 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
                 inlineCss(cssContent)
             }
             body {
-                h1 {
-                    id = "title"
-                    text("Loading...")
-                }
                 script {
                     unsafe {
                         +"""
-            window.renderData = function(data) {
-                if (typeof data === 'string')  data = JSON.parse(data);                
-                document.getElementById('title').innerText = data.descriptionDoc || 'Sin título';
-            };
-             window.domReady = true;
-        """.trimIndent()
+                        window.renderData = function(data) {
+                            if (typeof data === 'string')  data = JSON.parse(data);                
+                            document.getElementById('xy-detector-doc').innerHTML = data.descriptionDoc || '';
+                            document.getElementById('xy-detector-link').href = data.linkDocumentation || '';
+                            document.getElementById('xy-detector-link').hidden = false;
+                        };
+                            window.domReady = true;
+                         """.trimIndent()
                     }
                 }
 

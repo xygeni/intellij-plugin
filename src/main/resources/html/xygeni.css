@@ -184,3 +184,7 @@ a:hover {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+#xy-detector-link-1 {
+  display: none
+}

@@ -30,6 +30,9 @@ class CicdIssueRenderer : BaseHtmlIssueRenderer<CicdXygeniIssue>() {
                     unsafe { +renderDetailTags(issue.tags) }
                 }
             }
+            unsafe {
+                +renderDetectorInfo(issue)
+            }
         }
     }
 }

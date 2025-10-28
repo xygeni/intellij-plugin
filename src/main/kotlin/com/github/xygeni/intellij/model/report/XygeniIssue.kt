@@ -40,8 +40,8 @@ interface BaseXygeniIssue {
     }
 
     fun fetchData() : String{
-        println("--> $this")
         val data = ServerClient().getDetectorDetails(tool ?: "xygeni", kind, detector)
+        println("--> $data")
         return data
     }
 

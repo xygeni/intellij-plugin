@@ -25,9 +25,10 @@ class DynamicHtmlFileEditor(private val file: VirtualFile) : UserDataHolderBase(
     private val panel = JPanel(BorderLayout())
     private var browser: JBCefBrowser? = null
     private var initialized = false
+
     // pending data, render is called before initBrowser
     private var pendingData: String? = null
-
+    private var triedRender = false
 
     private fun initBrowser() {
         if (initialized) return
@@ -43,30 +44,31 @@ class DynamicHtmlFileEditor(private val file: VirtualFile) : UserDataHolderBase(
                 }
 
                 panel.add(scrollPane, BorderLayout.CENTER)
-
                 // load HTML content
-                browser!!.loadHTML(String(file.contentsToByteArray()))
+                val html = String(file.contentsToByteArray())
+                browser!!.loadHTML(html)
 
-                pendingData?.let { data ->
-                    SwingUtilities.invokeLater {
-                        browser!!.cefBrowser.executeJavaScript(
-                            "window.renderData($data);",
-                            browser!!.cefBrowser.url,
-                            0
-                        )
-                        pendingData = null
-                    }
-                }
+                scheduleRenderPending()
+
             }
         }
     }
 
     private fun scheduleRenderPending() {
-        // Usamos un pequeño delay la primera vez para asegurar que Chromium esté listo
-        Timer(100) {
+        Timer(400) {
+            if (browser?.cefBrowser == null) {
+                scheduleRenderPending()
+                return@Timer
+            }
+
             pendingData?.let {
                 renderData(it)
                 pendingData = null
+                triedRender = true
+            } ?: run {
+                if (!triedRender) {
+                    scheduleRenderPending()
+                }
             }
         }.apply {
             isRepeats = false
@@ -75,38 +77,30 @@ class DynamicHtmlFileEditor(private val file: VirtualFile) : UserDataHolderBase(
     }
 
     fun renderData(json: String) {
-        pendingData = json
-        if (browser == null) {
-            //println("no browser")
-            //pendingData = json
+        if (!initialized || browser == null) {
+            pendingData = json
             return
         }
-        /*
-        SwingUtilities.invokeLater {
-            println("browser")
-            browser?.cefBrowser?.executeJavaScript(
-                "window.renderData($json);",
-                browser?.cefBrowser?.url,
-                0
-            )
-        }
-         */
+
+        pendingData = json
+
         SwingUtilities.invokeLater {
             val js = """
                 (function() {
-                    function tryRender(data) {
+                    function safeRender() {
                         if (window.renderData) {
-                            window.renderData(data);
+                            window.renderData($json);
                         } else {
-                            setTimeout(() => tryRender(data), 50);
+                            setTimeout(safeRender, 100);
                         }
                     }
-                    tryRender($json);
+                    safeRender();
                 })();
             """.trimIndent()
 
             browser?.cefBrowser?.executeJavaScript(js, browser?.cefBrowser?.url, 0)
         }
+
     }
 
     override fun getComponent(): JComponent {
@@ -116,7 +110,8 @@ class DynamicHtmlFileEditor(private val file: VirtualFile) : UserDataHolderBase(
 
     override fun getPreferredFocusedComponent(): JComponent? {
         initBrowser()
-        return browser?.component ?: panel    }
+        return browser?.component ?: panel
+    }
 
     override fun getName(): String = "HTML Dynamic Viewer"
     override fun isModified(): Boolean = false

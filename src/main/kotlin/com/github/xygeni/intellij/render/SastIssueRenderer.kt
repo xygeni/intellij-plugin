@@ -41,7 +41,9 @@ class SastIssueRenderer : BaseHtmlIssueRenderer<SastXygeniIssue>() {
                     unsafe { +renderDetailTags(issue.tags) }
                 }
             }
-
+            unsafe {
+                +renderDetectorInfo(issue)
+            }
         }
     }
 

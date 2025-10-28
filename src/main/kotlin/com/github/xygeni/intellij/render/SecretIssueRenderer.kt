@@ -40,6 +40,9 @@ class SecretIssueRenderer : BaseHtmlIssueRenderer<SecretsXygeniIssue>() {
                     unsafe { +renderDetailTags(issue.tags) }
                 }
             }
+            unsafe {
+                +renderDetectorInfo(issue)
+            }
         }
     }
 

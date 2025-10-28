@@ -336,7 +336,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
         }
 
         val content = renderer.render(item)
-        //println(content)
+        println(content)
 
         val file = LightVirtualFile(fileName, content).apply {
             isWritable = false
@@ -346,7 +346,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
         if (item.kind != "") {
             ApplicationManager.getApplication().executeOnPooledThread {
                 val data = item.fetchData()
-                println(data)
+                //println(data)
                 ApplicationManager.getApplication().invokeLater {
                     val editor = FileEditorManager.getInstance(project)
                         .getEditors(file)

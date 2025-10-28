@@ -32,9 +32,7 @@ class ScaIssueRenderer: BaseHtmlIssueRenderer<ScaXygeniIssue>() {
     }
 
     override fun renderCustomIssueDetails(issue: ScaXygeniIssue): String {
-
-        println(issue)
-
+        // println(issue)
         return createHTML().div {
             id = "tab-content-1"
             table {
