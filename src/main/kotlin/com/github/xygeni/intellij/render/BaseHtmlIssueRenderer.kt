@@ -215,13 +215,20 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
                     unsafe {
                         +"""
                         window.renderData = function(data) {
-                            if (typeof data === 'string')  data = JSON.parse(data);                
-                            document.getElementById('xy-detector-doc').innerHTML = data.descriptionDoc || '';
-                            document.getElementById('xy-detector-link').href = data.linkDocumentation || '';
-                            document.getElementById('xy-detector-link').hidden = false;
+                            if (typeof data === 'string') data = JSON.parse(data);
+                            const docEl = document.getElementById('xy-detector-doc');
+                            if (docEl) {
+                                docEl.innerHTML = data.descriptionDoc || '';
+                            }
+    
+                            const linkEl = document.getElementById('xy-detector-link');
+                            if (linkEl) {
+                                linkEl.href = data.linkDocumentation || '#';
+                                linkEl.hidden = !data.linkDocumentation;
+                            }
                         };
-                            window.domReady = true;
-                         """.trimIndent()
+                        window.domReady = true;
+                        """.trimIndent()
                     }
                 }
 

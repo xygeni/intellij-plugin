@@ -28,7 +28,6 @@ class DynamicHtmlFileEditor(private val file: VirtualFile) : UserDataHolderBase(
 
     // pending data, render is called before initBrowser
     private var pendingData: String? = null
-    private var triedRender = false
 
     private fun initBrowser() {
         if (initialized) return
@@ -44,63 +43,45 @@ class DynamicHtmlFileEditor(private val file: VirtualFile) : UserDataHolderBase(
                 }
 
                 panel.add(scrollPane, BorderLayout.CENTER)
-                // load HTML content
+
+                // Load initial HTML (html template)
                 val html = String(file.contentsToByteArray())
                 browser!!.loadHTML(html)
 
-                scheduleRenderPending()
-
+                // If there are pending data -> render them
+                pendingData?.let {
+                    renderData(it)
+                    pendingData = null
+                }
             }
         }
     }
 
-    private fun scheduleRenderPending() {
-        Timer(400) {
-            if (browser?.cefBrowser == null) {
-                scheduleRenderPending()
-                return@Timer
-            }
+    /**
+     * Send the data to the HTM to render them
+     * If the JS is not available -> wait 400 ms
+     */
+    fun renderData(json: String) {
+        if (browser == null) {
+            // HTML not ready, store the data and wait for it
+            pendingData = json
+            return
+        }
 
-            pendingData?.let {
-                renderData(it)
-                pendingData = null
-                triedRender = true
-            } ?: run {
-                if (!triedRender) {
-                    scheduleRenderPending()
-                }
+        // Execute the render after a delay ro ensure Javascript is loaded
+        Timer(400) {
+            SwingUtilities.invokeLater {
+                println("🔹 Ejecutando renderData con: $json")
+                browser?.cefBrowser?.executeJavaScript(
+                    "window.renderData($json);",
+                    browser?.cefBrowser?.url,
+                    0
+                )
             }
         }.apply {
             isRepeats = false
             start()
         }
-    }
-
-    fun renderData(json: String) {
-        if (!initialized || browser == null) {
-            pendingData = json
-            return
-        }
-
-        pendingData = json
-
-        SwingUtilities.invokeLater {
-            val js = """
-                (function() {
-                    function safeRender() {
-                        if (window.renderData) {
-                            window.renderData($json);
-                        } else {
-                            setTimeout(safeRender, 100);
-                        }
-                    }
-                    safeRender();
-                })();
-            """.trimIndent()
-
-            browser?.cefBrowser?.executeJavaScript(js, browser?.cefBrowser?.url, 0)
-        }
-
     }
 
     override fun getComponent(): JComponent {
