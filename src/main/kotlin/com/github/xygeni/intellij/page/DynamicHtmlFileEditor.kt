@@ -6,6 +6,11 @@ import com.intellij.openapi.fileEditor.FileEditorStateLevel
 import com.intellij.openapi.util.UserDataHolderBase
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.jcef.JBCefBrowser
+import org.cef.browser.CefBrowser
+import org.cef.browser.CefFrame
+import org.cef.handler.CefLifeSpanHandlerAdapter
+import org.cef.handler.CefRequestHandlerAdapter
+import org.cef.network.CefRequest
 import java.awt.BorderLayout
 import java.beans.PropertyChangeListener
 import javax.swing.JComponent
@@ -37,6 +42,40 @@ class DynamicHtmlFileEditor(private val file: VirtualFile) : UserDataHolderBase(
             if (browser == null) {
                 browser = JBCefBrowser()
 
+                val client = browser!!.jbCefClient
+                // open href in default browser (avoid open it in CefBrowser)
+                client.addRequestHandler(object : CefRequestHandlerAdapter() {
+                    override fun onBeforeBrowse(
+                        cefBrowser: CefBrowser?,
+                        frame: CefFrame?,
+                        request: CefRequest?,
+                        userGesture: Boolean,
+                        isRedirect: Boolean
+                    ): Boolean {
+                        val url = request?.url ?: return false
+                        if (url.startsWith("http")) {
+                            com.intellij.ide.BrowserUtil.browse(url)
+                            return true //
+                        }
+                        return false
+                    }
+                }, browser!!.cefBrowser)
+
+                client.addLifeSpanHandler(object : CefLifeSpanHandlerAdapter() {
+                    override fun onBeforePopup(
+                        browser: CefBrowser?,
+                        frame: CefFrame?,
+                        targetUrl: String?,
+                        targetFrameName: String?
+                    ): Boolean {
+                        if (targetUrl != null && targetUrl.startsWith("http")) {
+                            com.intellij.ide.BrowserUtil.browse(targetUrl)
+                            return true
+                        }
+                        return false
+                    }
+                }, browser!!.cefBrowser)
+
                 val scrollPane = JScrollPane(browser!!.component).apply {
                     horizontalScrollBarPolicy = JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED
                     verticalScrollBarPolicy = JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED
@@ -53,6 +92,8 @@ class DynamicHtmlFileEditor(private val file: VirtualFile) : UserDataHolderBase(
                     renderData(it)
                     pendingData = null
                 }
+
+
             }
         }
     }
@@ -71,7 +112,7 @@ class DynamicHtmlFileEditor(private val file: VirtualFile) : UserDataHolderBase(
         // Execute the render after a delay ro ensure Javascript is loaded
         Timer(400) {
             SwingUtilities.invokeLater {
-                println("🔹 Ejecutando renderData con: $json")
+                // println("🔹 Ejecutando renderData con: $json")
                 browser?.cefBrowser?.executeJavaScript(
                     "window.renderData($json);",
                     browser?.cefBrowser?.url,

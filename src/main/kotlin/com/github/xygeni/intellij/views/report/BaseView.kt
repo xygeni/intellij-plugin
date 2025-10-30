@@ -336,7 +336,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
         }
 
         val content = renderer.render(item)
-        println(content)
+        // println(content)
 
         val file = LightVirtualFile(fileName, content).apply {
             isWritable = false
