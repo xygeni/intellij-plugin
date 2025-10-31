@@ -24,6 +24,7 @@ data class ScaReport(
 @Serializable
 data class RemediableRaw(
     val remediableLevel: String? = null,
+    val nonRemediableReason: String? = null,
 )
 
 @Serializable
@@ -140,7 +141,7 @@ fun ScaRaw.toIssue(toolName: String?, branch: String?): List<ScaXygeniIssue> {
                 confidence = "",
                 category = "Vulnerability",
                 categoryName = "SCA",
-                file = paths?.dependencyPaths?.first() ?: "",
+                file = loc?.filepath ?: paths?.dependencyPaths?.first() ?: "",
                 explanation = vuln.description ?: "Vulnerability " + vuln.cve,
                 tags = (tags ?: emptyList()) + listOfNotNull(remediable?.remediableLevel),
                 url = vuln.source?.url ?: "",
@@ -149,6 +150,7 @@ fun ScaRaw.toIssue(toolName: String?, branch: String?): List<ScaXygeniIssue> {
                 beginColumn = loc?.beginColumn ?: 0,
                 endColumn = loc?.endColumn ?: 0,
                 code = loc?.code ?: "",
+                remediableLevel = remediable?.remediableLevel ?: "NONE",
 
                 virtual = virtual,
                 repositoryType = repositoryType,

@@ -42,7 +42,7 @@ class ScaIssueRenderer: BaseHtmlIssueRenderer<ScaXygeniIssue>() {
                     unsafe { +renderDetailBranch(issue.branch) }
                     unsafe { +renderDetailTableLine("Affecting", issue.displayFileName) }
                     unsafe { +renderDetailTableLine("Versions", issue.versions) }
-                    unsafe { +renderDetailTableLine("File", issue.dependencyPaths?.firstOrNull()) }
+                    unsafe { +renderDetailTableLine("File", issue.file) }
                     unsafe { +renderDetailTableLine("Direct dependency", (if (issue.directDependency) "true" else "false") ) }
                     unsafe { +renderDetailTableLine("Vector", issue.vector) }
                     unsafe { +renderDetailTags(issue.tags) }

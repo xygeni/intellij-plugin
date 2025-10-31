@@ -336,14 +336,14 @@ abstract class BaseView<T : BaseXygeniIssue>(
         }
 
         val content = renderer.render(item)
-        // println(content)
+        println(item)
 
         val file = LightVirtualFile(fileName, content).apply {
             isWritable = false
         }
         FileEditorManager.getInstance(project).openFile(file, true)
 
-        if (item.kind != "") {
+        if (item.kind != "" && item.kind != "sca" && item.kind != "sast") {
             ApplicationManager.getApplication().executeOnPooledThread {
                 val data = item.fetchData()
                 //println(data)

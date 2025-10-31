@@ -1,14 +1,24 @@
 package com.github.xygeni.intellij.page
 
+import com.github.xygeni.intellij.model.JsonConfig
+import com.github.xygeni.intellij.model.report.server.RemediationData
+import com.github.xygeni.intellij.services.InstallerService
+import com.github.xygeni.intellij.services.RemediateService
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileEditor.FileEditor
 import com.intellij.openapi.fileEditor.FileEditorState
 import com.intellij.openapi.fileEditor.FileEditorStateLevel
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.UserDataHolderBase
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.jcef.JBCefBrowser
+import com.intellij.ui.jcef.JBCefJSQuery
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.cef.browser.CefBrowser
 import org.cef.browser.CefFrame
 import org.cef.handler.CefLifeSpanHandlerAdapter
+import org.cef.handler.CefLoadHandlerAdapter
 import org.cef.handler.CefRequestHandlerAdapter
 import org.cef.network.CefRequest
 import java.awt.BorderLayout
@@ -25,7 +35,8 @@ import javax.swing.Timer
  * @author : Carmendelope
  * @version : 21/10/25 (Carmendelope)
  **/
-class DynamicHtmlFileEditor(private val file: VirtualFile) : UserDataHolderBase(), FileEditor {
+class DynamicHtmlFileEditor(private val project: Project, private val file: VirtualFile) : UserDataHolderBase(),
+    FileEditor {
 
     private val panel = JPanel(BorderLayout())
     private var browser: JBCefBrowser? = null
@@ -76,24 +87,62 @@ class DynamicHtmlFileEditor(private val file: VirtualFile) : UserDataHolderBase(
                     }
                 }, browser!!.cefBrowser)
 
+                // -- navigation panel conf
                 val scrollPane = JScrollPane(browser!!.component).apply {
                     horizontalScrollBarPolicy = JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED
                     verticalScrollBarPolicy = JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED
                 }
-
                 panel.add(scrollPane, BorderLayout.CENTER)
+
+                // Query for javascript
+                val jsQuery = JBCefJSQuery.create(browser!!)
+                jsQuery.addHandler { data: String ->
+                    println("Data from the form: $data")
+
+                    val exe = project.getService(RemediateService::class.java)
+                    exe.remediate(project, data){
+                        success ->
+                        SwingUtilities.invokeLater {
+                            val label = if (success) "Save" else "Remediation error"
+                            browser!!.cefBrowser.executeJavaScript(
+                                """
+                                    const btn = document.getElementById('rem-preview-button');
+                                    if (btn) {
+                                        btn.disabled = false;
+                                        btn.innerText = '$label';
+                                    }
+                                 """.trimIndent(),
+                                browser!!.cefBrowser.url,
+                                0
+                            )
+                        }
+                    }
+                    JBCefJSQuery.Response("Save")
+                }
 
                 // Load initial HTML (html template)
                 val html = String(file.contentsToByteArray())
                 browser!!.loadHTML(html)
+
+                client.addLoadHandler(object : CefLoadHandlerAdapter() {
+                    override fun onLoadEnd(browser: CefBrowser?, frame: CefFrame?, httpStatusCode: Int) {
+                        if (frame?.isMain == true) {
+                            SwingUtilities.invokeLater {
+                                browser?.executeJavaScript(
+                                    "window.remediate = function(value) { ${jsQuery.inject("value")} };",
+                                    browser.url,
+                                    0
+                                )
+                            }
+                        }
+                    }
+                }, browser!!.cefBrowser)
 
                 // If there are pending data -> render them
                 pendingData?.let {
                     renderData(it)
                     pendingData = null
                 }
-
-
             }
         }
     }

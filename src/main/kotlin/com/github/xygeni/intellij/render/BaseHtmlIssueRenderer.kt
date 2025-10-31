@@ -1,12 +1,15 @@
 package com.github.xygeni.intellij.render
 
 import com.github.xygeni.intellij.model.report.BaseXygeniIssue
+import com.github.xygeni.intellij.model.report.server.RemediationData
 import com.intellij.util.ui.UIUtil
 import icons.Icons
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
+import kotlinx.serialization.json.Json
 import java.awt.Color
 import java.io.File
+import kotlin.text.lines
 
 /**
  * BaseHtmlIssueRenderer
@@ -78,16 +81,6 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
 
     protected abstract fun renderCustomHeader(issue: T): String
 
-    // CODE SNIPPET
-    protected open fun renderCustomIssueDetails(issue: T): String = ""
-    protected open fun renderCustomCodeSnippet(issue: T): String {
-        val code = issue.code
-        val file = issue.file
-        val beginLine = issue.beginLine
-        if (code.isEmpty() || file.isEmpty()) return ""
-        return renderCodeSnippet(file, code, beginLine)
-    }
-
     protected open fun renderTabs(issue: T): String {
         val detail = renderCustomIssueDetails(issue)
         val code = renderCustomCodeSnippet(issue)
@@ -105,10 +98,22 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
                 input(type = InputType.radio, name = "tabs") { id = "tab-3" }
                 label { htmlFor = "tab-3"; +"FIX IT" }
             }
-            unsafe {
-                +detail }
+            unsafe { +detail }
             unsafe { +code }
+            unsafe { +fix }
         }
+    }
+
+
+    protected open fun renderCustomIssueDetails(issue: T): String = ""
+
+    //region CodeSnippet
+    protected open fun renderCustomCodeSnippet(issue: T): String {
+        val code = issue.code
+        val file = issue.file
+        val beginLine = issue.beginLine
+        if (code.isEmpty() || file.isEmpty()) return ""
+        return renderCodeSnippet(file, code, beginLine)
     }
 
     private fun renderCodeSnippet(file: String, code: String, beginLine: Int): String {
@@ -131,11 +136,42 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
             }
         }
     }
+    //endregion
 
-    // FIX
-    protected open fun renderCustomFix(issue: T): String = "adsasd"
+    // region Fix
+    protected open fun renderCustomFix(issue: T): String {
+        if (issue.remediableLevel.isEmpty() || ! issue.remediableLevel.contentEquals("AUTO")) {
+            return ""
+        }
 
-    // HELPERS
+        val remediation = issue.toRemediationData()
+        val json = Json.encodeToString(RemediationData.serializer(), remediation)
+
+        return createHTML().div {
+            id = "tab-content-3"
+            p {
+                text("XYGENI AGENT - REMEDIATE ISSUE")
+            }
+            form { id = "remediation-form"
+                p{
+                    text("This vulnerability is fixable. Run Xygeni Agent to get fixed version preview.")
+                }
+                hiddenInput { id = "remediation-data"; value = json }
+
+                div {
+                    id = "rem-buttons"
+                    button {
+                        id = "rem-preview-button"; type = ButtonType.button;classes = setOf("xy-button");
+                        onClick = "this.disabled = true; this.innerText = 'Processing...';remediate(document.getElementById('remediation-data').value)"
+                        +"Remediate with Xygeni Agent"
+                    }
+                }
+            }
+        }
+    }
+    // endregion
+
+    // region Helpers
     protected fun renderTags(tags: List<String>): String {
         return createHTML().div(classes = "xy-container-chip") {
             tags.forEach { tag ->
@@ -181,8 +217,8 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
         }
 
     }
+    //endregionF"D
 
-    //<p><span id="xy-detector-doc"></span></p>
     protected fun renderDetectorInfo(issue: T): String {
         if (issue.kind == "") {
             return ""
@@ -227,6 +263,7 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
                                 linkEl.hidden = !data.linkDocumentation;
                             }
                         };
+                                                
                         window.domReady = true;
                         """.trimIndent()
                     }

@@ -25,6 +25,7 @@ data class CicdXygeniIssue(
     override val file: String = "",
     override val explanation: String,
     override val tags: List<String> = emptyList(),
+    override val remediableLevel: String = "NONE",
 
     // -- location
     override val beginLine: Int = 0,

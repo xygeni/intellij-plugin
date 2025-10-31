@@ -1,5 +1,6 @@
 package com.github.xygeni.intellij.model.report
 
+import com.github.xygeni.intellij.model.report.server.RemediationData
 import com.github.xygeni.intellij.services.server.ServerClient
 import icons.Icons
 import javax.swing.Icon
@@ -29,6 +30,7 @@ interface BaseXygeniIssue {
     val code: String
     val explanation: String
     val tags: List<String>
+    val remediableLevel: String // "MANUAL" | "AUTO" | "NONE"
 
     fun getIcon(): Icon {
         return when(severity.lowercase()) {
@@ -43,6 +45,16 @@ interface BaseXygeniIssue {
         val data = ServerClient().getDetectorDetails(tool ?: "xygeni", kind, detector)
         // println("--> $data")
         return data
+    }
+    
+    fun toRemediationData(): RemediationData {
+        return RemediationData(
+            kind = kind,
+            detector = detector,
+            filePath = file,
+            dependency = "",
+            line = beginLine
+        )
     }
 
 }

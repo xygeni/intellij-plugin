@@ -21,7 +21,7 @@ class DynamicHtmlEditorProvider : FileEditorProvider, DumbAware {
     }
 
     override fun createEditor(project: Project, file: VirtualFile): FileEditor {
-        return DynamicHtmlFileEditor(file)
+        return DynamicHtmlFileEditor(project, file)
     }
 
     override fun getEditorTypeId(): String = "dynamic-html-editor"

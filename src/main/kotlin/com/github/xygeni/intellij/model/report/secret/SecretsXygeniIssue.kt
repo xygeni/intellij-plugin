@@ -28,6 +28,7 @@ data class SecretsXygeniIssue(
     override val code: String = "",
     override val explanation: String,
     override val tags: List<String> = emptyList(),
+    override val remediableLevel: String = "NONE",
 
     // -- Secret --
     val hash: String = "",

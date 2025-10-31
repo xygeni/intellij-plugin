@@ -1,6 +1,7 @@
 package com.github.xygeni.intellij.model.report.sast
 
 import com.github.xygeni.intellij.model.report.BaseXygeniIssue
+import com.github.xygeni.intellij.model.report.server.RemediationData
 import kotlinx.serialization.Serializable
 
 /**
@@ -28,7 +29,8 @@ data class SastXygeniIssue(
     override val code: String = "",
     override val explanation: String,
     override val tags: List<String> = emptyList(),
-    override val kind: String = "",
+    override val kind: String = "sast",
+    override val remediableLevel: String = "AUTO",
 
     // -- Sast --
     // val kind: String = "",
@@ -36,4 +38,16 @@ data class SastXygeniIssue(
     val cwe: Int = 0,
     val cwes: List<String> = emptyList(),
     val language: String = "",
-): BaseXygeniIssue
+): BaseXygeniIssue{
+
+    override fun toRemediationData(): RemediationData {
+
+        return RemediationData(
+            kind = category, // sast
+            detector = detector,
+            filePath = file,
+            dependency = null,
+            line = beginLine
+        )
+    }
+}

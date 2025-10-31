@@ -23,6 +23,7 @@ data class IacXygeniIssue(
     override val categoryName: String = "IAC",
     override val explanation: String,
     override val tags: List<String> = emptyList(),
+    override val remediableLevel: String = "NONE",
 
     // -- location
     override val file: String = "",
