@@ -39,9 +39,7 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
 
 
         var root = ":root {\n" +
-                // " --intellij-font-size: ${font.size}px;\n" +
                 " --intellij-font-size: 15px;\n" +
-                //" --intellij-font-family: '${font.family}';\n" +
                 " --intellij-foreground: ${colorToCss(fg)};\n" +
                 " --intellij-background: ${colorToCss(bg)};\n" +
                 "}\n"
@@ -162,8 +160,14 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
                     id = "rem-buttons"
                     button {
                         id = "rem-preview-button"; type = ButtonType.button;classes = setOf("xy-button");
-                        onClick = "this.disabled = true; this.innerText = 'Processing...';remediate(document.getElementById('remediation-data').value)"
+                        onClick = "this.disabled = true; this.innerText = 'Processing...';pluginAction('remediate', document.getElementById('remediation-data').value)"
                         +"Remediate with Xygeni Agent"
+                    }
+                    button {
+                        hidden = true
+                        id = "rem-save-button"; type = ButtonType.button;classes = setOf("xy-button");
+                        onClick = "this.style.display='none'; this.disabled = true; this.innerText = 'Saving...';pluginAction('save', document.getElementById('remediation-data').value)"
+                        +"Save"
                     }
                 }
             }
@@ -256,7 +260,7 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
                             if (docEl) {
                                 docEl.innerHTML = data.descriptionDoc || '';
                             }
-    
+   
                             const linkEl = document.getElementById('xy-detector-link');
                             if (linkEl) {
                                 linkEl.href = data.linkDocumentation || '#';

@@ -53,7 +53,18 @@ class RemediateService : ProcessExecutorService() {
     }
 
 
-    //
+    private fun getTempFile(project: Project, remediation: RemediationData): File {
+        val tempDir = File(System.getProperty("java.io.tmpdir"), "xygeni-plugin/${project.name}")
+            .apply { mkdirs() }
+
+        val sourceFile = File(project.basePath, remediation.filePath)
+        require(sourceFile.exists()) {
+            "Source file does not exist: ${sourceFile.absolutePath}"
+        }
+
+        return File(tempDir, sourceFile.name)
+    }
+
     fun remediate(project: Project,
                   data: String,
                   onComplete: (Boolean) -> Unit
@@ -61,10 +72,8 @@ class RemediateService : ProcessExecutorService() {
         val remediation = JsonConfig.relaxed.decodeFromString<RemediationData>(data)
         val source = File(project.basePath, remediation.filePath)
 
-        val targetDir = File(System.getProperty("java.io.tmpdir"), "xygeni-plugin-${project.name}").apply { mkdirs() }
-        targetDir.mkdirs()
 
-        val target = File(targetDir, source.name)
+        val target = getTempFile(project, remediation)
         source.copyTo(target, overwrite = true)
 
         // refresh the fileSystem
@@ -79,7 +88,7 @@ class RemediateService : ProcessExecutorService() {
             pluginContext.installDir,//targetDir,
             { success ->
                 if (success) {
-                    Logger.log("Done")
+                    Logger.log("Remediation finished")
                     showDiff(project, remediation, target.absolutePath )
                 } else {
                     Logger.log("Remediation failed")
@@ -87,6 +96,7 @@ class RemediateService : ProcessExecutorService() {
                 onComplete(success)
             })
     }
+
     private fun showDiff(project: Project, remediation: RemediationData, rightPath: String) {
         ApplicationManager.getApplication().invokeLater {
 
@@ -103,14 +113,23 @@ class RemediateService : ProcessExecutorService() {
                 val content2 = factory.create(project, right)
 
                 val request = SimpleDiffRequest(
-                    "Comparación de archivos",
+                    "Remediation result",
                     content1, content2,
                     left.name, right.name
                 )
-
                 DiffManager.getInstance().showDiff(project, request)
             }
         }
     }
 
+    // save applies the new safe file to the vuln one
+    fun save(project: Project,
+             data: String,
+    ){
+        val remediation = JsonConfig.relaxed.decodeFromString<RemediationData>(data)
+        val source = File(project.basePath, remediation.filePath)
+
+        val target = getTempFile(project, remediation)
+        target.copyTo(source, overwrite = true)
+    }
 }

@@ -200,7 +200,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
         val vFile: VirtualFile = LocalFileSystem.getInstance().findFileByPath(absolutePath) ?: return
 
         val beginLine0 = (line - 1).coerceAtLeast(0)
-        val beginColumn0 = (column-1).coerceAtLeast(0)
+        val beginColumn0 = (column - 1).coerceAtLeast(0)
         val endLine0 = if (endLine >= 0) (endLine - 1).coerceAtLeast(0) else -1
 
         // Open file and pos the cursor
@@ -303,7 +303,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
         project.messageBus.connect().subscribe(READ_TOPIC, object : ReadListener {
             override fun readCompleted(project: Project?, reportType: String?) {
                 if (project != this@BaseView.project || reportType != service.reportType) return
-                javax.swing.SwingUtilities.invokeLater {
+                SwingUtilities.invokeLater {
                     if (treeScrollPane.isVisible) loadChildren()
                 }
             }
@@ -314,21 +314,56 @@ abstract class BaseView<T : BaseXygeniIssue>(
 
     protected open fun buildNode(item: T): DefaultMutableTreeNode {
         return DefaultMutableTreeNode(
-        NodeData(
-            text = "(${item.type}) - ${item.file}",
-            icon = item.getIcon(),
-            tooltip = item.explanation,
-            onClick = {
-                openFileInEditor(project, item.file, item.beginLine, item.beginColumn,
-                    item.endLine, item.endColumn)
-            },
-            onDoubleClick = {
-                this.openDynamicHtml(project, item)
+            NodeData(
+                text = "(${item.type}) - ${item.file}",
+                icon = item.getIcon(),
+                tooltip = item.explanation,
+                onClick = {
+                    openFileInEditor(
+                        project, item.file, item.beginLine, item.beginColumn,
+                        item.endLine, item.endColumn
+                    )
+                },
+                onDoubleClick = {
+                    this.openDynamicHtml(project, item)
+                }
+            ))
+    }
+
+    private fun closeAllDynamicDiffs(project: Project) {
+
+        // 1. cerrar todos los DynamicHtmlFileEditor abiertos
+        val fileEditorManager = FileEditorManager.getInstance(project)
+        fileEditorManager.allEditors
+            .filterIsInstance<DynamicHtmlFileEditor>()
+            .forEach {
+                it.dispose()
+                it.file?.let { file -> fileEditorManager.closeFile(file) }
             }
-        ))
+        fileEditorManager.openFiles.forEach { vf ->
+            if (vf.name.contains("Remediation", ignoreCase = true) ||
+                vf.name.contains("result", ignoreCase = true)
+            ) {
+                fileEditorManager.closeFile(vf)
+            }
+        }
     }
 
     protected open fun openDynamicHtml(project: Project, item: T) {
+        // closeAllDynamicDiffs(project)
+
+
+        val fileEditorManager = FileEditorManager.getInstance(project)
+
+        // Cerramos todo lo q estuviese abierto
+        fileEditorManager.allEditors
+            .filterIsInstance<DynamicHtmlFileEditor>()
+            .forEach {
+                it.dispose()
+                it.file?.let { file -> fileEditorManager.closeFile(file) }
+            }
+
+
         val fileName = if (JBCefApp.isSupported()) {
             "${item.type}.dynamic.html" // DynamicHtmlEditorProvider con JCEF
         } else {

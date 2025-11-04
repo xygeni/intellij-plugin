@@ -124,12 +124,6 @@ class ServerClient(private val baseUrl: String, private val token: String) {
     fun getDetectorDetails (tool: String, kind: String, detector: String) : String{
         val params = mapOf("tool" to tool, "kind" to kind, "detectorId" to detector)
         val response =  this.getJson("internal/policy/detector/doc", params = params)
-
-        if (response == null){
-            Logger.log("NULL")
-        }else{
-            Logger.log("Response: $response")
-        }
         return response.toString()
     }
 
