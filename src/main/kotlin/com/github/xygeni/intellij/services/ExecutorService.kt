@@ -4,6 +4,7 @@ import com.github.xygeni.intellij.logger.Logger
 import com.intellij.execution.process.*
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.util.Key
+import com.intellij.util.io.BaseOutputReader
 import java.io.File
 
 
@@ -36,7 +37,6 @@ abstract class ProcessExecutorService {
                 }
 
                 val command = buildCommand(path, args)
-                Logger.log("🔹 Executing: ${command.joinToString(" ")}")
 
                 val processBuilder = ProcessBuilder(command)
                     // .directory(file.parentFile)
@@ -47,8 +47,12 @@ abstract class ProcessExecutorService {
                 }
                 val process = processBuilder.start()
 
-                val handler = OSProcessHandler(process, command.joinToString(" "))
-
+                //val handler = OSProcessHandler(process, command.joinToString(" "))
+                val handler = object : OSProcessHandler(process, command.joinToString(" ")) {
+                    override fun readerOptions(): BaseOutputReader.Options {
+                        return BaseOutputReader.Options.forMostlySilentProcess()
+                    }
+                }
                 handler.addProcessListener(object : ProcessAdapter() {
 
                     override fun onTextAvailable(event: ProcessEvent, outputType: Key<*>) {

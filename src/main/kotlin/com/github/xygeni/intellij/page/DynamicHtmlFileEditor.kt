@@ -95,22 +95,23 @@ class DynamicHtmlFileEditor(private val project: Project, private val file: Virt
 
             // Remediate handler
             jsQuery.addHandler { data ->
-                println("Data: $data")
-                Logger.log("Data: $data")
                 val json = Json.parseToJsonElement(data).jsonObject
                 val action = json["action"]?.jsonPrimitive?.content
                 val payload = json["data"]?.jsonPrimitive?.content
-                Logger.log("action: $action, payload: $payload")
                 when (action) {
                     "remediate" -> {
-                        println("Remediate")
-                        Logger.log("remediate")
+                        Logger.log("==================================")
+                        Logger.log("Remediate")
+                        Logger.log("==================================")
                         remediate(payload?: "")
                     }
                     "save" -> {
-                        println("save")
-                        Logger.log("save")
+                        Logger.log("==================================")
+                        Logger.log("Save Fix")
+                        Logger.log("==================================")
+                        save(payload?: "")
                     }
+
                 }
                 JBCefJSQuery.Response("OK")
             }

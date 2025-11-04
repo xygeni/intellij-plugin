@@ -62,8 +62,8 @@ abstract class BaseReportService<T : BaseXygeniIssue>(
     private fun readAndProcessFile(filename: String, callback: ReadIssuesCallback) {
         val file = File(filename)
         if (!file.exists()) {
-            Logger.warn("File $filename not found in ${project.basePath}")
-            return callback.onComplete(false, emptyList())
+            println("File $filename not found in ${project.basePath}")
+            return callback.onComplete(true, emptyList())
         }
 
         ApplicationManager.getApplication().executeOnPooledThread {

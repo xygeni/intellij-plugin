@@ -2,26 +2,16 @@ package com.github.xygeni.intellij.services
 
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.model.JsonConfig
-import com.github.xygeni.intellij.model.report.cicd.CicdReport
 import com.github.xygeni.intellij.model.report.server.RemediationData
 import com.intellij.diff.DiffContentFactory
 import com.intellij.diff.DiffManager
 import com.intellij.diff.requests.SimpleDiffRequest
-import com.intellij.execution.target.value.targetPath
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
-import com.intellij.openapi.vfs.VirtualFile
-import com.jetbrains.rd.generator.nova.PredefinedType
 import java.io.File
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.StandardCopyOption
-
-import kotlin.io.path.Path
-import kotlin.io.path.absolutePathString
 
 /**
  * RemediateService
@@ -85,13 +75,13 @@ class RemediateService : ProcessExecutorService() {
         executor.executeProcess(
             pluginContext.xygeniCommand,
             buildArgs(remediation, target.absolutePath),
-            pluginContext.installDir,//targetDir,
+            pluginContext.installDir,
             { success ->
                 if (success) {
-                    Logger.log("Remediation finished")
+                    Logger.log("✅ Remediation finished")
                     showDiff(project, remediation, target.absolutePath )
                 } else {
-                    Logger.log("Remediation failed")
+                    Logger.error("❌ Remediation failed")
                 }
                 onComplete(success)
             })
@@ -126,10 +116,16 @@ class RemediateService : ProcessExecutorService() {
     fun save(project: Project,
              data: String,
     ){
-        val remediation = JsonConfig.relaxed.decodeFromString<RemediationData>(data)
-        val source = File(project.basePath, remediation.filePath)
+        try {
+            val remediation = JsonConfig.relaxed.decodeFromString<RemediationData>(data)
+            val source = File(project.basePath, remediation.filePath)
 
-        val target = getTempFile(project, remediation)
-        target.copyTo(source, overwrite = true)
+            val target = getTempFile(project, remediation)
+            target.copyTo(source, overwrite = true)
+            Logger.log("✅ Saved")
+        }
+        catch (e: Exception) {
+            Logger.error("❌ Failed to save remediation file")
+        }
     }
 }
