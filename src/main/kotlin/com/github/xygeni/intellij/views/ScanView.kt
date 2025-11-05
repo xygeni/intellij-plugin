@@ -67,6 +67,10 @@ class ScanView(private val project: Project) : JPanel() {
                         status == 2 -> Icons.RUN_IN_QUEUE_ICON
                         else -> Icons.RUN_ICON
                     }
+                    button.text = when {
+                        status == 2 -> "Scanning"
+                        else -> "Run Scan"
+                    }
                 }
             })
     }

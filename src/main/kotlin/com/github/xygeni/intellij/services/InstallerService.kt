@@ -13,7 +13,11 @@ import com.intellij.openapi.project.Project
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
+import java.util.zip.ZipInputStream
 import javax.swing.SwingUtilities
 
 
@@ -55,7 +59,7 @@ class InstallerService {
     }
 
     private fun uninstallIfNeeded() {
-        Logger.log("Removing previous installation...")
+        Logger.log("Removing previous installation: ${this.pluginContext.installDir.absolutePath}...")
         this.deleteSafe(this.pluginContext.installDir.absolutePath)
     }
 
@@ -137,7 +141,6 @@ class InstallerService {
         Logger.log("==================================")
         Logger.log("== Running scanner installation ==")
         Logger.log("==================================")
-
         uninstallIfNeeded()
 
         ProgressManager.getInstance().run(object : Task.Backgroundable(null, "Installing External App") {
@@ -146,6 +149,7 @@ class InstallerService {
                     val downloaded =
                         downloadScript(this@InstallerService.pluginContext.scriptUrl + this@InstallerService.pluginContext.scriptFiletName)
                     if (downloaded != null) {
+                        downloaded.setExecutable(true)
                         this@InstallerService.executeScript(downloaded.absolutePath, config)
                     }
                 } catch (e: Exception) {
@@ -165,6 +169,7 @@ class InstallerService {
 
     private fun downloadScript(url: String): File? {
         val client = OkHttpClient()
+        val fileName = url.substringAfterLast('/')
 
         return try {
 
@@ -185,7 +190,7 @@ class InstallerService {
                 }
 
                 val tempDir = File(System.getProperty("java.io.tmpdir"), "xygeni-plugin").apply { mkdirs() }
-                val tempFile = File(tempDir, this.pluginContext.scriptFiletName)
+                val tempFile = File(tempDir, fileName)
 
                 // delete the previous script
                 this.deleteSafe(tempFile.absolutePath)
@@ -197,7 +202,7 @@ class InstallerService {
                         input.copyTo(output)
                     }
                 }
-                tempFile.setExecutable(true)
+                // tempFile.setExecutable(true)
                 Logger.log("Script downloaded successfully: ${tempFile.absolutePath}")
                 tempFile
             }
@@ -219,7 +224,7 @@ class InstallerService {
         args["-d"] = this.pluginContext.installDir.absolutePath
         args["-o"] = ""
 
-        this.executor.executeProcess(scriptPath, args) {
+        this.executor.executeProcess(scriptPath, args, null) {
             // TODO: añadir aquí lo q pueda necesuitar
         }
 
@@ -232,6 +237,63 @@ class InstallerService {
         } else {
             false
         }
+    }
+
+    private fun unzip(zipFile: Path, destDir: Path) {
+        val start = System.currentTimeMillis()
+        Logger.log("Unzip $zipFile into $destDir")
+        try {
+            ZipInputStream(Files.newInputStream(zipFile)).use { zis ->
+                var entry = zis.nextEntry
+                while (entry != null) {
+                    val newFile = destDir.resolve(entry.name)
+                    if (entry.isDirectory) {
+                        Files.createDirectories(newFile)
+                    } else {
+                        Files.createDirectories(newFile.parent)
+                        Files.newOutputStream(newFile).use { fos ->
+                            zis.copyTo(fos)
+                        }
+                    }
+                    zis.closeEntry()
+                    entry = zis.nextEntry
+                }
+            }
+            val elapsed = System.currentTimeMillis() - start
+            Logger.log("✅ Unzip finished:  ${elapsed}ms")
+        }
+        catch (e: Exception) {
+            Logger.error("error unzipping $zipFile", e)
+        }
+    }
+
+    // manualInstall downloads xygeni file zip and decompresses
+    fun manualInstall (project: Project) {
+        Logger.log("==================================")
+        Logger.log("== Running scanner installation ==")
+        Logger.log("==================================")
+        Logger.log("PluginContext: ${pluginContext.xygeniCommand}")
+        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Downloading App..") {
+            override fun run(indicator: ProgressIndicator) {
+                try {
+                    indicator.text = "Downloading..."
+                    // Download zip file
+                    val f = downloadScript(this@InstallerService.pluginContext.scriptUrl + "xygeni_scanner.zip")
+                    indicator.text = "Unzip file..."
+                    if (f != null) {
+                        unzip(f.toPath(), Paths.get( this@InstallerService.pluginContext.installDir.absolutePath))
+                        // + x to xygeni command
+                        val commandFile = File( this@InstallerService.pluginContext.xygeniCommand)
+                        commandFile.setExecutable(true)
+                    }
+                }
+                catch (e: Exception) {
+                    Logger.error("error in installing process ", e)
+                }
+
+            }
+        })
+
     }
 
 }

@@ -7,6 +7,7 @@ package com.github.xygeni.intellij.model
  * @version : 10/10/25 (Carmendelope)
  **/
 
+import com.github.xygeni.intellij.logger.Logger
 import com.intellij.openapi.project.Project
 import java.io.File
 
@@ -22,8 +23,7 @@ class PluginContext (){
         installDir = File(this.initInstallationDir(), PluginInfo.name + "/" + PluginInfo.version)
         scriptFiletName = this.initScriptFileName()
         ensureTargetExists(installDir)
-        xygeniCommand = installDir.canonicalPath + "/xygeni"
-
+        xygeniCommand = installDir.canonicalPath + "/xygeni_scanner/xygeni"
     }
 
     private fun initInstallationDir(): String {

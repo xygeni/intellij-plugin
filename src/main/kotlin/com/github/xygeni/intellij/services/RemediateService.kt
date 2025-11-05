@@ -2,7 +2,9 @@ package com.github.xygeni.intellij.services
 
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.model.JsonConfig
+import com.github.xygeni.intellij.model.PluginConfig
 import com.github.xygeni.intellij.model.report.server.RemediationData
+import com.github.xygeni.intellij.settings.XygeniSettings
 import com.intellij.diff.DiffContentFactory
 import com.intellij.diff.DiffManager
 import com.intellij.diff.requests.SimpleDiffRequest
@@ -75,6 +77,7 @@ class RemediateService : ProcessExecutorService() {
         executor.executeProcess(
             pluginContext.xygeniCommand,
             buildArgs(remediation, target.absolutePath),
+            PluginConfig.fromSettings(XygeniSettings.getInstance()).toEnv(),
             pluginContext.installDir,
             { success ->
                 if (success) {

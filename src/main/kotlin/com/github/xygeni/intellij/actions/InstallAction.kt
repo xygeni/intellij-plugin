@@ -30,7 +30,8 @@ class InstallAction : AnAction(AllIcons.Actions.Suspend){
         val settings = XygeniSettings.getInstance()
         val config = settings.toPluginConfig()
         val installer = ApplicationManager.getApplication().getService(InstallerService::class.java)
-        installer.checkAndInstall(project, config)
+        // installer.checkAndInstall(project, config)
+        installer.manualInstall(project)
     }
 
 }

@@ -2,6 +2,8 @@ package com.github.xygeni.intellij.services
 
 import com.github.xygeni.intellij.events.SCAN_STATE_TOPIC
 import com.github.xygeni.intellij.logger.Logger
+import com.github.xygeni.intellij.model.PluginConfig
+import com.github.xygeni.intellij.settings.XygeniSettings
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
@@ -53,9 +55,12 @@ class ScanService : ProcessExecutorService() {
         val scanResultDir = this.pluginContext.ensureScanResultDirExists(project)
         publishScanUpdate(project, 2) // running
 
+
         executor.executeProcess(
             pluginContext.xygeniCommand,
-            this.buildArgs(path), scanResultDir
+            this.buildArgs(path),
+            PluginConfig.fromSettings(XygeniSettings.getInstance()).toEnv(),
+            scanResultDir,
         ) { success ->
             if (success) {
                 publishScanUpdate(project, 1) // Finished

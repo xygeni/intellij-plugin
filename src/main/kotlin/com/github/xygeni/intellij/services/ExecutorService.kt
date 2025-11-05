@@ -22,6 +22,7 @@ abstract class ProcessExecutorService {
     fun executeProcess(
         path: String,
         args: Map<String, String>,
+        envs: Map<String, String>?,
         workingDir: File? = null,
         onComplete: (success: Boolean) -> Unit
     ) {
@@ -39,11 +40,14 @@ abstract class ProcessExecutorService {
                 val command = buildCommand(path, args)
 
                 val processBuilder = ProcessBuilder(command)
-                    // .directory(file.parentFile)
                     .redirectErrorStream(false)
 
                 if (workingDir != null) {
                     processBuilder.directory(workingDir)
+                }
+                val env = processBuilder.environment()
+                if (envs != null){
+                    env.putAll(envs)
                 }
                 val process = processBuilder.start()
 
