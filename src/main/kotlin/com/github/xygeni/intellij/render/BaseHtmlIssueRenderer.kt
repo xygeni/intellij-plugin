@@ -272,7 +272,6 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
                         """.trimIndent()
                     }
                 }
-
                 unsafe {
                     +header
                     +customHeader

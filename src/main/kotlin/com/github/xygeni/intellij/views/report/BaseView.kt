@@ -7,6 +7,8 @@ package com.github.xygeni.intellij.views.report
  * @version : 14/10/25 (Carmendelope)
  **/
 
+import com.github.xygeni.intellij.events.CONNECTION_STATE_TOPIC
+import com.github.xygeni.intellij.events.ConnectionStateListener
 import com.github.xygeni.intellij.events.READ_TOPIC
 import com.github.xygeni.intellij.events.ReadListener
 import com.github.xygeni.intellij.model.report.BaseXygeniIssue
@@ -16,12 +18,11 @@ import com.github.xygeni.intellij.services.report.BaseReportService
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.markup.EffectType
 import com.intellij.openapi.editor.markup.HighlighterLayer
-import com.intellij.openapi.editor.markup.TextAttributes
 import com.intellij.openapi.editor.markup.HighlighterTargetArea
+import com.intellij.openapi.editor.markup.TextAttributes
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.util.Key
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.LightVirtualFile
@@ -162,27 +163,8 @@ abstract class BaseView<T : BaseXygeniIssue>(
                     }
                 }
             }
-
-            /*override fun mouseClicked(e: MouseEvent) {
-                val selPath = tree.getPathForLocation(e.x, e.y)
-                selPath?.lastPathComponent?.let { node ->
-                    if (node is DefaultMutableTreeNode) {
-                        val data = node.userObject as? NodeData
-                        when (e.clickCount) {
-                            1 -> data?.onClick?.invoke()
-                            2 -> data?.onDoubleClick?.invoke()
-
-                        }
-                    }
-                }
-            }*/
         })
 
-        //tree.addTreeSelectionListener { event ->
-        //    val node = event.path.lastPathComponent as? DefaultMutableTreeNode
-        //    val data = node?.userObject as? NodeData
-        //    data?.onClick?.invoke()
-        //}
     }
 
     fun openFileInEditor(

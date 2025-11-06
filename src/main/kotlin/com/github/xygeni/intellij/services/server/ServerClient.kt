@@ -10,6 +10,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import com.github.xygeni.intellij.settings.XygeniSettings
+import com.jetbrains.rd.util.info
+import javax.swing.Timer
 
 
 /**
@@ -18,6 +20,7 @@ import com.github.xygeni.intellij.settings.XygeniSettings
  * @author : Carmendelope
  * @version : 16/10/25 (Carmendelope)
  **/
+
 class ServerClient(private val baseUrl: String, private val token: String) {
 
     constructor() : this(
@@ -56,27 +59,6 @@ class ServerClient(private val baseUrl: String, private val token: String) {
 
         return executeRequest(request)
     }
-
-    private inline fun <reified TResponse : Any> get(
-        endpoint: String,
-        params: Map<String, String> = emptyMap()
-    ): TResponse? {
-        val urlBuilder = "$baseUrl/$endpoint".toHttpUrl().newBuilder()
-        for ((key, value) in params) {
-            urlBuilder.addQueryParameter(key, value)
-        }
-        val url = urlBuilder.build().toString()
-
-        val request = Request.Builder()
-            .url(url)
-            .addHeader("Authorization", "Bearer $token")
-            .addHeader("Accept", "application/json")
-            .get()
-            .build()
-
-        return executeRequest(request);
-    }
-
 
     private inline fun <reified TResponse : Any> executeRequest(request: Request): TResponse? {
         client.newCall(request).execute().use { response ->
@@ -122,9 +104,20 @@ class ServerClient(private val baseUrl: String, private val token: String) {
     }
 
     fun getDetectorDetails (tool: String, kind: String, detector: String) : String{
+        if (this.baseUrl == "" || this.token == "") {
+             //Thread.sleep(500)
+            //val data =
+              //      """{"linkDocumentation":"","descriptionDoc":"Cannot load detector details because the server configuration is missing."}"""
+               // Logger.log(data)
+            Logger.log("❌ Cannot load detector details because the server configuration is missing.")
+            //return data
+            return ""
+        }
         val params = mapOf("tool" to tool, "kind" to kind, "detectorId" to detector)
         val response =  this.getJson("internal/policy/detector/doc", params = params)
-        return response.toString()
+        val res =  response.toString()
+        Logger.log(res)
+        return res
     }
 
 }

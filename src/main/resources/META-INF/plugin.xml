@@ -31,14 +31,14 @@
                     factoryClass="com.github.xygeni.intellij.toolWindow.ConsoleWindowFactory"
                     icon="Icons.MESSAGES_ICON"
         />
-
+<!--
         <toolWindow id="HTML Preview"
                     factoryClass="com.github.xygeni.intellij.toolWindow.HtmlPreviewToolWindowFactory"
                     anchor="right"
                     secondary="true"
                     icon="Icons.MESSAGES_ICON"
         />
-
+-->
     </extensions>
 
     <actions>
@@ -56,13 +56,14 @@
                     icon="Icons.INSTALL_ICON">
             </action>
             <separator/>
+            <!--
             <action id="Xygeni.ScanAction"
                     class="com.github.xygeni.intellij.actions.ScanAction"
                     text="Scan"
                     icon="Icons.RUN_ICON">
             </action>
             <separator/>
-            <!--<action id="Xygeni.SecretAction"
+            <action id="Xygeni.SecretAction"
                     class="com.github.xygeni.intellij.actions.SecretsAction"
                     text="Secret"
                     icon="Icons.SECRET_ICON">

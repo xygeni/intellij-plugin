@@ -6,14 +6,13 @@ package com.github.xygeni.intellij.toolWindow
  * @author : Carmendelope
  * @version : 21/10/25 (Carmendelope)
  **/
-import com.google.common.util.concurrent.ServiceManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.ui.content.Content
-import com.intellij.ui.jcef.JBCefBrowser
 import com.intellij.ui.content.ContentFactory
+import com.intellij.ui.jcef.JBCefBrowser
 import javax.swing.JPanel
 import javax.swing.SwingUtilities
 

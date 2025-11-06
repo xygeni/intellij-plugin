@@ -149,12 +149,4 @@ class GlobalCefService {
             )
         }
     }
-
-    fun loadContent(html: String, data: String?, project: Project) {
-        println("loadContent() called for project=${project.name}, html.length=${html.length}, data=${data?.length ?: 0}")
-        currentProject = project
-        pendingData = data
-
-        browser.loadHTML(html)
-    }
 }
