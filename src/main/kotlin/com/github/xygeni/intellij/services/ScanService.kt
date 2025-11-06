@@ -7,6 +7,9 @@ import com.github.xygeni.intellij.settings.XygeniSettings
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
+import com.intellij.openapi.progress.ProgressIndicator
+import com.intellij.openapi.progress.ProgressManager
+import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 
 /**
@@ -52,22 +55,26 @@ class ScanService : ProcessExecutorService() {
         val path = project.basePath ?: // TODO: ver qué hacer aquí
         return
 
-        val scanResultDir = this.pluginContext.ensureScanResultDirExists(project)
+        val scanResultDir = this.pluginContext.cleanScanResultDir(project)
         publishScanUpdate(project, 2) // running
 
-
-        executor.executeProcess(
-            pluginContext.xygeniCommand,
-            this.buildArgs(path),
-            PluginConfig.fromSettings(XygeniSettings.getInstance()).toEnv(),
-            scanResultDir,
-        ) { success ->
-            if (success) {
-                publishScanUpdate(project, 1) // Finished
-            } else {
-                publishScanUpdate(project, 0) // Finished with errors
+        try {
+            executor.executeProcess(
+                pluginContext.xygeniCommand,
+                this@ScanService.buildArgs(path),
+                PluginConfig.fromSettings(XygeniSettings.getInstance()).toEnv(),
+                scanResultDir,
+            ) { success ->
+                if (success) {
+                    publishScanUpdate(project, 1) // Finished
+                } else {
+                    publishScanUpdate(project, 0) // Finished with errors
+                }
+                scanning = false
             }
-            scanning = false
+        } catch (e: Exception) {
+            Logger.error("error in scanning process ", e)
+            publishScanUpdate(project, 0) // Finished with errors
         }
     }
 

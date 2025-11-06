@@ -330,28 +330,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
             ))
     }
 
-    private fun closeAllDynamicDiffs(project: Project) {
-
-        // 1. cerrar todos los DynamicHtmlFileEditor abiertos
-        val fileEditorManager = FileEditorManager.getInstance(project)
-        fileEditorManager.allEditors
-            .filterIsInstance<DynamicHtmlFileEditor>()
-            .forEach {
-                it.dispose()
-                it.file?.let { file -> fileEditorManager.closeFile(file) }
-            }
-        fileEditorManager.openFiles.forEach { vf ->
-            if (vf.name.contains("Remediation", ignoreCase = true) ||
-                vf.name.contains("result", ignoreCase = true)
-            ) {
-                fileEditorManager.closeFile(vf)
-            }
-        }
-    }
-
     protected open fun openDynamicHtml(project: Project, item: T) {
-        // closeAllDynamicDiffs(project)
-
 
         val fileEditorManager = FileEditorManager.getInstance(project)
 
@@ -371,14 +350,12 @@ abstract class BaseView<T : BaseXygeniIssue>(
         }
 
         val content = renderer.render(item)
-        println(item)
-
         val file = LightVirtualFile(fileName, content).apply {
             isWritable = false
         }
         FileEditorManager.getInstance(project).openFile(file, true)
 
-        if (item.kind != "" && item.kind != "sca" && item.kind != "sast") {
+        if (item.kind != "" && item.kind != "sca" ) {
             ApplicationManager.getApplication().executeOnPooledThread {
                 val data = item.fetchData()
                 //println(data)

@@ -61,7 +61,7 @@ class XygeniSettingsConfigurable(private val project: Project) : Configurable {
         val config = PluginConfig.fromSettings(settings)
 
         // Llamas al installer para validar e instalar
-        installer.checkAndInstall(project, config)
+        //installer.checkAndInstall(project, config)
 
         this.project.messageBus.syncPublisher(SETTINGS_CHANGED_TOPIC).settingsChanged()
     }

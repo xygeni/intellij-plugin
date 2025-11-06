@@ -31,7 +31,7 @@ class InstallAction : AnAction(AllIcons.Actions.Suspend){
         val config = settings.toPluginConfig()
         val installer = ApplicationManager.getApplication().getService(InstallerService::class.java)
         // installer.checkAndInstall(project, config)
-        installer.manualInstall(project)
+        installer.installOrUpdate()
     }
 
 }

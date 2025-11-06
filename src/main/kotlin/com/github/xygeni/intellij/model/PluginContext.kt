@@ -46,15 +46,28 @@ class PluginContext (){
         }
     }
 
+    private fun getScanDir (project: Project): File {
+        return File(project.basePath, ".idea/.xygeni/scan")
+    }
+
+    fun cleanScanResultDir(project : Project): File{
+        val dir = getScanDir(project)
+        if (dir.exists() ){
+            dir.deleteRecursively()
+        }
+        ensureTargetExists(dir)
+        return dir
+    }
+
     fun ensureScanResultDirExists(project : Project) : File{
-        val scanResultDir = File(project.basePath, ".idea/.xygeni/scan")
-        if (!scanResultDir.exists()) scanResultDir.mkdirs()
+        val scanResultDir = getScanDir(project)
+        ensureTargetExists(scanResultDir)
         return scanResultDir
     }
 
     private fun ensureTargetExists(target: File) {
         if (!target.exists() && !target.mkdirs()) {
-            throw IllegalStateException("error creating plugin dir: ${target.absolutePath}")
+            throw IllegalStateException("error creating dir: ${target.absolutePath}")
         }
     }
 

@@ -38,25 +38,6 @@ class InstallerService {
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    fun checkAndInstall(project: Project, config: PluginConfig) {
-        if (!config.isValid()) {
-            Logger.log("Configuration error")
-            return
-        }
-
-        // Validamos URL y token
-        validateConnection(config.url, config.token) { urlOk, tokenOk ->
-            publishConnectionState(project, urlOk, tokenOk)
-
-            when {
-                !urlOk -> Logger.warn("URL ${config.url} no accessible")
-                !tokenOk -> Logger.warn("Invalid token")
-                else -> {
-                    install(config)
-                }
-            }
-        }
-    }
 
     private fun uninstallIfNeeded() {
         Logger.log("Removing previous installation: ${this.pluginContext.installDir.absolutePath}...")
@@ -137,28 +118,6 @@ class InstallerService {
         }
     }
 
-    private fun install(config: PluginConfig) {
-        Logger.log("==================================")
-        Logger.log("== Running scanner installation ==")
-        Logger.log("==================================")
-        uninstallIfNeeded()
-
-        ProgressManager.getInstance().run(object : Task.Backgroundable(null, "Installing External App") {
-            override fun run(indicator: ProgressIndicator) {
-                try {
-                    val downloaded =
-                        downloadScript(this@InstallerService.pluginContext.scriptUrl + this@InstallerService.pluginContext.scriptFiletName)
-                    if (downloaded != null) {
-                        downloaded.setExecutable(true)
-                        this@InstallerService.executeScript(downloaded.absolutePath, config)
-                    }
-                } catch (e: Exception) {
-                    Logger.error("installing error: ${e.message}")
-                }
-            }
-        })
-    }
-
     fun publishConnectionState(project: Project, urlOk: Boolean, tokenOk: Boolean) {
         ApplicationManager.getApplication().invokeLater {
             ApplicationManager.getApplication().messageBus
@@ -212,24 +171,7 @@ class InstallerService {
         }
     }
 
-    private fun executeScript(scriptPath: String, config: PluginConfig) {
-
-        val args = mutableMapOf<String, String>()
-        if (!config.url.isBlank()) {
-            args["-s"] = config.url
-        }
-        if (!config.token.isBlank()) {
-            args["-t"] = config.token
-        }
-        args["-d"] = this.pluginContext.installDir.absolutePath
-        args["-o"] = ""
-
-        this.executor.executeProcess(scriptPath, args, null) {
-            // TODO: añadir aquí lo q pueda necesuitar
-        }
-
-    }
-
+    // deleteSafe removes the path
     private fun deleteSafe(path: String): Boolean {
         val file = File(path)
         return if (file.exists()) {
@@ -239,6 +181,7 @@ class InstallerService {
         }
     }
 
+    // unzip decompress a file in destDir
     private fun unzip(zipFile: Path, destDir: Path) {
         val start = System.currentTimeMillis()
         Logger.log("Unzip $zipFile into $destDir")
@@ -267,13 +210,12 @@ class InstallerService {
         }
     }
 
-    // manualInstall downloads xygeni file zip and decompresses
-    fun manualInstall (project: Project) {
+    // downloadAndInstall downloads xygeni file zip and decompresses
+    private fun downloadAndInstall () {
         Logger.log("==================================")
         Logger.log("== Running scanner installation ==")
         Logger.log("==================================")
-        Logger.log("PluginContext: ${pluginContext.xygeniCommand}")
-        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Downloading App..") {
+        ProgressManager.getInstance().run(object : Task.Backgroundable(null, "Downloading App..") {
             override fun run(indicator: ProgressIndicator) {
                 try {
                     indicator.text = "Downloading..."
@@ -294,6 +236,26 @@ class InstallerService {
             }
         })
 
+    }
+
+    // install checks the xygeni command and install if it does not exist
+    fun install() {
+        if (isInstalled()) {
+            Logger.log("Xygeni installed")
+            return
+        }
+        downloadAndInstall()
+    }
+
+    // isInstalled checks if the xygeni command already exists
+    private fun isInstalled(): Boolean {
+        return File(this.pluginContext.xygeniCommand).exists()
+    }
+
+    // installOrUpdate forces a new installation removing the previous one
+    fun installOrUpdate() {
+        uninstallIfNeeded()
+        downloadAndInstall()
     }
 
 }
