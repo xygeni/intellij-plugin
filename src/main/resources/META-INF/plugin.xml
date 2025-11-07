@@ -56,18 +56,6 @@
                     icon="Icons.INSTALL_ICON">
             </action>
             <separator/>
-            <!--
-            <action id="Xygeni.ScanAction"
-                    class="com.github.xygeni.intellij.actions.ScanAction"
-                    text="Scan"
-                    icon="Icons.RUN_ICON">
-            </action>
-            <separator/>
-            <action id="Xygeni.SecretAction"
-                    class="com.github.xygeni.intellij.actions.SecretsAction"
-                    text="Secret"
-                    icon="Icons.SECRET_ICON">
-            </action>-->
         </group>
     </actions>
 </idea-plugin>

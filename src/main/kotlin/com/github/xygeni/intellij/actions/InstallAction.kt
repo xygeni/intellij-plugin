@@ -18,20 +18,6 @@ import com.intellij.openapi.ui.Messages
 
 class InstallAction : AnAction(AllIcons.Actions.Suspend){
     override fun actionPerformed(e: AnActionEvent) {
-        Messages.showMessageDialog(
-            e.project,
-            "¡Hola desde mi plugin!",
-            "Saludo",
-            Messages.getInformationIcon()
-        )
-
-        val project = e.project ?: return
-
-        val settings = XygeniSettings.getInstance()
-        val config = settings.toPluginConfig()
-        val installer = ApplicationManager.getApplication().getService(InstallerService::class.java)
-        // installer.checkAndInstall(project, config)
-        installer.installOrUpdate()
+        ApplicationManager.getApplication().getService(InstallerService::class.java).installOrUpdate()
     }
-
 }

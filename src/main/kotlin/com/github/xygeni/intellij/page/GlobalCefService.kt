@@ -1,11 +1,5 @@
 package com.github.xygeni.intellij.page
 
-/**
- * GlobalCefService
- *
- * @author : Carmendelope
- * @version : 5/11/25 (Carmendelope)
- **/
 import com.github.xygeni.intellij.services.RemediateService
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
@@ -21,16 +15,43 @@ import org.cef.handler.CefLoadHandlerAdapter
 import javax.swing.SwingUtilities
 import javax.swing.Timer
 
+/**
+ * GlobalCefService
+ *
+ * @author : Carmendelope
+ * @version : 5/11/25 (Carmendelope)
+ *
+ * Application-level service that manages a single shared JCEF browser instance
+ * across the entire plugin. This allows reusing the same browser for all
+ * dynamic HTML views, instead of creating a new JCEF instance per editor.
+ *
+ * Responsibilities:
+ * - Holds a single [JBCefBorwser] instance reused globally.
+ * - Injects JavaScript hooks (like window.pluginAction) into loaded pages.
+ * - Handles communication between the webview (JS) and Kotlin [via JBCefQuery]
+ * - Provides methods for loadin and rendering HTML content with dynamic data
+ * - Delegates remediation and save actions to project-level services
+ *
+ * Notes:
+ * - This service is annotated with @Service(Service.Level.APP) so it is unique for the entire
+ *   IDE session (no per project)
+ * - currentProject is updated by each [DynamicHtmlEditor] when it uses this browser
+ *   instance, to allow project-aware actions
+ */
 @Service(Service.Level.APP)
 class GlobalCefService {
+    // browser is a shared JCEF browser instance used by all dynamic HTML editors
     val browser: JBCefBrowser = JBCefBrowser()
+    // client with an underlying JCEF client for registering handlers
     private val client = browser.jbCefClient
+    // jsQuery with a javascript bridge to handle messages from the webview to Kotlin
     private val jsQuery = JBCefJSQuery.create(browser as JBCefBrowserBase)
-
+    // currentProject with the project currently associated with the active dynamic editor
     private var currentProject: Project? = null
+    // pendingData with an optional peding data to render once the HTML content was fully loaded
     private var pendingData: String? = null
     private var currentFileId: String? = null
-
+    // handlersAttached with a flag to ensure load handlers are attached only once
     private var handlersAttached = false
 
 
@@ -39,6 +60,9 @@ class GlobalCefService {
         attachHandlersOnce()
     }
 
+    /**
+     *  attachHandlersOnce attaches onLoadEnd and JSQuery handlers to the browser if not already attached
+     */
     private fun attachHandlersOnce(){
         if (handlersAttached) {
             println("Handlers already attached, skipping")
@@ -48,7 +72,7 @@ class GlobalCefService {
 
         println("Attaching global handlers for JCEF")
 
-        // Handler para onLoadEnd — se registra solo una vez
+        // Called when the HTML page finishes loading
         client.addLoadHandler(object : CefLoadHandlerAdapter() {
             override fun onLoadEnd(browser: CefBrowser?, frame: CefFrame?, httpStatusCode: Int) {
                 if (frame?.isMain != true) return
@@ -58,6 +82,7 @@ class GlobalCefService {
                     Timer(200) {
                         SwingUtilities.invokeLater {
                             println("Injecting pluginAction (global)")
+                            // inject the global pluginAction function for JS -> Kotlin calls
                             browser?.executeJavaScript(
                                 """
                                 window.pluginAction = function(action, value) {
@@ -68,6 +93,7 @@ class GlobalCefService {
                                 0
                             )
 
+                            // Render pending daa if any was set before the page was ready
                             pendingData?.let {
                                 println("Rendering pending data (${it.length} chars)")
                                 browser?.executeJavaScript(
@@ -83,6 +109,7 @@ class GlobalCefService {
             }
         }, browser.cefBrowser)
 
+        // Handle calls from JS -> Kotlin
         jsQuery.addHandler { data ->
             println("Global JSQuery handler -> $data")
             handleJsAction(data)
@@ -90,6 +117,9 @@ class GlobalCefService {
         }
     }
 
+    /**
+     * handleJsAction handles the "remediate" JS action by delegating to the project service
+     */
     private fun handleJsAction(data: String){
         val json = Json.parseToJsonElement(data).jsonObject
         val action = json["action"]?.jsonPrimitive?.content
@@ -126,6 +156,9 @@ class GlobalCefService {
         }
     }
 
+    /**
+     * loadHtmlOnce loads the given HTML into the browser
+     */
     fun loadHtmlOnce(html: String, project: Project, fileId: String) {
         currentProject = project
         currentFileId = fileId
@@ -134,6 +167,9 @@ class GlobalCefService {
         browser.loadHTML(html)
     }
 
+    /**
+     * renderData renders data, if it is called before loadEnd, keep daa pending
+     */
     fun renderData(json: String, fileId: String) {
         if (fileId != currentFileId) {
             println("renderData ignored — fileId=$fileId (current=$currentFileId)")

@@ -105,19 +105,12 @@ class ServerClient(private val baseUrl: String, private val token: String) {
 
     fun getDetectorDetails (tool: String, kind: String, detector: String) : String{
         if (this.baseUrl == "" || this.token == "") {
-             //Thread.sleep(500)
-            //val data =
-              //      """{"linkDocumentation":"","descriptionDoc":"Cannot load detector details because the server configuration is missing."}"""
-               // Logger.log(data)
             Logger.log("❌ Cannot load detector details because the server configuration is missing.")
-            //return data
             return ""
         }
         val params = mapOf("tool" to tool, "kind" to kind, "detectorId" to detector)
         val response =  this.getJson("internal/policy/detector/doc", params = params)
-        val res =  response.toString()
-        Logger.log(res)
-        return res
+        return  response.toString()
     }
 
 }

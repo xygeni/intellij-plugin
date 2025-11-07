@@ -1,5 +1,8 @@
 package com.github.xygeni.intellij.render
 
+import com.github.xygeni.intellij.render.XygeniConstants.EXPLANATION_KEY
+import com.github.xygeni.intellij.render.XygeniConstants.FOUND_BY_KEY
+import com.github.xygeni.intellij.render.XygeniConstants.LOCATION_KEY
 import com.github.xygeni.intellij.model.report.sast.SastXygeniIssue
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
@@ -29,15 +32,14 @@ class SastIssueRenderer : BaseHtmlIssueRenderer<SastXygeniIssue>() {
     override fun renderCustomIssueDetails(issue: SastXygeniIssue): String {
         val tags = renderTags(issue.tags)
         return createHTML().div {
-            id = "tab-content-1"
             table {
                 tbody {
-                    unsafe { +renderDetailTableLine("Explanation", issue.explanation) }
+                    unsafe { +renderDetailTableLine(EXPLANATION_KEY, issue.explanation) }
                     unsafe { +renderDetailTableLine("Type", issue.type) }
                     unsafe { +renderDetailBranch(issue.branch) }
                     unsafe { +renderDetailTableLine("Language", issue.language) }
-                    unsafe { +renderDetailTableLine("Location", issue.file) }
-                    unsafe { +renderDetailTableLine("Found by", issue.detector) }
+                    unsafe { +renderDetailTableLine(LOCATION_KEY, issue.file) }
+                    unsafe { +renderDetailTableLine(FOUND_BY_KEY, issue.detector) }
                     unsafe { +renderDetailTags(issue.tags) }
                 }
             }

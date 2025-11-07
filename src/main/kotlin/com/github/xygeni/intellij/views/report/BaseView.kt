@@ -7,8 +7,7 @@ package com.github.xygeni.intellij.views.report
  * @version : 14/10/25 (Carmendelope)
  **/
 
-import com.github.xygeni.intellij.events.CONNECTION_STATE_TOPIC
-import com.github.xygeni.intellij.events.ConnectionStateListener
+
 import com.github.xygeni.intellij.events.READ_TOPIC
 import com.github.xygeni.intellij.events.ReadListener
 import com.github.xygeni.intellij.model.report.BaseXygeniIssue
@@ -41,6 +40,7 @@ import javax.swing.border.MatteBorder
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
 
+//  BaseView containing a tree panel for displaying issues
 abstract class BaseView<T : BaseXygeniIssue>(
     protected val project: Project,
     private val title: String,
@@ -62,7 +62,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
         layout = BoxLayout(this, BoxLayout.Y_AXIS)
         border = MatteBorder(0, 0, 1, 0, Color.LIGHT_GRAY)
 
-        // Configura header
+        // header configuration
         header.icon = Icons.CHEVRON_RIGHT_ICON
         header.iconTextGap = 10
         header.border = EmptyBorder(8, 0, 0, 0)
@@ -75,6 +75,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
 
         add(header)
 
+        // Tree configuration
         tree.isRootVisible = false
         tree.showsRootHandles = true
         tree.rowHeight = 20
@@ -145,6 +146,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
             }
         }
 
+        // configure click and double click
         tree.addMouseListener(object : MouseAdapter() {
             private var clickTimer: Timer? = null
             override fun mouseClicked(e: MouseEvent) {
@@ -164,9 +166,9 @@ abstract class BaseView<T : BaseXygeniIssue>(
                 }
             }
         })
-
     }
 
+    // openFileInEditor opens the file retrieved and mark the code
     fun openFileInEditor(
         project: Project,
         relativePath: String,
@@ -175,8 +177,6 @@ abstract class BaseView<T : BaseXygeniIssue>(
         endLine: Int = -1,
         endColumn: Int = -1
     ) {
-
-
         val basePath = project.basePath ?: return
         val absolutePath = "$basePath/$relativePath"
         val vFile: VirtualFile = LocalFileSystem.getInstance().findFileByPath(absolutePath) ?: return
@@ -281,6 +281,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
         }
     }
 
+    // subscribeToMessage subscribes to READ_TOPIC to load issues when the scan finish
     protected open fun subscribeToMessage() {
         project.messageBus.connect().subscribe(READ_TOPIC, object : ReadListener {
             override fun readCompleted(project: Project?, reportType: String?) {
@@ -294,6 +295,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
 
     protected open fun getItems(): List<T> = service.issues
 
+    // buildNode builds a node for each issue
     protected open fun buildNode(item: T): DefaultMutableTreeNode {
         return DefaultMutableTreeNode(
             NodeData(
@@ -312,18 +314,18 @@ abstract class BaseView<T : BaseXygeniIssue>(
             ))
     }
 
+    // openDynamicHtml opens the issue info (html render) y a CEF Browser
     protected open fun openDynamicHtml(project: Project, item: T) {
 
         val fileEditorManager = FileEditorManager.getInstance(project)
 
-        // Cerramos todo lo q estuviese abierto
+        // Close other browsers
         fileEditorManager.allEditors
             .filterIsInstance<DynamicHtmlFileEditor>()
             .forEach {
                 it.dispose()
                 it.file?.let { file -> fileEditorManager.closeFile(file) }
             }
-
 
         val fileName = if (JBCefApp.isSupported()) {
             "${item.type}.dynamic.html" // DynamicHtmlEditorProvider con JCEF
@@ -337,7 +339,8 @@ abstract class BaseView<T : BaseXygeniIssue>(
         }
         FileEditorManager.getInstance(project).openFile(file, true)
 
-        if (item.kind != "" && item.kind != "sca" ) {
+        // ask for detector info
+        if (item.kind != "" && item.kind != "sca") {
             ApplicationManager.getApplication().executeOnPooledThread {
                 val data = item.fetchData()
                 //println(data)

@@ -16,8 +16,41 @@ import kotlin.text.lines
  *
  * @author : Carmendelope
  * @version : 21/10/25 (Carmendelope)
+ *
+ * Abstract base class that builds the HTML structure for dynamic issue views.
+ *
+ * Responsibilities:
+ * - Generate a complete HTML document (string) using the Kotlin HTML DSL.
+ * - Include shared CSS style and dynamic Javascript helpers.
+ * - Define a common layout (header, details, tabs, etc.)
+ * - Provide a consistent entry point for injecting live data updates (via window.renderData)
+ *
+ * The resulting HTML string is loaded by [DynamicHtmlFileEditor] and displayed in a JCEF browser
+ *
+ * Subclasses (e.g. [SastIssueRenderer], [ScaIssueRenderer], etc) should override:
+ * - [renderCommonHeader] to add type-specific header information
+ * - [renderTabs] to define issue details or vulnerability panels
+ *
  **/
 abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
+
+    companion object {
+        const val RENDER_DATA_JS = """
+                  window.renderData = function(data) {
+                    if (typeof data === 'string') data = JSON.parse(data);
+                    const docEl = document.getElementById('xy-detector-doc');
+                    if (docEl) {
+                      docEl.innerHTML = data.descriptionDoc || '';
+                    }
+                    const linkEl = document.getElementById('xy-detector-link');
+                    if (linkEl) {
+                      linkEl.href = data.linkDocumentation || '#';
+                      linkEl.hidden = !data.linkDocumentation;
+                    }
+                  };                                                
+                  window.domReady = true;
+                  """
+    }
 
     protected val branchIcon = Icons::class.java.getResource("/icons/branch.svg")
         ?.readText()
@@ -50,7 +83,7 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
         } else {
             // fallback al classloader para cuando esté empaquetado
             val cssStream = javaClass.classLoader.getResourceAsStream("html/xygeni.css")
-                ?: throw IllegalStateException("No se encontró html/xygeni.css en resources")
+                ?: throw IllegalStateException("html/xygeni.css not found")
             cssStream.bufferedReader().use { it.readText() }
         }
         return root + cssContent
@@ -77,7 +110,13 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
         }
     }
 
-    protected abstract fun renderCustomHeader(issue: T): String
+    protected open fun renderCustomHeader(issue: T): String {
+        return createHTML().p {
+            unsafe {
+                +"${issue.category}&nbsp;&nbsp;&nbsp;${issue.type}"
+            }
+        }
+    }
 
     protected open fun renderTabs(issue: T): String {
         val detail = renderCustomIssueDetails(issue)
@@ -85,25 +124,38 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
         val fix = renderCustomFix(issue)
         return createHTML().section(classes = "xy-tabs-section") {
             if (detail.isNotEmpty()) {
-                input(type = InputType.radio, name = "tabs") { id = "tab-1"; checked = true }
-                label { htmlFor = "tab-1"; +"ISSUE DETAILS" }
+                input(type = InputType.radio, name = "tabs") { id = XygeniConstants.ISSUE_DETAILS_TAB_ID; checked = true }
+                label { htmlFor = XygeniConstants.ISSUE_DETAILS_TAB_ID; +XygeniConstants.ISSUE_DETAILS_TAB }
             }
             if (code.isNotEmpty()) {
-                input(type = InputType.radio, name = "tabs") { id = "tab-2" }
-                label { htmlFor = "tab-2"; +"CODE SNIPPET" }
+                input(type = InputType.radio, name = "tabs") { id = XygeniConstants.CODE_SNIPPET_TAB_ID }
+                label { htmlFor = XygeniConstants.CODE_SNIPPET_TAB_ID; +XygeniConstants.CODE_SNIPPET_TAB }
             }
             if (fix.isNotEmpty()) {
-                input(type = InputType.radio, name = "tabs") { id = "tab-3" }
-                label { htmlFor = "tab-3"; +"FIX IT" }
+                input(type = InputType.radio, name = "tabs") { id = XygeniConstants.FIX_IT_TAB_ID}
+                label { htmlFor = XygeniConstants.FIX_IT_TAB_ID; +XygeniConstants.FIX_IT_TAB }
             }
-            unsafe { +detail }
-            unsafe { +code }
-            unsafe { +fix }
+            div {
+                id = XygeniConstants.ISSUE_DETAILS_CONTENT_ID
+                unsafe { +detail }
+            }
+            if (code.isNotEmpty()) {
+                div {
+                    id = XygeniConstants.CODE_SNIPPET_CONTENT_ID
+                    unsafe { +code }
+                }
+            }
+            if (fix.isNotEmpty()) {
+                div {
+                    id = XygeniConstants.FIX_IT_CONTENT_ID
+                    unsafe { +fix }
+                }
+            }
         }
     }
 
 
-    protected open fun renderCustomIssueDetails(issue: T): String = ""
+    protected abstract fun renderCustomIssueDetails(issue: T): String
 
     //region CodeSnippet
     protected open fun renderCustomCodeSnippet(issue: T): String {
@@ -117,7 +169,6 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
     private fun renderCodeSnippet(file: String, code: String, beginLine: Int): String {
         if (code.isEmpty()) return ""
         return createHTML().div {
-            id = "tab-content-2"
             p(classes = "file") {
                 text(file)
             }
@@ -138,7 +189,7 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
 
     // region Fix
     protected open fun renderCustomFix(issue: T): String {
-        if (issue.remediableLevel.isEmpty() || ! issue.remediableLevel.contentEquals("AUTO")) {
+        if (issue.remediableLevel.isEmpty() || !issue.remediableLevel.contentEquals("AUTO")) {
             return ""
         }
 
@@ -146,27 +197,29 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
         val json = Json.encodeToString(RemediationData.serializer(), remediation)
 
         return createHTML().div {
-            id = "tab-content-3"
             p {
-                text("XYGENI AGENT - REMEDIATE ISSUE")
+                text(XygeniConstants.REMEDIATION_TEXT)
             }
-            form { id = "remediation-form"
-                p{
-                    text("This vulnerability is fixable. Run Xygeni Agent to get fixed version preview.")
+            form {
+                id = XygeniConstants.REMEDIATION_FORM_ID
+                p {
+                    text(XygeniConstants.REMEDIATION_EXPLANATION)
                 }
                 hiddenInput { id = "remediation-data"; value = json }
 
                 div {
-                    id = "rem-buttons"
+                    id = XygeniConstants.REMEDIATION_BUTTONS_ID
                     button {
-                        id = "rem-preview-button"; type = ButtonType.button;classes = setOf("xy-button");
-                        onClick = "this.disabled = true; this.innerText = 'Processing...';pluginAction('remediate', document.getElementById('remediation-data').value)"
+                        id = XygeniConstants.REMEDIATION_BUTTON_ID; type = ButtonType.button; classes = setOf("xy-button");
+                        onClick =
+                            "this.disabled = true; this.innerText = 'Processing...';pluginAction('remediate', document.getElementById('remediation-data').value)"
                         +"Remediate with Xygeni Agent"
                     }
                     button {
                         hidden = true
-                        id = "rem-save-button"; type = ButtonType.button;classes = setOf("xy-button");
-                        onClick = "this.style.display='none'; this.disabled = true; this.innerText = 'Saving...';pluginAction('save', document.getElementById('remediation-data').value)"
+                        id = XygeniConstants.REMEDIATION_SAVE_BUTTON_ID; type = ButtonType.button; classes = setOf("xy-button");
+                        onClick =
+                            "this.style.display='none'; this.disabled = true; this.innerText = 'Saving...';pluginAction('save', document.getElementById('remediation-data').value)"
                         +"Save"
                     }
                 }
@@ -228,16 +281,19 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
             return ""
         }
         return createHTML().p {
-            span {id = "xy-detector-doc"; text("Loading...") }
-            p{}
+            span { id = XygeniConstants.LOADING_SPAN_ID; text(XygeniConstants.LOADING_TEXT) }
+            p {}
             a(href = "#", target = "_blank") {
-                id = "xy-detector-link"
+                id = XygeniConstants.LINK_TO_DOC_ID
                 hidden = true
-                text("Link to documentation")
+                text(XygeniConstants.LINK_TO_DOC)
             }
         }
     }
 
+    /**
+     * render renders the full HTM
+     */
     override fun render(issue: T): String {
         val cssContent = loadCssResource()
         val customHeader = renderCustomHeader(issue)
@@ -252,26 +308,12 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
             }
             body {
                 script {
+                    // Inject the global JS helper to allow live data rendering
                     unsafe {
-                        +"""
-                        window.renderData = function(data) {
-                            if (typeof data === 'string') data = JSON.parse(data);
-                            const docEl = document.getElementById('xy-detector-doc');
-                            if (docEl) {
-                                docEl.innerHTML = data.descriptionDoc || '';
-                            }
-   
-                            const linkEl = document.getElementById('xy-detector-link');
-                            if (linkEl) {
-                                linkEl.href = data.linkDocumentation || '#';
-                                linkEl.hidden = !data.linkDocumentation;
-                            }
-                        };
-                                                
-                        window.domReady = true;
-                        """.trimIndent()
+                        +RENDER_DATA_JS.trimIndent()
                     }
                 }
+                // Render static sections (header, issue details, etc.)
                 unsafe {
                     +header
                     +customHeader

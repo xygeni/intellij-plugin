@@ -21,7 +21,7 @@ import com.intellij.openapi.project.Project
 class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
 
     data class State(
-        var apiUrl: String = "",
+        var apiUrl: String = "https://api.xygeni.io/deps-doctor-service",
         var apiToken: String = ""
     )
 
@@ -32,11 +32,6 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
     override fun loadState(state: State) {
         this.state = state
     }
-
-    fun toPluginConfig(): PluginConfig = PluginConfig(
-        url = apiUrl,
-        token = apiToken
-    )
 
     companion object {
         fun getInstance(): XygeniSettings =

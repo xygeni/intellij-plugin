@@ -23,8 +23,6 @@ import javax.swing.JPanel
 // XygeniSettingsConfigurable with a clean setting UI
 class XygeniSettingsConfigurable(private val project: Project) : Configurable {
 
-    private val installer = ApplicationManager.getApplication().getService(InstallerService::class.java)
-
     private lateinit var apiUrlField: JBTextField
     private lateinit var tokenField: JBPasswordField
     private var mainPanel: JPanel? = null
@@ -56,13 +54,6 @@ class XygeniSettingsConfigurable(private val project: Project) : Configurable {
         val settings = XygeniSettings.getInstance()
         settings.apiUrl = apiUrlField.text.trim()
         settings.apiToken = String(tokenField.password).trim()
-
-        // Generas el config a partir de los settings
-        val config = PluginConfig.fromSettings(settings)
-
-        // Llamas al installer para validar e instalar
-        //installer.checkAndInstall(project, config)
-
         this.project.messageBus.syncPublisher(SETTINGS_CHANGED_TOPIC).settingsChanged()
     }
 

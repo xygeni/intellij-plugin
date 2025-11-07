@@ -1,13 +1,5 @@
 package com.github.xygeni.intellij.page
 
-/**
- * DynamicHtmlFileEditor
- *
- * @author : Carmendelope
- * @version : 21/10/25 (Carmendelope)
- **/
-
-
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileEditor.FileEditor
 import com.intellij.openapi.fileEditor.FileEditorState
@@ -21,12 +13,36 @@ import javax.swing.JComponent
 import javax.swing.JPanel
 import javax.swing.SwingUtilities
 
+/**
+ * DynamicHtmlFileEditor
+ *
+ * @author : Carmendelope
+ * @version : 21/10/25 (Carmendelope)
+ *
+ * A lightweight file editor that displays dynamic HTML content
+ * inside a shared JCEF browser manage by [GlobalCefService]
+ *
+ * Responsibilities:
+ * - Integrates the global browser into the IDE editor UI
+ * - Loads and renders HTML pages (provided via LightVirtualFile)
+ * - Sends data to the webview via [GlobalCefService.loadHtmlOnce]
+ * - Associates the browser session with the current [Project]
+ *
+ * Notes:
+ * - This editor does **not** own a JCEF instance; instead, it reuses the gloabl one
+ * - The actual HTML rendering and JS <-> Kotlin bridge logic lives in [GlobalCefService]
+ * - When multiple dynamic editors are opened, only one (the active one) updates the
+ *   project context in the global service
+ **/
+
 class DynamicHtmlFileEditor(
     private val project: Project,
     private val file: VirtualFile
 ) : UserDataHolderBase(), FileEditor {
 
+    // panel root swing panel that hosts the browser UI
     private val panel = JPanel(BorderLayout())
+    // globalService references to the shared global browser service
     private val globalService = ApplicationManager.getApplication().getService(GlobalCefService::class.java)
     private val fileId = file.nameWithoutExtension + "@" + System.identityHashCode(this)
 
@@ -41,18 +57,24 @@ class DynamicHtmlFileEditor(
         }
     }
 
-
+    /**
+     * renderData called by other plugin components (views)
+     * to push data into the HTML page (via window.renderData())
+     */
     fun renderData(json: String) {
         println("renderData for $fileId")
         globalService.renderData(json, fileId)
     }
 
+    // -- FileEditor implementation --/
     override fun getComponent(): JComponent = panel
     override fun getPreferredFocusedComponent(): JComponent? = panel
     override fun getName(): String = "Dynamic HTML Viewer"
     override fun isModified(): Boolean = false
     override fun isValid(): Boolean = true
-    override fun dispose() {}
+    override fun dispose() {
+        panel.removeAll()
+    }
     override fun getState(level: FileEditorStateLevel): FileEditorState = FileEditorState.INSTANCE
     override fun setState(state: FileEditorState) {}
     override fun getFile(): VirtualFile = file

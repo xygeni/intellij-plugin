@@ -1,13 +1,14 @@
 package com.github.xygeni.intellij.render
 
 import com.github.markusbernhardt.proxy.util.Logger
+import com.github.xygeni.intellij.render.XygeniConstants.EXPLANATION_KEY
 import com.github.xygeni.intellij.model.report.sast.SastXygeniIssue
 import com.github.xygeni.intellij.model.report.sca.ScaXygeniIssue
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 
 /**
- * CsagIssueRenderer
+ * ScaIssueRenderer
  *
  * @author : Carmendelope
  * @version : 22/10/25 (Carmendelope)
@@ -32,12 +33,10 @@ class ScaIssueRenderer: BaseHtmlIssueRenderer<ScaXygeniIssue>() {
     }
 
     override fun renderCustomIssueDetails(issue: ScaXygeniIssue): String {
-        // println(issue)
         return createHTML().div {
-            id = "tab-content-1"
             table {
                 tbody {
-                    unsafe { +renderDetailTableLine("Explanation", issue.explanation) }
+                    unsafe { +renderDetailTableLine(EXPLANATION_KEY, issue.explanation) }
                     unsafe { +renderDetailTableLine("Published", issue.publicationDate) }
                     unsafe { +renderDetailBranch(issue.branch) }
                     unsafe { +renderDetailTableLine("Affecting", issue.displayFileName) }

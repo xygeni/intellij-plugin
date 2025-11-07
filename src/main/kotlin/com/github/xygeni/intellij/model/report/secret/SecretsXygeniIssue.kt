@@ -18,7 +18,7 @@ data class SecretsXygeniIssue(
     override val tool: String? = null,
     override val severity: String,
     override val confidence: String = "",
-    override val category: String = "secrets",
+    override val category: String = "Secret",
     override val categoryName: String = "Secret",
     override val file: String = "",
     override val beginLine: Int = 0,
