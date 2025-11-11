@@ -124,7 +124,7 @@ fun formatIsoDateToUtc(isoDate: String?): String {
     if ( isoDate.isNullOrBlank()) return ""
     val instant = Instant.parse(isoDate)
     val zoned = instant.atZone(ZoneId.of("UTC"))
-    val formatter = DateTimeFormatter.ofPattern("dd MMM, yyyy, HH:mm", Locale("es"))
+    val formatter = DateTimeFormatter.ofPattern("dd MMM, yyyy, HH:mm", Locale.ENGLISH)
     return zoned.format(formatter)
 }
 

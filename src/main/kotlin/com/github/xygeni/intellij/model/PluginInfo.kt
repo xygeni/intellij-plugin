@@ -12,7 +12,7 @@ import kotlin.lazy
  **/
 object PluginInfo {
 
-    private const val PLUGIN_ID = "xygeni-plugin"
+    private const val PLUGIN_ID = "xygeni"
 
     private val descriptor
         get() = PluginManagerCore.getPlugin(PluginId.getId(PLUGIN_ID))

@@ -29,6 +29,13 @@ repositories {
     intellijPlatform {
         defaultRepositories()
     }
+
+    maven {
+        url = uri("https://www.jetbrains.com/intellij-repository/releases")
+    }
+    maven {
+        url = uri("https://cache-redirector.jetbrains.com/intellij-dependencies")
+    }
 }
 
 // Dependencies are managed with Gradle version catalog - read more: https://docs.gradle.org/current/userguide/platforms.html#sub:version-catalog
