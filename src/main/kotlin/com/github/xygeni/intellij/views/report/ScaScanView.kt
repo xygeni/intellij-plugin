@@ -26,21 +26,12 @@ class ScaScanView (project: Project) : BaseView<ScaXygeniIssue>(
 ){
 
     override val renderer = ScaIssueRenderer()
-/*
-    override fun buildNode(item: ScaXygeniIssue): DefaultMutableTreeNode {
-        return DefaultMutableTreeNode(
-            NodeData(
-                text = "(${item.type}) - ${item.file}",
-                icon = item.getIcon(),
-                tooltip = item.explanation,
-                onClick = {
-                    // openFileInEditor(project, item.file, item.beginLine, item.beginColumn, item.endLine, item.endColumn)
-                    openFileInEditor(project, item.file, item.beginLine, item.beginColumn)
-                },
-                onDoubleClick = {
-                    this.openDynamicHtml(project, item)
-                }
-            ))
+
+    override fun getToolTipExplanation(item: ScaXygeniIssue): String {
+        if (item.displayFileName.isNullOrBlank() ){
+            return item.explanation
+        }
+        return "<b>Affecting: ${item.displayFileName}</b><br><br>${item.explanation}"
     }
-*/
+
 }

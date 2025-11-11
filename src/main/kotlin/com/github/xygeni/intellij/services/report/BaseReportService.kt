@@ -33,11 +33,21 @@ abstract class BaseReportService<T : BaseXygeniIssue>(
         project.messageBus.connect()
             .subscribe(SCAN_STATE_TOPIC, object : ScanStateListener {
                 override fun scanStateChanged(project: Project?, status: Int) {
-                    if (project != this@BaseReportService.project || status == 2 /*Running*/) return
+                    //if (project != this@BaseReportService.project || status == 2 /*Running*/) return
+                    if (project != this@BaseReportService.project) return
+                    if (status == 2) return cleanIssuesAndReturn()
                     read()
                 }
             })
     }
+
+    private fun cleanIssuesAndReturn(){
+        this._issues.clear()
+        ApplicationManager.getApplication().messageBus
+            .syncPublisher(READ_TOPIC)
+            .readCompleted(project, this@BaseReportService.reportType)
+    }
+
 
     protected abstract fun processReport(jsonString: String): List<T>
 
