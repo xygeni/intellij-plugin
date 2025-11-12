@@ -10,11 +10,14 @@ package com.github.xygeni.intellij.views.report
 
 import com.github.xygeni.intellij.events.READ_TOPIC
 import com.github.xygeni.intellij.events.ReadListener
+import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.model.report.BaseXygeniIssue
 import com.github.xygeni.intellij.page.DynamicHtmlFileEditor
 import com.github.xygeni.intellij.render.BaseHtmlIssueRenderer
 import com.github.xygeni.intellij.services.report.BaseReportService
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.editor.Document
+import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.markup.EffectType
 import com.intellij.openapi.editor.markup.HighlighterLayer
 import com.intellij.openapi.editor.markup.HighlighterTargetArea
@@ -168,7 +171,13 @@ abstract class BaseView<T : BaseXygeniIssue>(
         })
     }
 
-    // openFileInEditor opens the file retrieved and mark the code
+    fun lineColToOffset(lineNum: Int, colNum: Int, document: Document): Int {
+        val safeLine = lineNum.coerceIn(0, document.lineCount - 1)
+        val start = document.getLineStartOffset(safeLine)
+        val end = document.getLineEndOffset(safeLine)
+        return (start + colNum).coerceIn(start, end)
+    }
+
     fun openFileInEditor(
         project: Project,
         relativePath: String,
@@ -184,100 +193,74 @@ abstract class BaseView<T : BaseXygeniIssue>(
         val beginLine0 = (line - 1).coerceAtLeast(0)
         val beginColumn0 = (column - 1).coerceAtLeast(0)
         val endLine0 = if (endLine >= 0) (endLine - 1).coerceAtLeast(0) else -1
+        val endColumn0 = if (endColumn >= 0) (endColumn - 1).coerceAtLeast(0) else -1
+        print("opening $relativePath file from $beginLine0:$beginColumn0 to $endLine0:$endColumn0")
 
-        // Open file and pos the cursor
-        val editor = FileEditorManager.getInstance(project)
-            .openTextEditor(OpenFileDescriptor(project, vFile, beginLine0, beginColumn0), true)
-            ?: return
+        val editor: Editor? = ApplicationManager.getApplication().runWriteAction<Editor?> {
+            FileEditorManager.getInstance(project)
+                .openTextEditor(OpenFileDescriptor(project, vFile, beginLine0, beginColumn0), true)
+        }
+        if (editor == null) {
+            Logger.log("openFileInEditor: editor is null")
+            return
+        }
 
-        // mark the text
         val document = editor.document
         val markup = editor.markupModel
 
-        fun lineColToOffset(lineNum: Int, colNum: Int): Int {
-            val safeLine = lineNum.coerceIn(0, document.lineCount - 1)
-            val start = document.getLineStartOffset(safeLine)
-            val end = document.getLineEndOffset(safeLine)
-            return (start + colNum).coerceIn(start, end)
-        }
+        // remove previous highlighters
+        ApplicationManager.getApplication().invokeLater {
+            ApplicationManager.getApplication().runWriteAction {
+                markup.allHighlighters
+                    .filter { it.layer == HighlighterLayer.ERROR + 1 }
+                    .forEach { markup.removeHighlighter(it) }
 
-        when {
-            // Rango informado
-            endLine0 >= 0 && endColumn >= 0 -> {
-                val startOffset: Int
-                val endOffset: Int
-
-                if (beginLine0 == endLine0 && column == endColumn) {
-                    // resaltar toda la línea
-                    startOffset = document.getLineStartOffset(beginLine0)
-                    endOffset = document.getLineEndOffset(beginLine0)
-                } else {
-                    startOffset = lineColToOffset(beginLine0, column)
-                    endOffset = lineColToOffset(endLine0, endColumn)
-                }
-
-                // Fondo amarillo para toda la línea
-                val lineStartOffset = document.getLineStartOffset(beginLine0)
-                val lineEndOffset = document.getLineEndOffset(endLine0)
-                val bgAttributes = TextAttributes().apply {
-                    effectType = null
-                    backgroundColor = JBColor(Color(255, 255, 0, 50), Color(255, 255, 60, 60))
-                }
-                markup.addRangeHighlighter(
-                    lineStartOffset,
-                    lineEndOffset,
-                    HighlighterLayer.SELECTION - 1,
-                    bgAttributes,
-                    HighlighterTargetArea.EXACT_RANGE
-                )
-
-                // Recuadro BOXED alrededor del rango real
-                val boxAttributes = TextAttributes().apply {
+                // highlight the code
+                val underlineAttributes = TextAttributes().apply {
                     effectType = EffectType.BOXED
-                    effectColor = JBColor(Color(255, 255, 0), Color(255, 255, 120))
+                    effectColor = JBColor.RED
+                    backgroundColor = null
                 }
-                markup.addRangeHighlighter(
-                    startOffset,
-                    endOffset,
-                    0,
-                    boxAttributes,
-                    HighlighterTargetArea.EXACT_RANGE
-                )
+
+                when {
+                    endLine0 >= 0 && endColumn0 >= 0 -> {
+                        val startOffset: Int
+                        var endOffset: Int
+
+                        if (beginColumn0 == 0 && endColumn0 == 0) {
+                            startOffset = document.getLineStartOffset(beginLine0)
+                            endOffset = document.getLineEndOffset(endLine0)
+                        } else {
+                            startOffset = lineColToOffset(beginLine0, beginColumn0, document)
+                            endOffset = lineColToOffset(endLine0, endColumn0, document)
+                            if (startOffset == endOffset) {
+                                endOffset = startOffset + 1
+                            }
+                        }
+
+                        markup.addRangeHighlighter(
+                            startOffset,
+                            endOffset,
+                            HighlighterLayer.ERROR + 1,
+                            underlineAttributes,
+                            HighlighterTargetArea.EXACT_RANGE
+                        )
+                    }
+
+                    line > 0 -> {
+                        val startOffset = document.getLineStartOffset(beginLine0)
+                        val endOffset = document.getLineEndOffset(beginLine0)
+                        markup.addRangeHighlighter(
+                            startOffset,
+                            endOffset,
+                            HighlighterLayer.ERROR + 1,
+                            underlineAttributes,
+                            HighlighterTargetArea.EXACT_RANGE
+                        )
+                    }
+                    else -> Unit
+                }
             }
-
-            // Solo línea informada → resaltar toda la línea
-            line > 0 -> {
-                val startOffset = document.getLineStartOffset(beginLine0)
-                val endOffset = document.getLineEndOffset(beginLine0)
-
-                // Fondo amarillo
-                val bgAttributes = TextAttributes().apply {
-                    effectType = null
-                    backgroundColor = JBColor(Color(255, 255, 0, 50), Color(255, 255, 60, 60))
-                }
-                markup.addRangeHighlighter(
-                    startOffset,
-                    endOffset,
-                    HighlighterLayer.SELECTION - 1,
-                    bgAttributes,
-                    HighlighterTargetArea.EXACT_RANGE
-                )
-
-                // Recuadro BOXED en toda la línea
-                val boxAttributes = TextAttributes().apply {
-                    effectType = EffectType.BOXED
-                    effectColor = JBColor(Color(255, 255, 0), Color(255, 255, 120))
-                }
-                markup.addRangeHighlighter(
-                    startOffset,
-                    endOffset,
-                    0,
-                    boxAttributes,
-                    HighlighterTargetArea.EXACT_RANGE
-                )
-            }
-
-            else -> Unit
         }
     }
 
@@ -295,13 +278,17 @@ abstract class BaseView<T : BaseXygeniIssue>(
 
     protected open fun getItems(): List<T> = service.issues
 
+    protected open fun getToolTipExplanation(item: T) : String {
+        return item.explanation
+    }
+
     // buildNode builds a node for each issue
     protected open fun buildNode(item: T): DefaultMutableTreeNode {
         return DefaultMutableTreeNode(
             NodeData(
                 text = "(${item.type}) - ${item.file}",
                 icon = item.getIcon(),
-                tooltip = item.explanation,
+                tooltip = getToolTipExplanation(item),
                 onClick = {
                     openFileInEditor(
                         project, item.file, item.beginLine, item.beginColumn,

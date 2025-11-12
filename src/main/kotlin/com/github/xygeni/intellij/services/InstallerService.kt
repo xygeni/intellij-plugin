@@ -241,7 +241,7 @@ class InstallerService {
     // install checks the xygeni command and install if it does not exist
     fun install() {
         if (isInstalled()) {
-            Logger.log("Xygeni installed")
+            Logger.log(">> Xygeni installed")
             return
         }
         downloadAndInstall()

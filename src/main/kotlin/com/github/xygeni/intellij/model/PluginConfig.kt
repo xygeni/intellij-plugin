@@ -28,8 +28,6 @@ data class PluginConfig(
     }
 
     fun toEnv():Map<String, String>? {
-        if (!isValid()) return null
-
         return mapOf(
             "XYGENI_TOKEN" to token,
             "XYGENI_URL" to url

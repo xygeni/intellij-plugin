@@ -29,16 +29,8 @@
         <toolWindow id="Xygeni console"
                     anchor="bottom"
                     factoryClass="com.github.xygeni.intellij.toolWindow.ConsoleWindowFactory"
-                    icon="Icons.MESSAGES_ICON"
+                    icon="Icons.XYGENI_ICON"
         />
-<!--
-        <toolWindow id="HTML Preview"
-                    factoryClass="com.github.xygeni.intellij.toolWindow.HtmlPreviewToolWindowFactory"
-                    anchor="right"
-                    secondary="true"
-                    icon="Icons.MESSAGES_ICON"
-        />
--->
     </extensions>
 
     <actions>

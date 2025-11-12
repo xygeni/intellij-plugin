@@ -18,11 +18,40 @@
 - [ ] Configure the [CODECOV_TOKEN](https://docs.codecov.com/docs/quick-start) secret for automated test coverage reports on PRs
 
 <!-- Plugin description -->
-This Fancy IntelliJ Platform Plugin is going to be your implementation of the brilliant ideas that you have.
+# Xygeni Security Plugin
 
-This specific section is a source for the [plugin.xml](/src/main/resources/META-INF/plugin.xml) file which will be extracted by the [Gradle](/build.gradle.kts) during the build process.
+**Secure your codebase with Secrets, SAST, SCA, IaC & Supply Chain scanning directly within your VS Code environment.**
 
-To keep everything working, do not remove `<!-- ... -->` sections. 
+**Xygeni Security Scanner** is a powerful extension that brings comprehensive security scanning to your fingertips. It integrates seamlessly with your development workflow, allowing you to identify and remediate security vulnerabilities early in the process.
+
+## Key features:
+* **Comprehensive Scanning**: Detect a wide range of security issues:
+  * **_Secrets_**: Find hardcoded credentials, API keys, and other sensitive data.
+  * **_SAST (Static Application Security Testing)_**: Analyze your source code for common vulnerabilities.
+  * **_SCA (Software Composition Analysis)_**: Identify vulnerabilities in your open-source dependencies.
+  * **_IaC (Infrastructure as Code)_**: Scan your IaC files (e.g., Terraform, CloudFormation) for misconfigurations.
+  * **_Misconfigurations_**: Detect security misconfigurations in your application and services.
+* **Seamless Integration**: The extension adds a dedicated Xygeni view to your activity bar for easy access.
+* **Guided Setup**: A simple configuration process to connect to the Xygeni service.
+* **_In-Editor Issue Highlighting_**: View security findings directly in your code, making it easy to pinpoint and fix issues.
+* **_Detailed Vulnerability Information_**: Get rich details for each identified issue, including severity, description, and remediation guidance.
+
+
+## Getting started:
+
+1. **Install the plugin** from [JetBrains marketplace](https://plugins.jetbrains.com/search?search=xygeni). Once installed, the plugin automatically downloads and sets up the **Xygeni Scanner**
+2. **Open the Xygeni View and the Xygeni console**** ![Console](./src/main/resources/icons/messages.svg): After installation, click the Xygeni icon in the activity bar to open the view and console.
+3. **Configure the plugin**:
+   - You will be prompted to configure the connection to the Xygeni service.
+   - Obtain an API token from your [**Xygeni Dashboard**](https://in.xygeni.io/auth/login). If you don’t have an account, you can sign up for a free trial.
+   - Enter the **Xygeni API URL** and your **API token** in the configuration view.
+4. **Run a scan**.
+   - Once configured, the scan is ready
+   - Click on the **Run scan** button ![Run scanner button](./src/main/resources/icons/run.svg) to initiate a scan of your workspace
+5. **View results**: 
+    - Scan results are displayed in the Xygeni view, categorized by type (SAST, SCA, Secrets, etc.).
+    - Click an issue to view detailed information and navigate directly to the affected file and line.
+
 <!-- Plugin description end -->
 
 ## Installation

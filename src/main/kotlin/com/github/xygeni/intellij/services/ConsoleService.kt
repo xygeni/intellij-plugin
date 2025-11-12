@@ -16,11 +16,25 @@ class ConsoleService {
 
     private var console: ConsoleView? = null
 
+    private val logBuffer = mutableListOf<Pair<String, ConsoleViewContentType>>()
+    private val maxBufferSize = 1000
+
     fun setConsoleView(consoleView: ConsoleView) {
         console = consoleView
+
+        for ((message, type) in logBuffer) {
+            console?.print(message + "\n", type)
+        }
+        logBuffer.clear()
     }
 
     fun print(message: String, type: ConsoleViewContentType = ConsoleViewContentType.NORMAL_OUTPUT) {
+        logBuffer.add(message to type)
+
+        if (logBuffer.size > maxBufferSize) {
+            logBuffer.subList(0, logBuffer.size - maxBufferSize).clear()
+        }
+
         console?.print(message + "\n", type)
     }
 
@@ -30,5 +44,6 @@ class ConsoleService {
 
     fun clear() {
         console?.clear()
+        logBuffer.clear()
     }
 }

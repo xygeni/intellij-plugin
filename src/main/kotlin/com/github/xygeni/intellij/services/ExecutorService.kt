@@ -30,6 +30,20 @@ abstract class ProcessExecutorService {
             var success = false
 
             try {
+
+                // Check envs:
+                var emptyEnv = false
+                envs?.forEach { (key, value) ->
+                    if (value.isNullOrBlank()  ) {
+                        Logger.error("❌ $key cannot be empty")
+                        emptyEnv = true
+                    }
+                }
+                if (emptyEnv) {
+                    ApplicationManager.getApplication().invokeLater { onComplete(false) }
+                    return@executeOnPooledThread
+                }
+
                 val file = File(path)
                 if (!file.exists()) {
                     Logger.error("❌ The file $path does not exist")
@@ -46,9 +60,11 @@ abstract class ProcessExecutorService {
                     processBuilder.directory(workingDir)
                 }
                 val env = processBuilder.environment()
+
                 if (envs != null){
                     env.putAll(envs)
                 }
+
                 val process = processBuilder.start()
 
                 //val handler = OSProcessHandler(process, command.joinToString(" "))
@@ -57,7 +73,7 @@ abstract class ProcessExecutorService {
                         return BaseOutputReader.Options.forMostlySilentProcess()
                     }
                 }
-                handler.addProcessListener(object : ProcessAdapter() {
+                handler.addProcessListener(object : ProcessListener {
 
                     override fun onTextAvailable(event: ProcessEvent, outputType: Key<*>) {
                         val text = event.text.trimEnd()

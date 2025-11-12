@@ -20,15 +20,14 @@ import javax.swing.JPanel
 class ConsoleWindowFactory : ToolWindowFactory {
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
         val panel = JPanel(BorderLayout())
+
         val console: ConsoleView = ConsoleViewImpl(project, true)
         panel.add(console.component, BorderLayout.CENTER)
-        panel.add(console.component)
 
         val content = ContentFactory.getInstance().createContent(panel, "", false)
         toolWindow.contentManager.addContent(content)
 
-        // Guardamos el console en tu Installer
-        val consleSvc = ApplicationManager.getApplication().getService(ConsoleService::class.java)
-        consleSvc.setConsoleView(console)
+        val consoleSvc = ApplicationManager.getApplication().getService(ConsoleService::class.java)
+        consoleSvc.setConsoleView(console)
     }
 }
