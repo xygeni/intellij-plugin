@@ -1,7 +1,6 @@
 package com.github.xygeni.intellij.services.server
 
 import com.github.xygeni.intellij.logger.Logger
-import com.github.xygeni.intellij.model.report.server.DetectorDetail
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -10,8 +9,11 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import com.github.xygeni.intellij.settings.XygeniSettings
-import com.jetbrains.rd.util.info
-import javax.swing.Timer
+
+import com.vladsch.flexmark.html.HtmlRenderer
+import com.vladsch.flexmark.parser.Parser
+import org.json.JSONObject
+
 
 
 /**
@@ -38,6 +40,20 @@ class ServerClient(private val baseUrl: String, private val token: String) {
             val settings = XygeniSettings.getInstance()
             return settings.apiToken
         }
+
+        private val parser: Parser by lazy { Parser.builder().build() }
+        private val renderer: HtmlRenderer by lazy { HtmlRenderer.builder().build() }
+
+        fun convert(docMD: String): String {
+            if (docMD.isNotEmpty()){
+                val document = parser.parse(docMD)
+                val htmlConverted = renderer.render(document)
+                    .replace("<a href=", "<a target=\"_blank\" href=")
+                return htmlConverted
+            }
+            return docMD
+        }
+
     }
 
     private val client = OkHttpClient()
@@ -110,7 +126,20 @@ class ServerClient(private val baseUrl: String, private val token: String) {
         }
         val params = mapOf("tool" to tool, "kind" to kind, "detectorId" to detector)
         val response =  this.getJson("internal/policy/detector/doc", params = params)
-        return  response.toString()
+
+        if (response.isNullOrBlank()) return ""
+        return try{
+            val jsonData = JSONObject(response)
+            val docMD = jsonData.optString ("descriptionDoc")
+            val htmlConverted = convert(docMD)
+            jsonData.put("descriptionDoc", htmlConverted)
+            jsonData.toString()
+        }
+        catch (e: Exception) {
+            println("Error processing AsciiDoc: {$e.message}")
+             response
+        }
+
     }
 
 }
