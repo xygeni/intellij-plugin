@@ -8,9 +8,6 @@ package com.github.xygeni.intellij.settings
  **/
 
 import com.github.xygeni.intellij.events.SETTINGS_CHANGED_TOPIC
-import com.github.xygeni.intellij.model.PluginConfig
-import com.github.xygeni.intellij.services.InstallerService
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.project.Project
 import com.intellij.ui.components.JBLabel
@@ -47,7 +44,7 @@ class XygeniSettingsConfigurable(private val project: Project) : Configurable {
     override fun isModified(): Boolean {
         val settings = XygeniSettings.getInstance()
         return apiUrlField.text != settings.apiUrl ||
-                String(tokenField.password) != settings.apiToken
+                String(tokenField.password) != (settings.apiToken ?: "")
     }
 
     override fun apply() {
@@ -60,7 +57,7 @@ class XygeniSettingsConfigurable(private val project: Project) : Configurable {
     override fun reset() {
         val settings = XygeniSettings.getInstance()
         apiUrlField.text = settings.apiUrl
-        tokenField.text = settings.apiToken
+        tokenField.text = settings.apiToken ?: ""
     }
 
     override fun disposeUIResources() {

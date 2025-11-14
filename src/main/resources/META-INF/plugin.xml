@@ -13,6 +13,8 @@
     <extensions defaultExtensionNs="com.intellij">
         <fileEditorProvider implementation="com.github.xygeni.intellij.page.DynamicHtmlEditorProvider"/>
 
+        <postStartupActivity implementation="com.github.xygeni.intellij.activity.XygeniStartup"/>
+
         <projectConfigurable
                 instance="com.github.xygeni.intellij.settings.XygeniSettingsConfigurable"
                 displayName="Xygeni"

@@ -11,7 +11,7 @@ import com.intellij.execution.ui.ConsoleView
 import com.intellij.execution.ui.ConsoleViewContentType
 import com.intellij.openapi.components.Service
 
-@Service(Service.Level.APP)
+@Service(Service.Level.PROJECT)
 class ConsoleService {
 
     private var console: ConsoleView? = null
@@ -29,13 +29,12 @@ class ConsoleService {
     }
 
     fun print(message: String, type: ConsoleViewContentType = ConsoleViewContentType.NORMAL_OUTPUT) {
-        logBuffer.add(message to type)
-
+        val pid = ProcessHandle.current().pid()
+        logBuffer.add("[$pid] $message" to type)
         if (logBuffer.size > maxBufferSize) {
             logBuffer.subList(0, logBuffer.size - maxBufferSize).clear()
         }
-
-        console?.print(message + "\n", type)
+        console?.print("[$pid] $message\n", type)
     }
 
     fun printError(message: String) {

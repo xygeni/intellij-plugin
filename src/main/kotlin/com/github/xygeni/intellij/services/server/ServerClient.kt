@@ -38,7 +38,7 @@ class ServerClient(private val baseUrl: String, private val token: String) {
 
         private fun findToken(): String {
             val settings = XygeniSettings.getInstance()
-            return settings.apiToken
+            return settings.apiToken?: ""
         }
 
         private val parser: Parser by lazy { Parser.builder().build() }
@@ -122,7 +122,7 @@ class ServerClient(private val baseUrl: String, private val token: String) {
     fun getDetectorDetails (tool: String, kind: String, detector: String) : String{
         if (this.baseUrl == "" || this.token == "") {
             Logger.log("❌ Cannot load detector details because the server configuration is missing.")
-            return ""
+            throw Exception("❌ Cannot load detector details because the server configuration is missing.")
         }
         val params = mapOf("tool" to tool, "kind" to kind, "detectorId" to detector)
         val response =  this.getJson("internal/policy/detector/doc", params = params)

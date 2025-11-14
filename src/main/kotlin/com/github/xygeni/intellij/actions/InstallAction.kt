@@ -18,6 +18,6 @@ import com.intellij.openapi.ui.Messages
 
 class InstallAction : AnAction(AllIcons.Actions.Suspend){
     override fun actionPerformed(e: AnActionEvent) {
-        ApplicationManager.getApplication().getService(InstallerService::class.java).installOrUpdate()
+        ApplicationManager.getApplication().getService(InstallerService::class.java).installOrUpdate(e.project)
     }
 }

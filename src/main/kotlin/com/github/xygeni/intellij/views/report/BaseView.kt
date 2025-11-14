@@ -201,7 +201,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
                 .openTextEditor(OpenFileDescriptor(project, vFile, beginLine0, beginColumn0), true)
         }
         if (editor == null) {
-            Logger.log("openFileInEditor: editor is null")
+            Logger.log("openFileInEditor: editor is null", project)
             return
         }
 
@@ -329,15 +329,21 @@ abstract class BaseView<T : BaseXygeniIssue>(
         // ask for detector info
         if (item.kind != "" && item.kind != "sca") {
             ApplicationManager.getApplication().executeOnPooledThread {
-                val data = item.fetchData()
-                //println(data)
-                ApplicationManager.getApplication().invokeLater {
-                    val editor = FileEditorManager.getInstance(project)
-                        .getEditors(file)
-                        .filterIsInstance<DynamicHtmlFileEditor>()
-                        .firstOrNull()
-                    editor?.renderData(data)
+                try {
+                    val data = item.fetchData()
+                    //println(data)
+                    ApplicationManager.getApplication().invokeLater {
+                        val editor = FileEditorManager.getInstance(project)
+                            .getEditors(file)
+                            .filterIsInstance<DynamicHtmlFileEditor>()
+                            .firstOrNull()
+                        editor?.renderData(data)
+                    }
                 }
+                catch (e: Exception) {
+                    Logger.warn(e.message?: e.toString(), project)
+                }
+
             }
         }
     }

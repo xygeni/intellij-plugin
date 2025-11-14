@@ -3,6 +3,7 @@ package com.github.xygeni.intellij.services
 import com.github.xygeni.intellij.events.SCAN_STATE_TOPIC
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.model.PluginConfig
+import com.github.xygeni.intellij.model.PluginContext
 import com.github.xygeni.intellij.settings.XygeniSettings
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
@@ -22,10 +23,7 @@ import com.intellij.openapi.project.Project
 @Service(Service.Level.PROJECT)
 class ScanService : ProcessExecutorService() {
 
-    private val manager = service<PluginManagerService>()
-    private val pluginContext = manager.pluginContext
-    private val executor = manager.executor
-
+    private val pluginContext = PluginContext() // manager.pluginContext
     private var scanning = false
 
     private val baseArgs: Map<String, String> = mapOf(
@@ -59,11 +57,12 @@ class ScanService : ProcessExecutorService() {
         publishScanUpdate(project, 2) // running
 
         try {
-            executor.executeProcess(
+            executeProcess(
                 pluginContext.xygeniCommand,
                 this@ScanService.buildArgs(path),
-                PluginConfig.fromSettings(XygeniSettings.getInstance()).toEnv(),
+                XygeniSettings.getInstance().toEnv(),
                 scanResultDir,
+                project,
             ) { success ->
                 if (success) {
                     publishScanUpdate(project, 1) // Finished

@@ -43,7 +43,7 @@ class DynamicHtmlFileEditor(
     // panel root swing panel that hosts the browser UI
     private val panel = JPanel(BorderLayout())
     // globalService references to the shared global browser service
-    private val globalService = ApplicationManager.getApplication().getService(GlobalCefService::class.java)
+    private val globalService = project.getService(GlobalCefService::class.java)
     private val fileId = file.nameWithoutExtension + "@" + System.identityHashCode(this)
 
     init {

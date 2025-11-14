@@ -62,7 +62,7 @@ class XygeniWindowFactory : ToolWindowFactory {
         contentManager.addContent(content)
 
         // -- install
-        ApplicationManager.getApplication().getService(InstallerService::class.java).install()
+        // ApplicationManager.getApplication().getService(InstallerService::class.java).install(project)
 
     }
 }

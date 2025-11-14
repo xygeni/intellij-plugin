@@ -2,10 +2,9 @@ package com.github.xygeni.intellij.services
 
 import com.github.xygeni.intellij.events.CONNECTION_STATE_TOPIC
 import com.github.xygeni.intellij.logger.Logger
-import com.github.xygeni.intellij.model.PluginConfig
+import com.github.xygeni.intellij.model.PluginContext
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
-import com.intellij.openapi.components.service
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
@@ -28,23 +27,21 @@ import javax.swing.SwingUtilities
  * @version : 7/10/25 (Carmendelope)
  **/
 @Service(Service.Level.APP)
-class InstallerService {
+class InstallerService : ProcessExecutorService(){
 
-    private val manager = service<PluginManagerService>()
-    private val pluginContext = manager.pluginContext
-    private val executor = manager.executor
+    private val pluginContext = PluginContext() //manager.pluginContext
     private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
 
 
-    private fun uninstallIfNeeded() {
-        Logger.log("Removing previous installation: ${this.pluginContext.installDir.absolutePath}...")
+    private fun uninstallIfNeeded(project: Project? = null) {
+        Logger.log("Removing previous installation: ${this.pluginContext.installDir.absolutePath}...", project)
         this.deleteSafe(this.pluginContext.installDir.absolutePath)
     }
 
-    private fun checkUrlAccessible(url: String, callback: (Boolean) -> Unit) {
+    private fun checkUrlAccessible(url: String, project: Project? = null, callback: (Boolean) -> Unit) {
         ApplicationManager.getApplication().executeOnPooledThread {
             val accessible = try {
                 val validateUrl = if (url.endsWith("/")) "${url}ping" else "$url/ping"
@@ -54,7 +51,7 @@ class InstallerService {
                     .build()
 
                 client.newCall(request).execute().use { response ->
-                    Logger.log("=== Connection ready: ${response.code}")
+                    Logger.log("=== Connection ready: ${response.code}", project)
                     response.isSuccessful || response.code in 300..399
                 }
             } catch (e: Exception) {
@@ -67,7 +64,7 @@ class InstallerService {
         }
     }
 
-    private fun checkTokenValid(apiUrl: String, token: String, callback: (Boolean) -> Unit) {
+    private fun checkTokenValid(apiUrl: String, token: String, project: Project? = null, callback: (Boolean) -> Unit) {
         ApplicationManager.getApplication().executeOnPooledThread {
             val valid = try {
                 val validateUrl = if (apiUrl.endsWith("/")) "${apiUrl}language" else "$apiUrl/language"
@@ -79,7 +76,7 @@ class InstallerService {
                     .build()
 
                 client.newCall(request).execute().use { response ->
-                    Logger.log("=== Token authorized: ${response.code}")
+                    Logger.log("=== Token authorized: ${response.code}", project)
                     response.isSuccessful || response.code in 300..399
                 }
             } catch (e: Exception) {
@@ -92,16 +89,16 @@ class InstallerService {
         }
     }
 
-    fun validateConnection(apiUrl: String, token: String, callback: (urlOk: Boolean, tokenOk: Boolean) -> Unit) {
+    fun validateConnection(apiUrl: String, token: String, project: Project? = null, callback: (urlOk: Boolean, tokenOk: Boolean) -> Unit) {
         if (apiUrl.isBlank()) {
             SwingUtilities.invokeLater { callback(false, false) }
             return
         }
-        Logger.log("===========================")
-        Logger.log("== Validating connection ==")
-        Logger.log("===========================")
+        Logger.log("===========================", project)
+        Logger.log("== Validating connection ==", project)
+        Logger.log("===========================", project)
 
-        checkUrlAccessible(apiUrl) { urlOk ->
+        checkUrlAccessible(apiUrl, project) { urlOk ->
             if (!urlOk) {
                 callback(false, false)
                 return@checkUrlAccessible
@@ -112,7 +109,7 @@ class InstallerService {
                 return@checkUrlAccessible
             }
 
-            checkTokenValid(apiUrl, token) { tokenOk ->
+            checkTokenValid(apiUrl, token, project) { tokenOk ->
                 callback(true, tokenOk)
             }
         }
@@ -126,7 +123,7 @@ class InstallerService {
         }
     }
 
-    private fun downloadScript(url: String): File? {
+    private fun downloadScript(url: String, project: Project? = null): File? {
         val client = OkHttpClient()
         val fileName = url.substringAfterLast('/')
 
@@ -139,12 +136,12 @@ class InstallerService {
 
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
-                    Logger.warn("error downloading script from $url: ${response.code}")
+                    Logger.warn("error downloading script from $url: ${response.code}", project)
                     return null
                 }
 
                 val body = response.body ?: run {
-                    Logger.warn("Empty response downloading script from $url")
+                    Logger.warn("Empty response downloading script from $url", project)
                     return null
                 }
 
@@ -154,19 +151,18 @@ class InstallerService {
                 // delete the previous script
                 this.deleteSafe(tempFile.absolutePath)
 
-                Logger.log("Downloading install script from:  $url to: $tempFile")
+                Logger.log("Downloading install script from:  $url to: $tempFile", project)
 
                 body.byteStream().use { input ->
                     tempFile.outputStream().use { output ->
                         input.copyTo(output)
                     }
                 }
-                // tempFile.setExecutable(true)
-                Logger.log("Script downloaded successfully: ${tempFile.absolutePath}")
+                Logger.log("Script downloaded successfully: ${tempFile.absolutePath}", project)
                 tempFile
             }
         } catch (e: Exception) {
-            Logger.error("error downloading script $url", e)
+            Logger.error("error downloading script $url", e, project)
             null
         }
     }
@@ -182,7 +178,7 @@ class InstallerService {
     }
 
     // unzip decompress a file in destDir
-    private fun unzip(zipFile: Path, destDir: Path) {
+    private fun unzip(zipFile: Path, destDir: Path, project: Project? = null) {
         val start = System.currentTimeMillis()
         Logger.log("Unzip $zipFile into $destDir")
         try {
@@ -203,34 +199,38 @@ class InstallerService {
                 }
             }
             val elapsed = System.currentTimeMillis() - start
-            Logger.log("✅ Unzip finished:  ${elapsed}ms")
-        }
-        catch (e: Exception) {
-            Logger.error("error unzipping $zipFile", e)
+            Logger.log("Unzip finished:  ${elapsed}ms", project)
+        } catch (e: Exception) {
+            Logger.error("error unzipping $zipFile", e, project)
         }
     }
 
     // downloadAndInstall downloads xygeni file zip and decompresses
-    private fun downloadAndInstall () {
-        Logger.log("==================================")
-        Logger.log("== Running scanner installation ==")
-        Logger.log("==================================")
-        ProgressManager.getInstance().run(object : Task.Backgroundable(null, "Downloading App..") {
+    private fun downloadAndInstall(project: Project?) {
+        Logger.log("==================================", project)
+        Logger.log("== Running scanner installation ==", project)
+        Logger.log("==================================", project)
+        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Downloading App..") {
             override fun run(indicator: ProgressIndicator) {
                 try {
                     indicator.text = "Downloading..."
                     // Download zip file
-                    val f = downloadScript(this@InstallerService.pluginContext.scriptUrl + "xygeni_scanner.zip")
+                    val f =
+                        downloadScript(this@InstallerService.pluginContext.scriptUrl + "xygeni_scanner.zip", project)
                     indicator.text = "Unzip file..."
                     if (f != null) {
-                        unzip(f.toPath(), Paths.get( this@InstallerService.pluginContext.installDir.absolutePath))
+                        unzip(
+                            f.toPath(),
+                            Paths.get(this@InstallerService.pluginContext.installDir.absolutePath),
+                            project
+                        )
                         // + x to xygeni command
-                        val commandFile = File( this@InstallerService.pluginContext.xygeniCommand)
+                        val commandFile = File(this@InstallerService.pluginContext.xygeniCommand)
                         commandFile.setExecutable(true)
+                        Logger.log("Xygeni scanner installed successfully!", project)
                     }
-                }
-                catch (e: Exception) {
-                    Logger.error("error in installing process ", e)
+                } catch (e: Exception) {
+                    Logger.error("error in installing process ", e, project)
                 }
 
             }
@@ -239,12 +239,12 @@ class InstallerService {
     }
 
     // install checks the xygeni command and install if it does not exist
-    fun install() {
+    fun install(project: Project?) {
         if (isInstalled()) {
-            Logger.log(">> Xygeni installed")
+            Logger.log(">> Xygeni installed", project)
             return
         }
-        downloadAndInstall()
+        downloadAndInstall(project)
     }
 
     // isInstalled checks if the xygeni command already exists
@@ -253,9 +253,9 @@ class InstallerService {
     }
 
     // installOrUpdate forces a new installation removing the previous one
-    fun installOrUpdate() {
-        uninstallIfNeeded()
-        downloadAndInstall()
+    fun installOrUpdate(project: Project?) {
+        uninstallIfNeeded(project)
+        downloadAndInstall(project)
     }
 
 }

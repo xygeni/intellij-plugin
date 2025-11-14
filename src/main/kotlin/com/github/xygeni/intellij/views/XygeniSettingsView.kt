@@ -46,7 +46,7 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
         add(Box.createVerticalStrut(4))
         add(content)
 
-        loadSettingsAsync()
+        loadSettingsAsync(false)
 
         project.messageBus.connect()
             .subscribe(SETTINGS_CHANGED_TOPIC, object : SettingsChangeListener {
@@ -136,11 +136,11 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
     private fun triggerConnectionCheck() {
         val settings = XygeniSettings.getInstance()
         val apiUrl = settings.apiUrl
-        val token = settings.apiToken
+        val token = settings.apiToken ?: ""
 
         // Llamamos al servicio global para validar
         val installer = ApplicationManager.getApplication().getService(InstallerService::class.java)
-        installer.validateConnection(apiUrl, token) { urlOk, tokenOk ->
+        installer.validateConnection(apiUrl, token, project) { urlOk, tokenOk ->
             // Publicamos el resultado al MessageBus global
             installer.publishConnectionState(project, urlOk, tokenOk)
         }
@@ -162,7 +162,7 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
         repaint()
     }
 
-    private fun loadSettingsAsync() {
+    private fun loadSettingsAsync(check: Boolean = true) {
         ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Loading Xygeni Settings", false) {
             override fun run(indicator: ProgressIndicator) {
                 val settings = XygeniSettings.getInstance()
@@ -170,7 +170,9 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
                     urlTextField.text = settings.apiUrl
                     tokenTextField.text = "\u2022".repeat(settings.apiToken.length)
                 }
-                triggerConnectionCheck()
+                if (check) {
+                    triggerConnectionCheck()
+                }
             }
         })
     }

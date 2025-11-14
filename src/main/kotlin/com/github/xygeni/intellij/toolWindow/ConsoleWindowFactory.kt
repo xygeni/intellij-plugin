@@ -27,7 +27,7 @@ class ConsoleWindowFactory : ToolWindowFactory {
         val content = ContentFactory.getInstance().createContent(panel, "", false)
         toolWindow.contentManager.addContent(content)
 
-        val consoleSvc = ApplicationManager.getApplication().getService(ConsoleService::class.java)
+        val consoleSvc = project.getService(ConsoleService::class.java)
         consoleSvc.setConsoleView(console)
     }
 }

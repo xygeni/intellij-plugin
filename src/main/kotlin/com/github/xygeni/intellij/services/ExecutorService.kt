@@ -3,6 +3,7 @@ package com.github.xygeni.intellij.services
 import com.github.xygeni.intellij.logger.Logger
 import com.intellij.execution.process.*
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Key
 import com.intellij.util.io.BaseOutputReader
 import java.io.File
@@ -24,6 +25,7 @@ abstract class ProcessExecutorService {
         args: Map<String, String>,
         envs: Map<String, String>?,
         workingDir: File? = null,
+        project: Project? = null,
         onComplete: (success: Boolean) -> Unit
     ) {
         ApplicationManager.getApplication().executeOnPooledThread {
@@ -35,7 +37,7 @@ abstract class ProcessExecutorService {
                 var emptyEnv = false
                 envs?.forEach { (key, value) ->
                     if (value.isNullOrBlank()  ) {
-                        Logger.error("❌ $key cannot be empty")
+                        Logger.error("❌ $key cannot be empty", project)
                         emptyEnv = true
                     }
                 }
@@ -46,7 +48,7 @@ abstract class ProcessExecutorService {
 
                 val file = File(path)
                 if (!file.exists()) {
-                    Logger.error("❌ The file $path does not exist")
+                    Logger.error("❌ The file $path does not exist", project)
                     ApplicationManager.getApplication().invokeLater { onComplete(false) }
                     return@executeOnPooledThread
                 }
@@ -79,9 +81,9 @@ abstract class ProcessExecutorService {
                         val text = event.text.trimEnd()
                         if (text.isNotBlank()) {
                             when (outputType) {
-                                ProcessOutputTypes.STDOUT -> Logger.log(text)
-                                ProcessOutputTypes.STDERR -> Logger.error(text)
-                                else -> Logger.log(text)
+                                ProcessOutputTypes.STDOUT -> Logger.log(text, project)
+                                ProcessOutputTypes.STDERR -> Logger.error(text, project)
+                                else -> Logger.log(text, project)
                             }
                         }
                     }
@@ -91,9 +93,9 @@ abstract class ProcessExecutorService {
                         success = exitCode == 0
 
                         if (success) {
-                            Logger.log("✅ Process finished successfully")
+                            Logger.log("✅ Process finished successfully", project)
                         } else {
-                            Logger.error("❌ Process finished with errors (exitCode=$exitCode)")
+                            Logger.error("❌ Process finished with errors (exitCode=$exitCode)", project)
                         }
 
                         // Notificamos en el hilo de la UI
@@ -106,7 +108,7 @@ abstract class ProcessExecutorService {
                 handler.startNotify()
 
             } catch (e: Exception) {
-                Logger.error("💥 Error Executing the process", e)
+                Logger.error("💥 Error Executing the process", e, project)
                 ApplicationManager.getApplication().invokeLater { onComplete(false) }
             }
         }

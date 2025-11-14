@@ -4,10 +4,9 @@ import com.github.xygeni.intellij.events.READ_TOPIC
 import com.github.xygeni.intellij.events.SCAN_STATE_TOPIC
 import com.github.xygeni.intellij.events.ScanStateListener
 import com.github.xygeni.intellij.logger.Logger
+import com.github.xygeni.intellij.model.PluginContext
 import com.github.xygeni.intellij.model.report.BaseXygeniIssue
-import com.github.xygeni.intellij.services.PluginManagerService
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import java.io.File
 
@@ -23,9 +22,7 @@ abstract class BaseReportService<T : BaseXygeniIssue>(
     val reportType: String
 ) {
 
-    private val manager = service<PluginManagerService>()
-    private val pluginContext = manager.pluginContext
-
+    private val pluginContext = PluginContext()
     private val _issues = mutableListOf<T>()
     val issues: List<T> get() = _issues
 

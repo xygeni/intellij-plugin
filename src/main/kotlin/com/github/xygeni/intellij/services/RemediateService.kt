@@ -2,7 +2,7 @@ package com.github.xygeni.intellij.services
 
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.model.JsonConfig
-import com.github.xygeni.intellij.model.PluginConfig
+import com.github.xygeni.intellij.model.PluginContext
 import com.github.xygeni.intellij.model.report.server.RemediationData
 import com.github.xygeni.intellij.settings.XygeniSettings
 import com.intellij.diff.DiffContentFactory
@@ -10,7 +10,6 @@ import com.intellij.diff.DiffManager
 import com.intellij.diff.requests.SimpleDiffRequest
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
-import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
 import java.io.File
@@ -24,9 +23,7 @@ import java.io.File
 @Service(Service.Level.PROJECT)
 class RemediateService : ProcessExecutorService() {
 
-    private val manager = service<PluginManagerService>()
-    private val pluginContext = manager.pluginContext
-    private val executor = manager.executor
+    private val pluginContext = PluginContext() // manager.pluginContext
 
     private val baseArgs: Map<String, String> = mapOf(
         "util" to "",
@@ -71,14 +68,16 @@ class RemediateService : ProcessExecutorService() {
         // refresh the fileSystem
         val vfs = LocalFileSystem.getInstance()
         vfs.refresh(true)
-        val rightVf = vfs.refreshAndFindFileByPath(target.absolutePath)
+        vfs.refreshAndFindFileByPath(target.absolutePath)
 
         // 2.- lanzamos la remediacion en ese fichero
-        executor.executeProcess(
+        executeProcess(
             pluginContext.xygeniCommand,
             buildArgs(remediation, target.absolutePath),
-            PluginConfig.fromSettings(XygeniSettings.getInstance()).toEnv(),
+            //PluginConfig.fromSettings(XygeniSettings.getInstance()).toEnv(),
+            XygeniSettings. getInstance().toEnv(),
             pluginContext.installDir,
+            project,
             { success ->
                 if (success) {
                     Logger.log("✅ Remediation finished")
@@ -125,10 +124,10 @@ class RemediateService : ProcessExecutorService() {
 
             val target = getTempFile(project, remediation)
             target.copyTo(source, overwrite = true)
-            Logger.log("✅ Saved")
+            Logger.log("✅ Saved", project)
         }
         catch (e: Exception) {
-            Logger.error("❌ Failed to save remediation file")
+            Logger.error("❌ Failed to save remediation file", project)
         }
     }
 

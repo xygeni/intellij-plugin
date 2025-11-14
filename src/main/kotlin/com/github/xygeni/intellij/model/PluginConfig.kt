@@ -17,14 +17,10 @@ data class PluginConfig(
     companion object{
         fun fromSettings(settings: XygeniSettings): PluginConfig {
             return PluginConfig(
-                url = settings.state.apiUrl,
-                token = settings.state.apiToken
+                url = settings.apiUrl, //state.apiUrl,
+                token = settings.apiToken?: "" // .state.apiToken
             )
         }
-    }
-
-    fun isValid(): Boolean {
-        return url.isNotBlank() && token.isNotBlank()
     }
 
     fun toEnv():Map<String, String>? {
