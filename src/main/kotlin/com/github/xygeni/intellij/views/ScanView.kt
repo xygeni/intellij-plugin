@@ -4,6 +4,7 @@ import com.github.xygeni.intellij.events.CONNECTION_STATE_TOPIC
 import com.github.xygeni.intellij.events.ConnectionStateListener
 import com.github.xygeni.intellij.events.SCAN_STATE_TOPIC
 import com.github.xygeni.intellij.events.ScanStateListener
+import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.services.ScanService
 import com.intellij.openapi.project.Project
 import com.intellij.util.ui.JBUI
@@ -49,6 +50,7 @@ class ScanView(private val project: Project) : JPanel() {
         project.messageBus.connect()
             .subscribe(CONNECTION_STATE_TOPIC, object : ConnectionStateListener {
                 override fun connectionStateChanged(projectFromService: Project?, urlOk: Boolean, tokenOk: Boolean) {
+                    Logger.log("Connection state changed to $urlOk, $tokenOk", projectFromService)
                     if (projectFromService != this@ScanView.project) return
                     isVisible = when {
                         !urlOk -> false

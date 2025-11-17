@@ -18,7 +18,6 @@ class XygeniStartup : ProjectActivity {
     override suspend fun execute(project: Project) {
         Logger.log("Welcome to Xygeni scanner", project)
         ApplicationManager.getApplication().executeOnPooledThread {
-            // Create Settings (TODO)
             val installer = ApplicationManager.getApplication().getService(InstallerService::class.java)
             val settings = XygeniSettings.getInstance()
             // install xygeni

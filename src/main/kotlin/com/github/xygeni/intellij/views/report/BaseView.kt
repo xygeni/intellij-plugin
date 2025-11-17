@@ -8,11 +8,11 @@ package com.github.xygeni.intellij.views.report
  **/
 
 
+import com.github.xygeni.intellij.dynamichtml.editor.DynamicHtmlFileEditor
 import com.github.xygeni.intellij.events.READ_TOPIC
 import com.github.xygeni.intellij.events.ReadListener
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.model.report.BaseXygeniIssue
-import com.github.xygeni.intellij.page.DynamicHtmlFileEditor
 import com.github.xygeni.intellij.render.BaseHtmlIssueRenderer
 import com.github.xygeni.intellij.services.report.BaseReportService
 import com.intellij.openapi.application.ApplicationManager
@@ -42,6 +42,7 @@ import javax.swing.border.EmptyBorder
 import javax.swing.border.MatteBorder
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
+import kotlin.jvm.javaClass
 
 //  BaseView containing a tree panel for displaying issues
 abstract class BaseView<T : BaseXygeniIssue>(
@@ -301,12 +302,10 @@ abstract class BaseView<T : BaseXygeniIssue>(
             ))
     }
 
-    // openDynamicHtml opens the issue info (html render) y a CEF Browser
-    protected open fun openDynamicHtml(project: Project, item: T) {
 
+    protected open fun openDynamicHtml(project: Project, item: T) {
         val fileEditorManager = FileEditorManager.getInstance(project)
 
-        // Close other browsers
         fileEditorManager.allEditors
             .filterIsInstance<DynamicHtmlFileEditor>()
             .forEach {
@@ -314,39 +313,30 @@ abstract class BaseView<T : BaseXygeniIssue>(
                 it.file?.let { file -> fileEditorManager.closeFile(file) }
             }
 
-        val fileName = if (JBCefApp.isSupported()) {
-            "${item.type}.dynamic.html" // DynamicHtmlEditorProvider con JCEF
-        } else {
-            "${item.type}.html" // normal
-        }
+        ApplicationManager.getApplication().executeOnPooledThread {
+            try {
+                // Renderizar HTML pesado y obtener datos
+                val htmlContent = renderer.render(item)
+                val data: String? = if (item.kind != "" && item.kind != "sca") {
+                    item.fetchData()
+                } else null
 
-        val content = renderer.render(item)
-        val file = LightVirtualFile(fileName, content).apply {
-            isWritable = false
-        }
-        FileEditorManager.getInstance(project).openFile(file, true)
+                ApplicationManager.getApplication().invokeLater {
+                    val fileName = "${item.type}.dynamic.html"
+                    val file = LightVirtualFile(fileName, htmlContent).apply { isWritable = false }
 
-        // ask for detector info
-        if (item.kind != "" && item.kind != "sca") {
-            ApplicationManager.getApplication().executeOnPooledThread {
-                try {
-                    val data = item.fetchData()
-                    //println(data)
-                    ApplicationManager.getApplication().invokeLater {
-                        val editor = FileEditorManager.getInstance(project)
-                            .getEditors(file)
-                            .filterIsInstance<DynamicHtmlFileEditor>()
-                            .firstOrNull()
-                        editor?.renderData(data)
-                    }
+                    fileEditorManager.openFile(file, true)
+                    val editor = fileEditorManager.getEditors(file)
+                        .filterIsInstance<DynamicHtmlFileEditor>()
+                        .firstOrNull() ?: return@invokeLater
+
+                    // Cargar HTML y renderData
+                    editor.loadHtml(htmlContent)
+                    data?.let { editor.renderData(it) }
                 }
-                catch (e: Exception) {
-                    Logger.warn(e.message?: e.toString(), project)
-                }
-
+            } catch (e: Exception) {
+                Logger.warn(e.message ?: e.toString(), project)
             }
         }
     }
-
-
 }

@@ -34,7 +34,7 @@ import javax.swing.SwingUtilities
  * - When multiple dynamic editors are opened, only one (the active one) updates the
  *   project context in the global service
  **/
-
+/*
 class DynamicHtmlFileEditor(
     private val project: Project,
     private val file: VirtualFile
@@ -43,10 +43,15 @@ class DynamicHtmlFileEditor(
     // panel root swing panel that hosts the browser UI
     private val panel = JPanel(BorderLayout())
     // globalService references to the shared global browser service
-    private val globalService = project.getService(GlobalCefService::class.java)
+    // private val globalService = project.getService(GlobalCefService::class.java)
+    private val globalService by lazy {
+        project.getService(GlobalCefService::class.java)
+    }
+    private var initialized = false
+
     private val fileId = file.nameWithoutExtension + "@" + System.identityHashCode(this)
 
-    init {
+    /*init {
         panel.layout = BorderLayout()
         panel.add(globalService.browser.component, BorderLayout.CENTER)
 
@@ -54,6 +59,22 @@ class DynamicHtmlFileEditor(
             val html = String(file.contentsToByteArray())
             println("Loading dynamic HTML for ${file.name} (id=$fileId)")
             globalService.loadHtmlOnce(html, project, fileId)
+        }
+    }*/
+
+    private fun initIfNeeded() {
+        if (initialized) return
+        initialized = true
+
+        val service = globalService
+
+        panel.add(service.browser.component, BorderLayout.CENTER)
+
+        // carga HTML ya cuando el editor está visible
+        SwingUtilities.invokeLater {
+            val html = String(file.contentsToByteArray())
+            println("Loading dynamic HTML for ${file.name} (id=$fileId)")
+            service.loadHtmlOnce(html, project, fileId)
         }
     }
 
@@ -67,7 +88,10 @@ class DynamicHtmlFileEditor(
     }
 
     // -- FileEditor implementation --/
-    override fun getComponent(): JComponent = panel
+    override fun getComponent(): JComponent {
+        initIfNeeded()
+        return panel
+    }
     override fun getPreferredFocusedComponent(): JComponent? = panel
     override fun getName(): String = "Dynamic HTML Viewer"
     override fun isModified(): Boolean = false
@@ -81,3 +105,4 @@ class DynamicHtmlFileEditor(
     override fun addPropertyChangeListener(listener: PropertyChangeListener) {}
     override fun removePropertyChangeListener(listener: PropertyChangeListener) {}
 }
+*/

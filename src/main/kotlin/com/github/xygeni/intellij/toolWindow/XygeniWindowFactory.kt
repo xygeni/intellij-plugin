@@ -61,8 +61,5 @@ class XygeniWindowFactory : ToolWindowFactory {
         val content = contentManager.factory.createContent(menuPanel, "", false)
         contentManager.addContent(content)
 
-        // -- install
-        // ApplicationManager.getApplication().getService(InstallerService::class.java).install(project)
-
     }
 }

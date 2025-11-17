@@ -38,6 +38,7 @@ import javax.swing.Timer
  * - currentProject is updated by each [DynamicHtmlEditor] when it uses this browser
  *   instance, to allow project-aware actions
  */
+/*
 @Service(Service.Level.PROJECT)
 class GlobalCefService {
     // browser is a shared JCEF browser instance used by all dynamic HTML editors
@@ -186,3 +187,4 @@ class GlobalCefService {
         }
     }
 }
+*/

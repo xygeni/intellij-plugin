@@ -29,16 +29,15 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
 
     private var state = State()
 
+    override fun getState(): State = state
+    override fun loadState(state: State) {
+        this.state = state
+    }
+
     init {
         if (state.apiUrl.isBlank()) {
             state.apiUrl = "https://api.xygeni.io/deps-doctor-service"
         }
-    }
-
-    override fun getState(): State = state
-
-    override fun loadState(state: State) {
-        this.state = state
     }
 
     companion object {
@@ -54,6 +53,10 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
             state.apiUrl = value
         }
 
+    // --------------------
+    // Token (Password safe)
+    // --------------------
+
     private var cachedToken: String? = null
     var apiToken: String
         get() {
@@ -64,9 +67,9 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
             return token
         }
         set(value) {
-            val safeValue = value ?: ""
+            cachedToken = value
             val attributes = CredentialAttributes(TOKEN_KEY)
-            PasswordSafe.instance.setPassword(attributes, safeValue)
+            PasswordSafe.instance.setPassword(attributes, value)
         }
 
     fun toEnv(): Map<String, String> = mapOf(

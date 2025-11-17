@@ -163,13 +163,20 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
     }
 
     private fun loadSettingsAsync(check: Boolean = true) {
-        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Loading Xygeni Settings", false) {
+        ProgressManager.getInstance().run(object :
+            Task.Backgroundable(project, "Loading Xygeni Settings", false) {
             override fun run(indicator: ProgressIndicator) {
                 val settings = XygeniSettings.getInstance()
-                ApplicationManager.getApplication().invokeLater {
-                    urlTextField.text = settings.apiUrl
-                    tokenTextField.text = "\u2022".repeat(settings.apiToken.length)
-                }
+                val (apiUrl, tokenLen) = ApplicationManager.getApplication()
+                    .runReadAction<Pair<String, Int>> {
+                        settings.apiUrl to settings.apiToken.length
+                    }
+
+                ApplicationManager.getApplication().invokeLater ({
+                    urlTextField.text = apiUrl
+                    tokenTextField.text ="•".repeat(tokenLen)
+                }, project.disposed)
+
                 if (check) {
                     triggerConnectionCheck()
                 }
