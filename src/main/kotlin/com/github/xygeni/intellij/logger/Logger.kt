@@ -15,7 +15,6 @@ object Logger {
 
     private fun service(project: Project?): ConsoleService? =
         project?.getService(ConsoleService::class.java)
-        //ApplicationManager.getApplication()?.getService(ConsoleService::class.java)
 
     fun log(message: String, project: Project? = null) {
         if (project != null){

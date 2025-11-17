@@ -18,12 +18,15 @@ class PluginContext (){
     val scriptUrl = "https://get.xygeni.io/latest/scanner/"
     val xygeniCommand: String
     val xygeniReportSuffix = "xygeni.plugin.json"
+    val mcpJarFile: String
+    val mcpUrl = "https://get.xygeni.io/latest/mcp-server/xygeni-mcp-server.jar"
 
     init {
         installDir = File(this.initInstallationDir(), PluginInfo.name + "/" + PluginInfo.version)
         scriptFiletName = this.initScriptFileName()
         ensureTargetExists(installDir)
         xygeniCommand = installDir.canonicalPath + "/xygeni_scanner/xygeni"
+        mcpJarFile = installDir.canonicalPath + "/mcp/xygeni-mcp-server.jar"
     }
 
     private fun initInstallationDir(): String {

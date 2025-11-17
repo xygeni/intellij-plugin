@@ -27,7 +27,7 @@ import javax.swing.SwingUtilities
  * @version : 7/10/25 (Carmendelope)
  **/
 @Service(Service.Level.APP)
-class InstallerService : ProcessExecutorService(){
+class InstallerService : ProcessExecutorService() {
 
     private val pluginContext = PluginContext() //manager.pluginContext
     private val client: OkHttpClient = OkHttpClient.Builder()
@@ -89,7 +89,12 @@ class InstallerService : ProcessExecutorService(){
         }
     }
 
-    fun validateConnection(apiUrl: String, token: String, project: Project? = null, callback: (urlOk: Boolean, tokenOk: Boolean) -> Unit) {
+    fun validateConnection(
+        apiUrl: String,
+        token: String,
+        project: Project? = null,
+        callback: (urlOk: Boolean, tokenOk: Boolean) -> Unit
+    ) {
         if (apiUrl.isBlank()) {
             SwingUtilities.invokeLater { callback(false, false) }
             return
@@ -123,7 +128,7 @@ class InstallerService : ProcessExecutorService(){
         }
     }
 
-    private fun downloadScript(url: String, project: Project? = null): File? {
+    private fun download(url: String, project: Project? = null): File? {
         val client = OkHttpClient()
         val fileName = url.substringAfterLast('/')
 
@@ -136,12 +141,12 @@ class InstallerService : ProcessExecutorService(){
 
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
-                    Logger.warn("error downloading script from $url: ${response.code}", project)
+                    Logger.warn("error downloading from $url: ${response.code}", project)
                     return null
                 }
 
                 val body = response.body ?: run {
-                    Logger.warn("Empty response downloading script from $url", project)
+                    Logger.warn("Empty response downloading from $url", project)
                     return null
                 }
 
@@ -151,18 +156,18 @@ class InstallerService : ProcessExecutorService(){
                 // delete the previous script
                 this.deleteSafe(tempFile.absolutePath)
 
-                Logger.log("Downloading install script from:  $url to: $tempFile", project)
+                Logger.log("Downloading from:  $url to: $tempFile", project)
 
                 body.byteStream().use { input ->
                     tempFile.outputStream().use { output ->
                         input.copyTo(output)
                     }
                 }
-                Logger.log("Script downloaded successfully: ${tempFile.absolutePath}", project)
+                Logger.log("File downloaded successfully: ${tempFile.absolutePath}", project)
                 tempFile
             }
         } catch (e: Exception) {
-            Logger.error("error downloading script $url", e, project)
+            Logger.error("error downloading $url", e, project)
             null
         }
     }
@@ -206,56 +211,92 @@ class InstallerService : ProcessExecutorService(){
     }
 
     // downloadAndInstall downloads xygeni file zip and decompresses
-    private fun downloadAndInstall(project: Project?) {
+
+    data class Step(
+        val message: String,
+        val fn: (Project?) -> Unit
+    )
+
+    private fun installMCPFn(project: Project?) {
+        Logger.log("==================================", project)
+        Logger.log("== Running MCP installation ==", project)
+        Logger.log("==================================", project)
+        val jarFile = File(this.pluginContext.mcpJarFile)
+        jarFile.parentFile.mkdirs()
+        val f =
+            download(this@InstallerService.pluginContext.mcpUrl + "", project)
+        Logger.log("moving mcp to ${jarFile.absolutePath}", project)
+        f?.copyTo(jarFile, true)
+        Logger.log("Xygeni MCP installed successfully!", project)
+    }
+
+    private fun installScannerFn(project: Project?) {
         Logger.log("==================================", project)
         Logger.log("== Running scanner installation ==", project)
         Logger.log("==================================", project)
-        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Downloading App..") {
-            override fun run(indicator: ProgressIndicator) {
-                try {
-                    indicator.text = "Downloading..."
-                    // Download zip file
-                    val f =
-                        downloadScript(this@InstallerService.pluginContext.scriptUrl + "xygeni_scanner.zip", project)
-                    indicator.text = "Unzip file..."
-                    if (f != null) {
-                        unzip(
-                            f.toPath(),
-                            Paths.get(this@InstallerService.pluginContext.installDir.absolutePath),
-                            project
-                        )
-                        // + x to xygeni command
-                        val commandFile = File(this@InstallerService.pluginContext.xygeniCommand)
-                        commandFile.setExecutable(true)
-                        Logger.log("Xygeni scanner installed successfully!", project)
-                    }
-                } catch (e: Exception) {
-                    Logger.error("error in installing process ", e, project)
-                }
+        val f = download(this@InstallerService.pluginContext.scriptUrl + "xygeni_scanner.zip", project)
+        if (f != null) {
+            unzip(
+                f.toPath(),
+                Paths.get(this@InstallerService.pluginContext.installDir.absolutePath),
+                project
+            )
+            // + x to xygeni command
+            val commandFile = File(this@InstallerService.pluginContext.xygeniCommand)
+            commandFile.setExecutable(true)
+            Logger.log("Xygeni scanner installed successfully!", project)
+        }
+    }
 
+    private fun executeInBackground(
+        project: Project?,
+        steps: List<Step>
+    ) {
+        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Installing...") {
+            override fun run(indicator: ProgressIndicator) {
+                indicator.isIndeterminate = true
+                for (step in steps) {
+                    try {
+                        indicator.text = step.message
+                        step.fn(project)
+                    } catch (e: Exception) {
+                        Logger.error("error in installing process ", e, project)
+                    }
+                }
+                Logger.log("Xygeni plugin installed", project)
             }
         })
+    }
 
+    // isInstalled checks if the xygeni command already exists
+    private fun isInstalled(mcp: Boolean = false): Boolean {
+        if (!mcp) return File(this.pluginContext.xygeniCommand).exists()
+        // else (MCP)
+        return File(this.pluginContext.mcpJarFile).exists()
     }
 
     // install checks the xygeni command and install if it does not exist
     fun install(project: Project?) {
-        if (isInstalled()) {
+        var steps = mutableListOf<Step>()
+        if (!isInstalled()) {
+            steps.add(Step("Installing scanner", this::installScannerFn,))
+        } else {
             Logger.log(">> Xygeni installed", project)
-            return
         }
-        downloadAndInstall(project)
-    }
-
-    // isInstalled checks if the xygeni command already exists
-    private fun isInstalled(): Boolean {
-        return File(this.pluginContext.xygeniCommand).exists()
+        if (!isInstalled(mcp = true)) {
+            steps.add(Step("Installing mcp", this::installMCPFunction))
+        } else {
+            Logger.log(">> Xygeni MCP installed", project)
+        }
+        if (steps.isNotEmpty()) {
+            executeInBackground(project, steps)
+        }
     }
 
     // installOrUpdate forces a new installation removing the previous one
     fun installOrUpdate(project: Project?) {
         uninstallIfNeeded(project)
-        downloadAndInstall(project)
+        install(project)
     }
 
 }
