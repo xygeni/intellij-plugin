@@ -284,7 +284,7 @@ class InstallerService : ProcessExecutorService() {
             Logger.log(">> Xygeni installed", project)
         }
         if (!isInstalled(mcp = true)) {
-            steps.add(Step("Installing mcp", this::installMCPFunction))
+            steps.add(Step("Installing mcp", this::installMCPFn))
         } else {
             Logger.log(">> Xygeni MCP installed", project)
         }
