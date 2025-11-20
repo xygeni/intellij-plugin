@@ -26,6 +26,8 @@ class ScanService : ProcessExecutorService() {
     private val pluginContext = PluginContext() // manager.pluginContext
     private var scanning = false
 
+    var processHandle: MyProcessHandle? = null
+
     private val baseArgs: Map<String, String> = mapOf(
         "scan" to "",
         "--run" to "deps,secrets,misconf,iac,suspectdeps,sast",
@@ -57,7 +59,7 @@ class ScanService : ProcessExecutorService() {
         publishScanUpdate(project, 2) // running
 
         try {
-            executeProcess(
+            processHandle = executeProcess(
                 pluginContext.xygeniCommand,
                 this@ScanService.buildArgs(path),
                 XygeniSettings.getInstance().toEnv(),
@@ -75,6 +77,14 @@ class ScanService : ProcessExecutorService() {
             Logger.error("error in scanning process ", e)
             publishScanUpdate(project, 0) // Finished with errors
         }
+    }
+
+    fun stop(project : Project){
+        val running = processHandle?.isRunning() ?: false
+        if (running){
+            processHandle?.stop()
+        }
+        processHandle = null
     }
 
     fun publishScanUpdate(project: Project, status: Int) {

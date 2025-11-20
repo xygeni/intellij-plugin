@@ -69,7 +69,7 @@ abstract class BaseReportService<T : BaseXygeniIssue>(
     private fun readAndProcessFile(filename: String, callback: ReadIssuesCallback) {
         val file = File(filename)
         if (!file.exists()) {
-            println("File $filename not found in ${project.basePath}")
+            Logger.log("File $filename not found in ${project.basePath}")
             return callback.onComplete(true, emptyList())
         }
 
@@ -83,7 +83,7 @@ abstract class BaseReportService<T : BaseXygeniIssue>(
                 _issues.addAll(sortedList)
                 callback.onComplete(true, parsedIssues)
             } catch (e: Exception) {
-                e.printStackTrace()
+                Logger.error("error processing file: ${e.message}", project)
                 callback.onComplete(false, emptyList())
             }
         }

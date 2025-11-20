@@ -26,20 +26,4 @@ class SecretsScanView(project: Project) : BaseView<SecretsXygeniIssue>(
 ) {
 
     override val renderer = SecretIssueRenderer()
-/*
-    override fun buildNode(item: SecretsXygeniIssue): DefaultMutableTreeNode {
-        return DefaultMutableTreeNode(
-            NodeData(
-                text = "(${item.type}) - ${item.file}",
-                icon = item.getIcon(),
-                tooltip = "secret of type '${item.type}' detected by '${item.detector}' ",
-                onClick = {
-                    openFileInEditor(project, item.file, item.beginLine, item.beginColumn)
-                },
-                onDoubleClick = {
-                    this.openDynamicHtml(project, item)
-                }
-            ))
-    }
-*/
 }

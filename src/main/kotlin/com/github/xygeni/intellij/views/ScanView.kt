@@ -50,7 +50,7 @@ class ScanView(private val project: Project) : JPanel() {
         project.messageBus.connect()
             .subscribe(CONNECTION_STATE_TOPIC, object : ConnectionStateListener {
                 override fun connectionStateChanged(projectFromService: Project?, urlOk: Boolean, tokenOk: Boolean) {
-                    Logger.log("Connection state changed to $urlOk, $tokenOk", projectFromService)
+                    Logger.log("Connection state changed to $urlOk, $tokenOk")
                     if (projectFromService != this@ScanView.project) return
                     isVisible = when {
                         !urlOk -> false
@@ -64,7 +64,7 @@ class ScanView(private val project: Project) : JPanel() {
             .subscribe(SCAN_STATE_TOPIC, object : ScanStateListener {
                 override fun scanStateChanged(projectFromService: Project?, status: Int) {
                     if (projectFromService != this@ScanView.project) return
-                    this@ScanView.clickcable = status != 2
+                    //this@ScanView.clickcable = status != 2
                     button.icon = when {
                         status == 2 -> Icons.RUN_IN_QUEUE_ICON
                         else -> Icons.RUN_ICON
@@ -72,6 +72,10 @@ class ScanView(private val project: Project) : JPanel() {
                     button.text = when {
                         status == 2 -> "Scanning"
                         else -> "Run Scan"
+                    }
+                    button.toolTipText = when {
+                        status == 2 -> "Stop scanning"
+                        else -> "Run scan"
                     }
                 }
             })
@@ -87,9 +91,13 @@ class ScanView(private val project: Project) : JPanel() {
 
         button.addMouseListener(object : MouseAdapter() {
             override fun mouseClicked(e: MouseEvent) {
-                if (!clickcable) return
-                // scan
-                project.getService(ScanService::class.java).scan(project)
+                //if (!clickcable) return
+                if (button.text == "Run scan") {
+                    // scan
+                    project.getService(ScanService::class.java).scan(project)
+                }else{
+                    project.getService(ScanService::class.java).stop(project)
+                }
             }
         })
 

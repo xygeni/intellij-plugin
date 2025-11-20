@@ -21,20 +21,4 @@ class IacScanView(project: Project) : BaseView<IacXygeniIssue>(
 ) {
 
     override val renderer = IacIssueRenderer()
-/*
-    override fun buildNode(item: IacXygeniIssue): DefaultMutableTreeNode {
-        return DefaultMutableTreeNode(
-            NodeData(
-                text = "(${item.type}) - ${item.file}",
-                icon = item.getIcon(),
-                tooltip = item.explanation,
-                onClick = {
-                    openFileInEditor(project, item.file, item.beginLine, item.beginColumn)
-                },
-                onDoubleClick = {
-                    this.openDynamicHtml(project, item)
-                }
-            ))
-    }
-*/
 }

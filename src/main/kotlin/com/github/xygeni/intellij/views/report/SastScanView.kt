@@ -23,21 +23,4 @@ class SastScanView (project: Project) : BaseView<SastXygeniIssue>(
 ) {
 
     override val renderer = SastIssueRenderer()
-/*
-    override fun buildNode(item: SastXygeniIssue): DefaultMutableTreeNode {
-        return DefaultMutableTreeNode(
-            NodeData(
-                text = "(${item.kind}) - ${item.file}",
-                icon = item.getIcon(),
-                tooltip = item.explanation,
-                onClick = {
-                    openFileInEditor(project, item.file, item.beginLine, item.beginColumn)
-                },
-                onDoubleClick = {
-                    this.openDynamicHtml(project, item)
-                }
-            ))
-    }
- */
-
 }

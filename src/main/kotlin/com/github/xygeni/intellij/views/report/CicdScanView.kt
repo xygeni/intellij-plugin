@@ -23,22 +23,4 @@ class CicdScanView(project: Project) : BaseView<CicdXygeniIssue>(
 ) {
 
     override val renderer = CicdIssueRenderer()
-/*
-    override fun buildNode(item: CicdXygeniIssue): DefaultMutableTreeNode {
-        return DefaultMutableTreeNode(
-            NodeData(
-                text = "(${item.type}) - ${item.file}",
-                icon = item.getIcon(),
-                tooltip = item.explanation,
-                onClick = {
-                    // openFileInEditor(project, item.file, item.beginLine, item.beginColumn)
-                    openFileInEditor(project, item.file, item.beginLine, item.beginColumn,
-                        item.endLine, item.endColumn)
-                },
-                onDoubleClick = {
-                    this.openDynamicHtml(project, item)
-                }
-            ))
-    }
- */
 }

@@ -11,6 +11,61 @@ import java.io.File
 
 class DefaultProcessExecutorService : ProcessExecutorService() {}
 
+class MyProcessHandle {
+    // Volátiles para seguridad entre hilos
+    @Volatile
+    private var handler: OSProcessHandler? = null
+
+    @Volatile
+    private var process: Process? = null
+
+    // Si el usuario solicita parar antes de que exista el process/handler
+    @Volatile
+    private var shouldStop = false
+
+    fun attach(process: Process, handler: OSProcessHandler) {
+        this.process = process
+        this.handler = handler
+
+        // Si ya pedimos stop antes de adjuntar, lo paramos ya.
+        if (shouldStop) {
+            try {
+                handler.destroyProcess()
+            } catch (_: Exception) {
+                process.destroyForcibly()
+            }
+        }
+    }
+
+    fun stop() {
+        // Intentar una parada "suave" primero
+        val h = handler
+        if (h != null) {
+            try {
+                h.destroyProcess()
+            } catch (_: Exception) {
+                process?.destroyForcibly()
+            }
+            return
+        }
+
+        // Si no hay handler todavía, marcar que queremos parar
+        // y si el Process ya existe, forzarlo.
+        val p = process
+        if (p != null) {
+            try {
+                p.destroyForcibly()
+            } catch (_: Exception) { /* ignore */ }
+            return
+        }
+
+        // Ni handler ni process aún: marcar la intención.
+        shouldStop = true
+    }
+
+    fun isRunning(): Boolean = process?.isAlive ?: false
+}
+
 abstract class ProcessExecutorService {
 
     /**
@@ -27,7 +82,9 @@ abstract class ProcessExecutorService {
         workingDir: File? = null,
         project: Project? = null,
         onComplete: (success: Boolean) -> Unit
-    ) {
+    ): MyProcessHandle?  {
+        val processHandle = MyProcessHandle()
+
         ApplicationManager.getApplication().executeOnPooledThread {
             var success = false
 
@@ -75,6 +132,9 @@ abstract class ProcessExecutorService {
                         return BaseOutputReader.Options.forMostlySilentProcess()
                     }
                 }
+
+                processHandle.attach( process, handler)
+
                 handler.addProcessListener(object : ProcessListener {
 
                     override fun onTextAvailable(event: ProcessEvent, outputType: Key<*>) {
@@ -112,6 +172,7 @@ abstract class ProcessExecutorService {
                 ApplicationManager.getApplication().invokeLater { onComplete(false) }
             }
         }
+        return processHandle
     }
 
     private fun buildCommand(path: String, args: Map<String, String>): MutableList<String> {
