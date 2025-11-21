@@ -37,30 +37,35 @@ class MyProcessHandle {
         }
     }
 
-    fun stop() {
-        // Intentar una parada "suave" primero
+    fun stop(project : Project) {
+        Logger.log("Stopping process...", project)
         val h = handler
-        if (h != null) {
-            try {
-                h.destroyProcess()
-            } catch (_: Exception) {
-                process?.destroyForcibly()
-            }
-            return
-        }
-
-        // Si no hay handler todavía, marcar que queremos parar
-        // y si el Process ya existe, forzarlo.
         val p = process
-        if (p != null) {
-            try {
-                p.destroyForcibly()
-            } catch (_: Exception) { /* ignore */ }
-            return
-        }
 
-        // Ni handler ni process aún: marcar la intención.
-        shouldStop = true
+        try {
+            when {
+                // Stop
+                h != null -> {
+                    h.destroyProcess()
+                }
+                p != null -> {
+                    // Kill the process and its descendants
+                    val handle = p.toHandle()
+                    try {
+                        handle.descendants().forEach { it.destroyForcibly() }
+                    } catch (_: Exception) { /* ignore */ }
+                    if (p.isAlive) {
+                        p.destroyForcibly()
+                    }
+                }
+                else -> {
+                    shouldStop = true
+                }
+            }
+        }catch (e: Exception) {
+            Logger.error("Error stopping process", e, project)
+            // Ignore
+        }
     }
 
     fun isRunning(): Boolean = process?.isAlive ?: false
@@ -126,7 +131,6 @@ abstract class ProcessExecutorService {
 
                 val process = processBuilder.start()
 
-                //val handler = OSProcessHandler(process, command.joinToString(" "))
                 val handler = object : OSProcessHandler(process, command.joinToString(" ")) {
                     override fun readerOptions(): BaseOutputReader.Options {
                         return BaseOutputReader.Options.forMostlySilentProcess()
@@ -183,6 +187,7 @@ abstract class ProcessExecutorService {
         val baseCommand = when {
             extension == "ps1" && isWindows -> mutableListOf(
                 "powershell.exe",
+                "-NoProfile",
                 "-ExecutionPolicy",
                 "Bypass",
                 "-File",

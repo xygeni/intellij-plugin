@@ -75,7 +75,7 @@ class ScanView(private val project: Project) : JPanel() {
                     }
                     button.toolTipText = when {
                         status == 2 -> "Stop scanning"
-                        else -> "Run scan"
+                        else -> "Run Scan"
                     }
                 }
             })
@@ -84,15 +84,15 @@ class ScanView(private val project: Project) : JPanel() {
     private fun createContent() {
         button = JLabel().apply {
             icon = Icons.RUN_ICON
-            text = "Run scan"
-            toolTipText = "Run scan"
+            text = "Run Scan"
+            toolTipText = "Run Scan"
             iconTextGap = 10
         }
 
         button.addMouseListener(object : MouseAdapter() {
             override fun mouseClicked(e: MouseEvent) {
                 //if (!clickcable) return
-                if (button.text == "Run scan") {
+                if (button.text == "Run Scan") {
                     // scan
                     project.getService(ScanService::class.java).scan(project)
                 }else{

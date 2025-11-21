@@ -25,13 +25,23 @@ class PluginContext (){
         installDir = File(this.initInstallationDir(), PluginInfo.name + "/" + PluginInfo.version)
         scriptFiletName = this.initScriptFileName()
         ensureTargetExists(installDir)
-        xygeniCommand = installDir.canonicalPath + "/xygeni_scanner/xygeni"
+        xygeniCommand = "${installDir.canonicalPath}/xygeni_scanner/${getXygeniCommandName()}" // installDir.canonicalPath + "/xygeni_scanner/xygeni"
+        Logger.log("Xygeni command: $xygeniCommand", null)
         mcpJarFile = installDir.canonicalPath + "/mcp/xygeni-mcp-server.jar"
     }
 
     private fun initInstallationDir(): String {
         val userHome = System.getProperty("user.home")
         return "$userHome/.xygeni/plugins/"
+    }
+
+    private fun getXygeniCommandName(): String {
+        var xygeniCommand = "xygeni"
+        val isWindows = System.getProperty("os.name").lowercase().contains("win")
+        if (isWindows){
+            xygeniCommand += ".ps1"
+        }
+        return xygeniCommand
     }
 
     private fun initScriptFileName(): String {

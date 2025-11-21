@@ -82,7 +82,7 @@ class ScanService : ProcessExecutorService() {
     fun stop(project : Project){
         val running = processHandle?.isRunning() ?: false
         if (running){
-            processHandle?.stop()
+            processHandle?.stop(project)
         }
         processHandle = null
     }
