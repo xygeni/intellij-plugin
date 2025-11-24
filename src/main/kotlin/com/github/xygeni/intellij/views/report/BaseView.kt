@@ -187,79 +187,80 @@ abstract class BaseView<T : BaseXygeniIssue>(
         endLine: Int = -1,
         endColumn: Int = -1
     ) {
-        val basePath = project.basePath ?: return
-        val absolutePath = "$basePath/$relativePath"
-        val vFile: VirtualFile = LocalFileSystem.getInstance().findFileByPath(absolutePath) ?: return
+        ApplicationManager.getApplication().executeOnPooledThread {
+            val basePath = project.basePath ?: return@executeOnPooledThread
+            val absolutePath = "$basePath/$relativePath"
+            val vFile: VirtualFile = LocalFileSystem.getInstance().findFileByPath(absolutePath) 
+                ?: return@executeOnPooledThread
 
-        val beginLine0 = (line - 1).coerceAtLeast(0)
-        val beginColumn0 = (column - 1).coerceAtLeast(0)
-        val endLine0 = if (endLine >= 0) (endLine - 1).coerceAtLeast(0) else -1
-        val endColumn0 = if (endColumn >= 0) (endColumn - 1).coerceAtLeast(0) else -1
-        print("opening $relativePath file from $beginLine0:$beginColumn0 to $endLine0:$endColumn0")
-
-        val editor: Editor? = ApplicationManager.getApplication().runWriteAction<Editor?> {
-            FileEditorManager.getInstance(project)
-                .openTextEditor(OpenFileDescriptor(project, vFile, beginLine0, beginColumn0), true)
-        }
-        if (editor == null) {
-            Logger.log("openFileInEditor: editor is null", project)
-            return
-        }
-
-        val document = editor.document
-        val markup = editor.markupModel
-
-        // remove previous highlighters
-        ApplicationManager.getApplication().invokeLater {
-            ApplicationManager.getApplication().runWriteAction {
-                markup.allHighlighters
-                    .filter { it.layer == HighlighterLayer.ERROR + 1 }
-                    .forEach { markup.removeHighlighter(it) }
-
-                // highlight the code
-                val underlineAttributes = TextAttributes().apply {
-                    effectType = EffectType.BOXED
-                    effectColor = JBColor.RED
-                    backgroundColor = null
+            val beginLine0 = (line - 1).coerceAtLeast(0)
+            val beginColumn0 = (column - 1).coerceAtLeast(0)
+            val endLine0 = if (endLine >= 0) (endLine - 1).coerceAtLeast(0) else -1
+            val endColumn0 = if (endColumn >= 0) (endColumn - 1).coerceAtLeast(0) else -1
+            
+            ApplicationManager.getApplication().invokeLater {
+                val editor: Editor? = FileEditorManager.getInstance(project)
+                    .openTextEditor(OpenFileDescriptor(project, vFile, beginLine0, beginColumn0), true)
+                
+                if (editor == null) {
+                    Logger.log("openFileInEditor: editor is null", project)
+                    return@invokeLater
                 }
 
-                when {
-                    endLine0 >= 0 && endColumn0 >= 0 -> {
-                        val startOffset: Int
-                        var endOffset: Int
+                val document = editor.document
+                val markup = editor.markupModel
 
-                        if (beginColumn0 == 0 && endColumn0 == 0) {
-                            startOffset = document.getLineStartOffset(beginLine0)
-                            endOffset = document.getLineEndOffset(endLine0)
-                        } else {
-                            startOffset = lineColToOffset(beginLine0, beginColumn0, document)
-                            endOffset = lineColToOffset(endLine0, endColumn0, document)
-                            if (startOffset == endOffset) {
-                                endOffset = startOffset + 1
+                // remove previous highlighters
+                ApplicationManager.getApplication().runWriteAction {
+                    markup.allHighlighters
+                        .filter { it.layer == HighlighterLayer.ERROR + 1 }
+                        .forEach { markup.removeHighlighter(it) }
+
+                    // highlight the code
+                    val underlineAttributes = TextAttributes().apply {
+                        effectType = EffectType.BOXED
+                        effectColor = JBColor.RED
+                        backgroundColor = null
+                    }
+
+                    when {
+                        endLine0 >= 0 && endColumn0 >= 0 -> {
+                            val startOffset: Int
+                            var endOffset: Int
+
+                            if (beginColumn0 == 0 && endColumn0 == 0) {
+                                startOffset = document.getLineStartOffset(beginLine0)
+                                endOffset = document.getLineEndOffset(endLine0)
+                            } else {
+                                startOffset = lineColToOffset(beginLine0, beginColumn0, document)
+                                endOffset = lineColToOffset(endLine0, endColumn0, document)
+                                if (startOffset == endOffset) {
+                                    endOffset = startOffset + 1
+                                }
                             }
+
+                            markup.addRangeHighlighter(
+                                startOffset,
+                                endOffset,
+                                HighlighterLayer.ERROR + 1,
+                                underlineAttributes,
+                                HighlighterTargetArea.EXACT_RANGE
+                            )
                         }
 
-                        markup.addRangeHighlighter(
-                            startOffset,
-                            endOffset,
-                            HighlighterLayer.ERROR + 1,
-                            underlineAttributes,
-                            HighlighterTargetArea.EXACT_RANGE
-                        )
+                        line > 0 -> {
+                            val startOffset = document.getLineStartOffset(beginLine0)
+                            val endOffset = document.getLineEndOffset(beginLine0)
+                            markup.addRangeHighlighter(
+                                startOffset,
+                                endOffset,
+                                HighlighterLayer.ERROR + 1,
+                                underlineAttributes,
+                                HighlighterTargetArea.EXACT_RANGE
+                            )
+                        }
+                        else -> Unit
                     }
-
-                    line > 0 -> {
-                        val startOffset = document.getLineStartOffset(beginLine0)
-                        val endOffset = document.getLineEndOffset(beginLine0)
-                        markup.addRangeHighlighter(
-                            startOffset,
-                            endOffset,
-                            HighlighterLayer.ERROR + 1,
-                            underlineAttributes,
-                            HighlighterTargetArea.EXACT_RANGE
-                        )
-                    }
-                    else -> Unit
                 }
             }
         }
@@ -306,12 +307,16 @@ abstract class BaseView<T : BaseXygeniIssue>(
     protected open fun openDynamicHtml(project: Project, item: T) {
         val fileEditorManager = FileEditorManager.getInstance(project)
 
-        fileEditorManager.allEditors
-            .filterIsInstance<DynamicHtmlFileEditor>()
-            .forEach {
-                it.dispose()
-                it.file?.let { file -> fileEditorManager.closeFile(file) }
-            }
+        // Close existing dynamic HTML editors properly
+        ApplicationManager.getApplication().invokeLater {
+            fileEditorManager.allEditors
+                .filterIsInstance<DynamicHtmlFileEditor>()
+                .forEach { editor ->
+                    editor.file?.let { file -> 
+                        fileEditorManager.closeFile(file)
+                    }
+                }
+        }
 
         ApplicationManager.getApplication().executeOnPooledThread {
             try {
