@@ -5,9 +5,10 @@ import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 plugins {
     id("java") // Java support
     alias(libs.plugins.kotlin) // Kotlin support
+    alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.intelliJPlatform) // IntelliJ Platform Gradle Plugin
     alias(libs.plugins.changelog) // Gradle Changelog Plugin
-    alias(libs.plugins.qodana) // Gradle Qodana Plugin
+    // alias(libs.plugins.qodana) // Gradle Qodana Plugin
     alias(libs.plugins.kover) // Gradle Kover Plugin
 }
 
@@ -19,6 +20,7 @@ kotlin {
     jvmToolchain(21)
 }
 
+
 // Configure project's dependencies
 repositories {
     mavenCentral()
@@ -27,12 +29,31 @@ repositories {
     intellijPlatform {
         defaultRepositories()
     }
+
+    maven {
+        url = uri("https://www.jetbrains.com/intellij-repository/releases")
+    }
+    maven {
+        url = uri("https://cache-redirector.jetbrains.com/intellij-dependencies")
+    }
 }
 
 // Dependencies are managed with Gradle version catalog - read more: https://docs.gradle.org/current/userguide/platforms.html#sub:version-catalog
 dependencies {
+
+    implementation("com.squareup.okhttp3:okhttp:4.11.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
+
+    implementation("org.jetbrains.kotlinx:kotlinx-html-jvm:0.8.1")
+
+    // JSON packages (required for detector info)
+    implementation("org.json:json:20240303")
+    implementation("com.vladsch.flexmark:flexmark-all:0.64.8")
+
+
     testImplementation(libs.junit)
     testImplementation(libs.opentest4j)
+
 
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
@@ -134,6 +155,11 @@ tasks {
     publishPlugin {
         dependsOn(patchChangelog)
     }
+
+    runIde {
+        dependsOn(patchPluginXml)
+    }
+
 }
 
 intellijPlatformTesting {

@@ -1,0 +1,98 @@
+package com.github.xygeni.intellij.services
+
+import com.github.xygeni.intellij.events.SCAN_STATE_TOPIC
+import com.github.xygeni.intellij.logger.Logger
+import com.github.xygeni.intellij.model.PluginConfig
+import com.github.xygeni.intellij.model.PluginContext
+import com.github.xygeni.intellij.settings.XygeniSettings
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.components.Service
+import com.intellij.openapi.components.service
+import com.intellij.openapi.progress.ProgressIndicator
+import com.intellij.openapi.progress.ProgressManager
+import com.intellij.openapi.progress.Task
+import com.intellij.openapi.project.Project
+
+/**
+ * ScanService
+ *
+ * @author : Carmendelope
+ * @version : 9/10/25 (Carmendelope)
+ **/
+
+@Service(Service.Level.PROJECT)
+class ScanService : ProcessExecutorService() {
+
+    private val pluginContext = PluginContext() // manager.pluginContext
+    private var scanning = false
+
+    var processHandle: MyProcessHandle? = null
+
+    private val baseArgs: Map<String, String> = mapOf(
+        "scan" to "",
+        "--run" to "deps,secrets,misconf,iac,suspectdeps,sast",
+        "-f" to "json",
+        "-d" to ".",
+        "-o" to this.pluginContext.xygeniReportSuffix,
+        "--no-upload" to "",
+        "--include-vulnerabilities" to ""
+    )
+
+    private fun buildArgs(changingValue: String): Map<String, String> {
+        return baseArgs.toMutableMap().apply {
+            this["-d"] = changingValue
+        }
+    }
+
+    fun scan(project: Project) {
+        if (scanning) {
+            Logger.error("❌ Scanning is already running")
+            return
+        }
+
+        scanning = true
+
+        val path = project.basePath ?: // TODO: ver qué hacer aquí
+        return
+
+        val scanResultDir = this.pluginContext.cleanScanResultDir(project)
+        publishScanUpdate(project, 2) // running
+
+        try {
+            processHandle = executeProcess(
+                pluginContext.xygeniCommand,
+                this@ScanService.buildArgs(path),
+                XygeniSettings.getInstance().toEnv(),
+                scanResultDir,
+                project,
+            ) { success ->
+                if (success) {
+                    publishScanUpdate(project, 1) // Finished
+                } else {
+                    publishScanUpdate(project, 0) // Finished with errors
+                }
+                scanning = false
+            }
+        } catch (e: Exception) {
+            Logger.error("error in scanning process ", e)
+            publishScanUpdate(project, 0) // Finished with errors
+        }
+    }
+
+    fun stop(project : Project){
+        val running = processHandle?.isRunning() ?: false
+        if (running){
+            processHandle?.stop(project)
+        }
+        processHandle = null
+    }
+
+    fun publishScanUpdate(project: Project, status: Int) {
+        ApplicationManager.getApplication().invokeLater {
+            ApplicationManager.getApplication().messageBus
+                .syncPublisher(SCAN_STATE_TOPIC)
+                .scanStateChanged(project, status)
+        }
+    }
+
+}
