@@ -1,5 +1,6 @@
 package com.github.xygeni.intellij.views
 
+import com.intellij.ide.BrowserUtil
 import icons.Icons
 import java.awt.Color
 import java.awt.Cursor
@@ -7,6 +8,7 @@ import javax.swing.*
 import javax.swing.border.CompoundBorder
 import javax.swing.border.EmptyBorder
 import javax.swing.border.MatteBorder
+import javax.swing.event.HyperlinkEvent
 
 /**
  * CollapsibleBlockView
@@ -51,6 +53,14 @@ open class CollapsibleBlockView(
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             isVisible = false
 
+            // Add hyperlink listener to open links in browser
+            addHyperlinkListener { e ->
+                if (e.eventType == HyperlinkEvent.EventType.ACTIVATED) {
+                    e.url?.toString()?.let { url ->
+                        BrowserUtil.browse(url)
+                    }
+                }
+            }
         }
 
         header.addMouseListener(object : java.awt.event.MouseAdapter() {
