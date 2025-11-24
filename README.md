@@ -25,7 +25,7 @@
 **Xygeni Security Scanner** is a powerful extension that brings comprehensive security scanning to your fingertips. It integrates seamlessly with your development workflow, allowing you to identify and remediate security vulnerabilities early in the process.
 
 ## Key features:
-* **Comprehensive Scanning**: Detect a wide range of security issues:
+* **Comprehensive Scanning**: Detects a wide range of security issues:
   * **_Secrets_**: Find hardcoded credentials, API keys, and other sensitive data.
   * **_SAST (Static Application Security Testing)_**: Analyze your source code for common vulnerabilities.
   * **_SCA (Software Composition Analysis)_**: Identify vulnerabilities in your open-source dependencies.
@@ -40,18 +40,21 @@
 ## Getting started:
 
 1. **Install the plugin** from [JetBrains marketplace](https://plugins.jetbrains.com/search?search=xygeni). Once installed, the plugin automatically downloads and sets up the **Xygeni Scanner**
-2. **Open the Xygeni View and the Xygeni console**** ![Console](./src/main/resources/icons/messages.svg): After installation, click the Xygeni icon in the activity bar to open the view and console.
+2. **Open the Xygeni View and the Xygeni console**: After installation, click the Xygeni icon in the activity bar to open the view and console.
 3. **Configure the plugin**:
    - You will be prompted to configure the connection to the Xygeni service.
    - Obtain an API token from your [**Xygeni Dashboard**](https://in.xygeni.io/auth/login). If you don’t have an account, you can sign up for a free trial.
    - Enter the **Xygeni API URL** and your **API token** in the configuration view.
 4. **Run a scan**.
    - Once configured, the scan is ready
-   - Click on the **Run scan** button ![Run scanner button](./src/main/resources/icons/run.svg) to initiate a scan of your workspace
+   - Click on the **Run scan** button to initiate a scan of your workspace
 5. **View results**: 
     - Scan results are displayed in the Xygeni view, categorized by type (SAST, SCA, Secrets, etc.).
-    - Click an issue to view detailed information and navigate directly to the affected file and line.
-
+    - Click an issue to view the file where the issue is found and 
+    - Click twice on an issue to view detailed information.
+6. **Fix issues**: 
+    - On the detailed information, select the *FIX* tab to remediate the vulnerability.
+   
 <!-- Plugin description end -->
 
 ## Installation
@@ -73,6 +76,9 @@
   Download the [latest release](https://github.com/xygeni/intellij-plugin/releases/latest) and install it manually using
   <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>⚙️</kbd> > <kbd>Install plugin from disk...</kbd>
 
+
+## How to publish de Plugin
+[How to publish a plugin manually](./publish.md)
 
 ---
 Plugin based on the [IntelliJ Platform Plugin Template][template].

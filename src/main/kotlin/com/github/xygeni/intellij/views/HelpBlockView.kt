@@ -29,8 +29,6 @@ const val CONTENT_TEXT= "<p>For more information, visit <a href=\"https://docs.x
         "    <br> <br>" +
         "    See Xygeni output channel for more details. Show Output" +
         "    <br> <br>" +
-        "    Are you using a proxy? Proxy Configuration" +
-        "    <br> <br>" +
-        "    © 2025 Xygeni Security v1.1.0 - All rights reserved" +
+        "    © 2025 Xygeni Security - All rights reserved" +
         "    </p></body></html>"
 
