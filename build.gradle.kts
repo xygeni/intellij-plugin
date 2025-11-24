@@ -158,6 +158,10 @@ tasks {
 
     runIde {
         dependsOn(patchPluginXml)
+        // Limpiar sandbox antes de cada ejecución para evitar errores de estado corrupto
+        doFirst {
+            delete(file("build/idea-sandbox"))
+        }
     }
 
 }
