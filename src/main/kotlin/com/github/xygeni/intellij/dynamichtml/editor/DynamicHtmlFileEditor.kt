@@ -18,37 +18,22 @@ import javax.swing.JComponent
 
 
 class DynamicHtmlFileEditor(
-    private val project: Project,
-    private val file: VirtualFile
+    val project: Project,
+    val virtualFile: VirtualFile,
+    private val browserContext: EditorBrowserContext
 ) : UserDataHolderBase(), FileEditor {
 
-    private val browserContext: EditorBrowserContext by lazy {
-        EditorBrowserContext(project)
-    }
-
-    fun loadHtml(html: String) {
-        browserContext.loadHtml(html)
-    }
-
-    fun renderData(json: String) {
-        browserContext.renderData(json)
-    }
-
-    fun sendActionToKotlin(action: String, data: String) {
-        browserContext.sendActionToKotlin(action, data)
-    }
+    fun loadHtml(html: String) = browserContext.loadHtml(html)
+    fun renderData(json: String) = browserContext.renderData(json)
+    fun sendActionToKotlin(action: String, data: String) = browserContext.sendActionToKotlin(action, data)
 
     override fun getComponent(): JComponent = browserContext.browserComponent
     override fun getPreferredFocusedComponent(): JComponent? = browserContext.browserComponent
     override fun getName(): String = "Dynamic HTML Viewer"
     override fun isModified(): Boolean = false
     override fun isValid(): Boolean = true
-    override fun dispose() {
-        browserContext.dispose()
-
-    }
-
-    override fun getFile(): VirtualFile = file
+    override fun dispose() = browserContext.dispose()
+    override fun getFile(): VirtualFile = virtualFile
     override fun getState(level: FileEditorStateLevel) = FileEditorState.INSTANCE
     override fun setState(state: FileEditorState) {}
     override fun addPropertyChangeListener(listener: java.beans.PropertyChangeListener) {}
