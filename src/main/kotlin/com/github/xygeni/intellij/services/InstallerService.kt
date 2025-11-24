@@ -3,6 +3,7 @@ package com.github.xygeni.intellij.services
 import com.github.xygeni.intellij.events.CONNECTION_STATE_TOPIC
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.model.PluginContext
+import com.github.xygeni.intellij.notifications.NotificationService
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.progress.ProgressIndicator
@@ -255,15 +256,30 @@ class InstallerService : ProcessExecutorService() {
         ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Installing...") {
             override fun run(indicator: ProgressIndicator) {
                 indicator.isIndeterminate = true
+                val installedComponents = mutableListOf<String>()
+                
                 for (step in steps) {
                     try {
                         indicator.text = step.message
                         step.fn(project)
+                        installedComponents.add(step.message.replace("Installing ", ""))
                     } catch (e: Exception) {
                         Logger.error("error in installing process ", e, project)
+                        NotificationService.notifyError(
+                            "Failed to install ${step.message.replace("Installing ", "")}: ${e.message}",
+                            project
+                        )
                     }
                 }
+                
                 Logger.log("Xygeni plugin installed", project)
+                
+                if (installedComponents.isNotEmpty()) {
+                    NotificationService.notifyInfo(
+                        "Xygeni installation completed: ${installedComponents.joinToString(", ")}",
+                        project
+                    )
+                }
             }
         })
     }

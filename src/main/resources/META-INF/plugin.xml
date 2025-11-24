@@ -33,6 +33,10 @@
                     factoryClass="com.github.xygeni.intellij.toolWindow.ConsoleWindowFactory"
                     icon="Icons.XYGENI_ICON"
         />
+
+        <notificationGroup id="Xygeni Notification Group"
+                           displayType="BALLOON"
+                           isLogByDefault="true"/>
     </extensions>
 
     <actions>
