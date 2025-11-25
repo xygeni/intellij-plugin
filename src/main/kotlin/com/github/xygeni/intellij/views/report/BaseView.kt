@@ -207,7 +207,27 @@ abstract class BaseView<T : BaseXygeniIssue>(
                     !openFiles.any { f -> 
                         window.getComposite(f)?.allEditors?.any { it is DynamicHtmlFileEditor } == true 
                     }
-                } ?: managerEx.currentWindow
+                }
+                
+                // If no window without DynamicHtmlFileEditor exists, check if there's any DynamicHtmlFileEditor open
+                if (mainWindow == null) {
+                    val hasDynamicHtmlEditor = managerEx.windows.any { window ->
+                        openFiles.any { f ->
+                            window.getComposite(f)?.allEditors?.any { it is DynamicHtmlFileEditor } == true
+                        }
+                    }
+                    
+                    // If there's a DynamicHtmlFileEditor but no separate window for source files, create a split
+                    if (hasDynamicHtmlEditor && managerEx.windows.isNotEmpty()) {
+                        val windowWithHtml = managerEx.windows.first()
+                        val oldWindows = managerEx.windows.toSet()
+                        managerEx.createSplitter(SwingConstants.VERTICAL, windowWithHtml)
+                        mainWindow = managerEx.windows.firstOrNull { it !in oldWindows }
+                    } else {
+                        // No DynamicHtmlFileEditor open, use current window
+                        mainWindow = managerEx.currentWindow
+                    }
+                }
 
                 if (mainWindow != null) {
                     managerEx.openFile(vFile, mainWindow)
@@ -337,6 +357,9 @@ abstract class BaseView<T : BaseXygeniIssue>(
                             window.getComposite(f)?.allEditors?.any { it is DynamicHtmlFileEditor } == true
                         }
                     }
+                    
+                    // Track if we're creating a new split
+                    var newSplitCreated = false
 
                     // If not found, check if we have a split (more than one window) and pick the one that is NOT the current one (source code)
                     if (targetWindow == null && managerEx.windows.size > 1) {
@@ -351,6 +374,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
                          val oldWindows = managerEx.windows.toSet()
                          managerEx.createSplitter(SwingConstants.VERTICAL, baseWindow)
                          targetWindow = managerEx.windows.firstOrNull { it !in oldWindows }
+                         newSplitCreated = true
                     }
 
                     // 2. Open new file in target window
@@ -390,6 +414,20 @@ abstract class BaseView<T : BaseXygeniIssue>(
                                 }
                             }
                         }
+                    
+                    // 4. Close any source files that were duplicated in the target window
+                    // This prevents the source file from appearing on the right side
+                    // Only do this if we just created a new split (to avoid closing intentionally opened files)
+                    if (targetWindow != null && newSplitCreated) {
+                        val filesInTargetWindow = targetWindow.fileList.filter { f ->
+                            // Keep only the DynamicHtmlFileEditor file, close everything else
+                            f != file && !f.name.endsWith(".dynamic.html")
+                        }
+                        filesInTargetWindow.forEach { f ->
+                            // Close the file but only from this specific window
+                            targetWindow.closeFile(f)
+                        }
+                    }
                 }
             } catch (e: Exception) {
                 Logger.warn(e.message ?: e.toString(), project)
