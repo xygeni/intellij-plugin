@@ -44,7 +44,6 @@ class EditorBrowserContext(private val project: Project) {
 
         // JSQuery handler
         jsQuery.addHandler { data ->
-            Logger.log("JSQuery received: $data", project)
             handleJsAction(data)
             JBCefJSQuery.Response("OK")
         }

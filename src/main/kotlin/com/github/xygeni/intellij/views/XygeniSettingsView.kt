@@ -46,7 +46,7 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
         add(Box.createVerticalStrut(4))
         add(content)
 
-        loadSettingsAsync(false)
+        loadSettingsAsync(true)
 
         project.messageBus.connect()
             .subscribe(SETTINGS_CHANGED_TOPIC, object : SettingsChangeListener {
@@ -59,10 +59,16 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
             .subscribe(CONNECTION_STATE_TOPIC, object : ConnectionStateListener {
                 override fun connectionStateChanged(projectFromService: Project?, urlOk: Boolean, tokenOk: Boolean) {
                     if (projectFromService != this@XygeniSettingsView.project) return
-                    statusLabel.text = when {
-                        !urlOk -> "❌ Invalid URL"
-                        !tokenOk -> "❌ Invalid token"
-                        else -> "✅ Valid Connection and Token"
+
+                    ApplicationManager.getApplication().invokeLater {
+                        statusLabel.text = when {
+                            !urlOk -> "❌ Invalid URL"
+                            !tokenOk -> "❌ Invalid token"
+                            else -> "✅ Valid Connection and Token"
+                        }
+                        if ((!urlOk || !tokenOk) && !content.isVisible) {
+                            toggleContentVisibility()
+                        }
                     }
                 }
             })
