@@ -154,6 +154,25 @@ tasks {
 
     publishPlugin {
         dependsOn(patchChangelog)
+        doFirst {
+            val token = providers.environmentVariable("PUBLISH_TOKEN").orNull
+            if (token.isNullOrEmpty()) {
+                throw GradleException(
+                    """
+                    |❌ PUBLISH_TOKEN is not set!
+                    |
+                    |To publish the plugin, you need to set the following environment variables:
+                    |  - PUBLISH_TOKEN (required)
+                    |  - CERTIFICATE_CHAIN (required for signing)
+                    |  - PRIVATE_KEY (required for signing)
+                    |  - PRIVATE_KEY_PASSWORD (required for signing)
+                    |
+                    |In GitHub Actions, these should be configured as repository secrets.
+                    |See publish.md for more information.
+                    """.trimMargin()
+                )
+            }
+        }
     }
 
     runIde {
