@@ -79,6 +79,7 @@
 
 ## How to publish de Plugin
 [How to publish a plugin manually](./publish.md)
+[Publication procedure](./publication_pocedure.md)
 
 ---
 Plugin based on the [IntelliJ Platform Plugin Template][template].
