@@ -17,20 +17,19 @@ import com.github.xygeni.intellij.render.BaseHtmlIssueRenderer
 import com.github.xygeni.intellij.services.report.BaseReportService
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.Document
-import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.markup.EffectType
 import com.intellij.openapi.editor.markup.HighlighterLayer
 import com.intellij.openapi.editor.markup.HighlighterTargetArea
 import com.intellij.openapi.editor.markup.TextAttributes
 import com.intellij.openapi.fileEditor.FileEditorManager
-import com.intellij.openapi.fileEditor.OpenFileDescriptor
+import com.intellij.openapi.fileEditor.TextEditor
+import com.intellij.openapi.fileEditor.ex.FileEditorManagerEx
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.LightVirtualFile
 import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBScrollPane
-import com.intellij.ui.jcef.JBCefApp
 import com.intellij.ui.treeStructure.Tree
 import icons.Icons
 import java.awt.Color
@@ -40,13 +39,8 @@ import java.awt.event.MouseEvent
 import javax.swing.*
 import javax.swing.border.EmptyBorder
 import javax.swing.border.MatteBorder
-import com.intellij.openapi.fileEditor.ex.FileEditorManagerEx
-import com.intellij.openapi.fileEditor.impl.FileEditorOpenOptions
-import com.intellij.openapi.fileEditor.TextEditor
-import javax.swing.SwingConstants
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
-import kotlin.jvm.javaClass
 
 //  BaseView containing a tree panel for displaying issues
 abstract class BaseView<T : BaseXygeniIssue>(
@@ -216,11 +210,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
                 } ?: managerEx.currentWindow
 
                 if (mainWindow != null) {
-                    managerEx.openFile(
-                        vFile, 
-                        mainWindow, 
-                        FileEditorOpenOptions(requestFocus = true)
-                    )
+                    managerEx.openFile(vFile, mainWindow)
                 } else {
                     // Fallback if no window found (e.g. no editors open)
                     FileEditorManager.getInstance(project).openFile(vFile, true)
@@ -365,11 +355,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
 
                     // 2. Open new file in target window
                     if (targetWindow != null) {
-                         managerEx.openFile(
-                            file,
-                            targetWindow,
-                            FileEditorOpenOptions(requestFocus = true)
-                        )
+                        managerEx.openFile(file, targetWindow)
                         
                         // Set data
                         // Use getEditors(file) which is more reliable than targetWindow.getComposite(file) immediately after open
@@ -393,7 +379,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
                          data?.let { editor?.renderData(it) }
                     }
 
-                    // 3. Close OLD dynamic HTML editors (after opening the new one to keep window alive)
+                    // 3. Close OLD dynamic HTML editors (after opening the new one to keep the window alive)
                     fileEditorManager.allEditors
                         .filterIsInstance<DynamicHtmlFileEditor>()
                         .forEach { editor ->
