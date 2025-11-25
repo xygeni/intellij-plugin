@@ -59,13 +59,16 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
             .subscribe(CONNECTION_STATE_TOPIC, object : ConnectionStateListener {
                 override fun connectionStateChanged(projectFromService: Project?, urlOk: Boolean, tokenOk: Boolean) {
                     if (projectFromService != this@XygeniSettingsView.project) return
-                    statusLabel.text = when {
-                        !urlOk -> "❌ Invalid URL"
-                        !tokenOk -> "❌ Invalid token"
-                        else -> "✅ Valid Connection and Token"
-                    }
-                    if ((!urlOk || !tokenOk) && !content.isVisible) {
-                        toggleContentVisibility()
+
+                    ApplicationManager.getApplication().invokeLater {
+                        statusLabel.text = when {
+                            !urlOk -> "❌ Invalid URL"
+                            !tokenOk -> "❌ Invalid token"
+                            else -> "✅ Valid Connection and Token"
+                        }
+                        if ((!urlOk || !tokenOk) && !content.isVisible) {
+                            toggleContentVisibility()
+                        }
                     }
                 }
             })
