@@ -418,7 +418,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
                     // 4. Close any source files that were duplicated in the target window
                     // This prevents the source file from appearing on the right side
                     // Only do this if we just created a new split (to avoid closing intentionally opened files)
-                    if (targetWindow != null && newSplitCreated) {
+                    /*if (targetWindow != null && newSplitCreated) {
                         val filesInTargetWindow = targetWindow.fileList.filter { f ->
                             // Keep only the DynamicHtmlFileEditor file, close everything else
                             f != file && !f.name.endsWith(".dynamic.html")
@@ -428,6 +428,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
                             targetWindow.closeFile(f)
                         }
                     }
+                     */
                 }
             } catch (e: Exception) {
                 Logger.warn(e.message ?: e.toString(), project)
