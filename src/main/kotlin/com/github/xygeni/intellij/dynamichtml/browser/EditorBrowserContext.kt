@@ -58,21 +58,10 @@ class EditorBrowserContext(private val project: Project) {
             override fun onLoadEnd(browser: CefBrowser?, frame: CefFrame?, httpStatusCode: Int) {
                 if (frame?.isMain != true) return
                 SwingUtilities.invokeLater {
-
-
-                            browser?.executeJavaScript(
-                                """
-                                window.pluginAction = function(action, value) {
-                                    ${jsQuery.inject("""JSON.stringify({action: action, data: value})""")}
-                                };
-                                """.trimIndent(),
-                                browser.url ?: "",
-                                0
-                            )
-                            flushPendingData()
-                            ready = true
-                            Logger.log("EditorBrowserContext: onLoadEnd -> pluginAction injected, ready=true")
-                        }
+                    flushPendingData()
+                    ready = true
+                    Logger.log("EditorBrowserContext: onLoadEnd -> ready=true")
+                }
             }
         }, browserWrapper.browser.cefBrowser)
 
@@ -94,8 +83,31 @@ class EditorBrowserContext(private val project: Project) {
             }
         }
     }
-
     fun loadHtml(html: String) {
+        ready = false
+        
+        // Generate bridge script
+        val bridgeScript = """
+            <script>
+            window.pluginAction = function(action, value) {
+                ${jsQuery.inject("""JSON.stringify({action: action, data: value})""")}
+            };
+            </script>
+        """.trimIndent()
+        
+        // Inject into HTML (append to head or body)
+        val modifiedHtml = if (html.contains("</head>")) {
+            html.replace("</head>", "$bridgeScript</head>")
+        } else {
+            "$bridgeScript$html"
+        }
+
+        SwingUtilities.invokeLater {
+            browserWrapper.browser.loadHTML(modifiedHtml)
+        }
+    }
+
+    fun loadHtmlOld(html: String) {
         SwingUtilities.invokeLater {
             val start = System.currentTimeMillis()
             // carga la página
