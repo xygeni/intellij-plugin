@@ -6,6 +6,8 @@ import com.github.xygeni.intellij.settings.XygeniSettings
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity
+import com.intellij.ui.jcef.JBCefApp
+import com.intellij.ui.jcef.JBCefBrowser
 
 /**
  * XygeniStartup
@@ -26,6 +28,23 @@ class XygeniStartup : ProjectActivity {
             installer.validateConnection(settings.apiUrl, settings.apiToken, project, {
                 urlOk, tokenOk -> installer.publishConnectionState(project, urlOk, tokenOk)
             })
+        }
+
+        preloadJcef(project)
+    }
+
+    private fun preloadJcef(project: Project) {
+        if (!JBCefApp.isSupported()) return
+
+        val start = System.currentTimeMillis()
+        Logger.log("JCEF preload: starting...", project)
+
+        try {
+            JBCefBrowser("about:blank").dispose()
+            val elapsed = System.currentTimeMillis() - start
+            Logger.log("JCEF preload: done in $elapsed ms", project)
+        } catch (t: Throwable) {
+            Logger.warn("JCEF preload failed: ${t.message}")
         }
     }
 }

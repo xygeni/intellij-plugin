@@ -50,6 +50,13 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
                   };                                                
                   window.domReady = true;
                   """
+        
+        // Cache CSS content to avoid reading from disk on every render
+        private val cachedCssContent: String by lazy {
+            val cssStream = javaClass.classLoader.getResourceAsStream("html/xygeni.css")
+                ?: throw IllegalStateException("html/xygeni.css not found in resources")
+            cssStream.bufferedReader().use { it.readText() }
+        }
     }
 
     protected val branchIcon = Icons::class.java.getResource("/icons/branch.svg")
@@ -66,27 +73,17 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
     private fun colorToCss(color: Color): String = "rgb(${color.red}, ${color.green}, ${color.blue})"
 
     private fun loadCssResource(): String {
-        val font = UIUtil.getLabelFont()
         val fg = UIUtil.getLabelForeground()
         val bg = UIUtil.getPanelBackground()
 
-
-        var root = ":root {\n" +
+        val root = ":root {\n" +
                 " --intellij-font-size: 15px;\n" +
                 " --intellij-foreground: ${colorToCss(fg)};\n" +
                 " --intellij-background: ${colorToCss(bg)};\n" +
                 "}\n"
 
-        val cssFile = File("src/main/resources/html/xygeni.css")
-        val cssContent = if (cssFile.exists()) {
-            cssFile.readText()
-        } else {
-            // fallback al classloader para cuando esté empaquetado
-            val cssStream = javaClass.classLoader.getResourceAsStream("html/xygeni.css")
-                ?: throw IllegalStateException("html/xygeni.css not found")
-            cssStream.bufferedReader().use { it.readText() }
-        }
-        return root + cssContent
+        // Use cached CSS content instead of reading from disk every time
+        return root + cachedCssContent
     }
 
     // HEADER

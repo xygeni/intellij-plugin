@@ -57,6 +57,8 @@ abstract class BaseView<T : BaseXygeniIssue>(
     protected val model = DefaultTreeModel(root)
     protected val tree = Tree(model)
 
+    private val detailHtmlFile = LightVirtualFile("xygeni.dynamic.html", "").apply { isWritable = true }
+
     init {
 
         service.read()
@@ -179,138 +181,151 @@ abstract class BaseView<T : BaseXygeniIssue>(
         onOpened: () -> Unit = {}
     ) {
         ApplicationManager.getApplication().executeOnPooledThread {
-            val basePath = project.basePath
-            if (basePath == null) {
-                ApplicationManager.getApplication().invokeLater { onOpened() }
-                return@executeOnPooledThread
-            }
-            
-            val absolutePath = "$basePath/$relativePath"
-            val vFile: VirtualFile? = LocalFileSystem.getInstance().findFileByPath(absolutePath)
-            
-            if (vFile == null) {
-                ApplicationManager.getApplication().invokeLater { onOpened() }
-                return@executeOnPooledThread
-            }
-
-            val beginLine0 = (line - 1).coerceAtLeast(0)
-            val beginColumn0 = (column - 1).coerceAtLeast(0)
-            val endLine0 = if (endLine >= 0) (endLine - 1).coerceAtLeast(0) else -1
-            val endColumn0 = if (endColumn >= 0) (endColumn - 1).coerceAtLeast(0) else -1
-            
-            ApplicationManager.getApplication().invokeLater {
-                val managerEx = FileEditorManagerEx.getInstanceEx(project)
-                
-                // Find main window: The one that is NOT containing DynamicHtmlFileEditor
-                val openFiles = managerEx.openFiles
-                var mainWindow = managerEx.windows.find { window ->
-                    !openFiles.any { f -> 
-                        window.getComposite(f)?.allEditors?.any { it is DynamicHtmlFileEditor } == true 
-                    }
+            try {
+                val basePath = project.basePath
+                if (basePath == null) {
+                    Logger.warn("openFileInEditor: basePath is null", project)
+                    ApplicationManager.getApplication().invokeLater { onOpened() }
+                    return@executeOnPooledThread
                 }
                 
-                // If no window without DynamicHtmlFileEditor exists, check if there's any DynamicHtmlFileEditor open
-                if (mainWindow == null) {
-                    val hasDynamicHtmlEditor = managerEx.windows.any { window ->
-                        openFiles.any { f ->
-                            window.getComposite(f)?.allEditors?.any { it is DynamicHtmlFileEditor } == true
+                // Normalize path to handle mixed separators (Windows/Linux)
+                val normalizedRelativePath = relativePath.replace("\\", "/")
+                val absolutePath = "$basePath/$normalizedRelativePath"
+                val vFile: VirtualFile? = LocalFileSystem.getInstance().findFileByPath(absolutePath)
+                
+                if (vFile == null) {
+                    Logger.warn("openFileInEditor: File not found at $absolutePath", project)
+                    ApplicationManager.getApplication().invokeLater { onOpened() }
+                    return@executeOnPooledThread
+                }
+
+                val beginLine0 = (line - 1).coerceAtLeast(0)
+                val beginColumn0 = (column - 1).coerceAtLeast(0)
+                val endLine0 = if (endLine >= 0) (endLine - 1).coerceAtLeast(0) else -1
+                val endColumn0 = if (endColumn >= 0) (endColumn - 1).coerceAtLeast(0) else -1
+                
+                ApplicationManager.getApplication().invokeLater {
+                    try {
+                        val managerEx = FileEditorManagerEx.getInstanceEx(project)
+                        
+                        // Find main window: The one that is NOT containing DynamicHtmlFileEditor
+                        val openFiles = managerEx.openFiles
+                        var mainWindow = managerEx.windows.find { window ->
+                            !openFiles.any { f -> 
+                                window.getComposite(f)?.allEditors?.any { it is DynamicHtmlFileEditor } == true 
+                            }
                         }
-                    }
-                    
-                    // If there's a DynamicHtmlFileEditor but no separate window for source files, create a split
-                    if (hasDynamicHtmlEditor && managerEx.windows.isNotEmpty()) {
-                        val windowWithHtml = managerEx.windows.first()
-                        val oldWindows = managerEx.windows.toSet()
-                        managerEx.createSplitter(SwingConstants.VERTICAL, windowWithHtml)
-                        mainWindow = managerEx.windows.firstOrNull { it !in oldWindows }
-                    } else {
-                        // No DynamicHtmlFileEditor open, use current window
-                        mainWindow = managerEx.currentWindow
-                    }
-                }
-
-                if (mainWindow != null) {
-                    managerEx.openFile(vFile, mainWindow)
-                } else {
-                    // Fallback if no window found (e.g. no editors open)
-                    FileEditorManager.getInstance(project).openFile(vFile, true)
-                }
-                
-                // Try to get the editor to apply highlighting
-                // We use the mainWindow if available, or search in current window
-                val targetWindow = mainWindow ?: managerEx.currentWindow
-                val editor = targetWindow?.getComposite(vFile)?.allEditors?.filterIsInstance<TextEditor>()?.firstOrNull()?.editor
-                
-                if (editor != null) {
-                    val document = editor.document
-                    val markup = editor.markupModel
-
-                    // remove previous highlighters
-                    ApplicationManager.getApplication().runWriteAction {
-                        markup.allHighlighters
-                            .filter { it.layer == HighlighterLayer.ERROR + 1 }
-                            .forEach { markup.removeHighlighter(it) }
-
-                        // highlight the code
-                        val underlineAttributes = TextAttributes().apply {
-                            effectType = EffectType.BOXED
-                            effectColor = JBColor.RED
-                            backgroundColor = null
+                        
+                        // If no window without DynamicHtmlFileEditor exists, check if there's any DynamicHtmlFileEditor open
+                        if (mainWindow == null) {
+                            val hasDynamicHtmlEditor = managerEx.windows.any { window ->
+                                openFiles.any { f ->
+                                    window.getComposite(f)?.allEditors?.any { it is DynamicHtmlFileEditor } == true
+                                }
+                            }
+                            
+                            // If there's a DynamicHtmlFileEditor but no separate window for source files, create a split
+                            if (hasDynamicHtmlEditor && managerEx.windows.isNotEmpty()) {
+                                val windowWithHtml = managerEx.windows.first()
+                                val oldWindows = managerEx.windows.toSet()
+                                managerEx.createSplitter(SwingConstants.VERTICAL, windowWithHtml)
+                                mainWindow = managerEx.windows.firstOrNull { it !in oldWindows }
+                            } else {
+                                // No DynamicHtmlFileEditor open, use current window
+                                mainWindow = managerEx.currentWindow
+                            }
                         }
 
-                        when {
-                            endLine0 >= 0 && endColumn0 >= 0 -> {
-                                val startOffset: Int
-                                var endOffset: Int
+                        if (mainWindow != null) {
+                            managerEx.openFile(vFile, mainWindow)
+                        } else {
+                            // Fallback if no window found (e.g. no editors open)
+                            FileEditorManager.getInstance(project).openFile(vFile, true)
+                        }
+                        
+                        // Try to get the editor to apply highlighting
+                        // We use the mainWindow if available, or search in current window
+                        val targetWindow = mainWindow ?: managerEx.currentWindow
+                        val editor = targetWindow?.getComposite(vFile)?.allEditors?.filterIsInstance<TextEditor>()?.firstOrNull()?.editor
+                        
+                        if (editor != null) {
+                            val document = editor.document
+                            val markup = editor.markupModel
 
-                                if (beginColumn0 == 0 && endColumn0 == 0) {
-                                    startOffset = document.getLineStartOffset(beginLine0)
-                                    endOffset = document.getLineEndOffset(endLine0)
-                                } else {
-                                    startOffset = lineColToOffset(beginLine0, beginColumn0, document)
-                                    endOffset = lineColToOffset(endLine0, endColumn0, document)
-                                    if (startOffset == endOffset) {
-                                        endOffset = startOffset + 1
-                                    }
+                            // remove previous highlighters
+                            ApplicationManager.getApplication().runWriteAction {
+                                markup.allHighlighters
+                                    .filter { it.layer == HighlighterLayer.ERROR + 1 }
+                                    .forEach { markup.removeHighlighter(it) }
+
+                                // highlight the code
+                                val underlineAttributes = TextAttributes().apply {
+                                    effectType = EffectType.BOXED
+                                    effectColor = JBColor.RED
+                                    backgroundColor = null
                                 }
 
-                                markup.addRangeHighlighter(
-                                    startOffset,
-                                    endOffset,
-                                    HighlighterLayer.ERROR + 1,
-                                    underlineAttributes,
-                                    HighlighterTargetArea.EXACT_RANGE
-                                )
-                                
-                                // Scroll to position
-                                editor.caretModel.moveToOffset(startOffset)
-                                editor.scrollingModel.scrollToCaret(com.intellij.openapi.editor.ScrollType.CENTER)
-                            }
+                                when {
+                                    endLine0 >= 0 && endColumn0 >= 0 -> {
+                                        val startOffset: Int
+                                        var endOffset: Int
 
-                            line > 0 -> {
-                                val startOffset = document.getLineStartOffset(beginLine0)
-                                val endOffset = document.getLineEndOffset(beginLine0)
-                                markup.addRangeHighlighter(
-                                    startOffset,
-                                    endOffset,
-                                    HighlighterLayer.ERROR + 1,
-                                    underlineAttributes,
-                                    HighlighterTargetArea.EXACT_RANGE
-                                )
-                                
-                                // Scroll to position
-                                editor.caretModel.moveToOffset(startOffset)
-                                editor.scrollingModel.scrollToCaret(com.intellij.openapi.editor.ScrollType.CENTER)
+                                        if (beginColumn0 == 0 && endColumn0 == 0) {
+                                            startOffset = document.getLineStartOffset(beginLine0)
+                                            endOffset = document.getLineEndOffset(endLine0)
+                                        } else {
+                                            startOffset = lineColToOffset(beginLine0, beginColumn0, document)
+                                            endOffset = lineColToOffset(endLine0, endColumn0, document)
+                                            if (startOffset == endOffset) {
+                                                endOffset = startOffset + 1
+                                            }
+                                        }
+
+                                        markup.addRangeHighlighter(
+                                            startOffset,
+                                            endOffset,
+                                            HighlighterLayer.ERROR + 1,
+                                            underlineAttributes,
+                                            HighlighterTargetArea.EXACT_RANGE
+                                        )
+                                        
+                                        // Scroll to position
+                                        editor.caretModel.moveToOffset(startOffset)
+                                        editor.scrollingModel.scrollToCaret(com.intellij.openapi.editor.ScrollType.CENTER)
+                                    }
+
+                                    line > 0 -> {
+                                        val startOffset = document.getLineStartOffset(beginLine0)
+                                        val endOffset = document.getLineEndOffset(beginLine0)
+                                        markup.addRangeHighlighter(
+                                            startOffset,
+                                            endOffset,
+                                            HighlighterLayer.ERROR + 1,
+                                            underlineAttributes,
+                                            HighlighterTargetArea.EXACT_RANGE
+                                        )
+                                        
+                                        // Scroll to position
+                                        editor.caretModel.moveToOffset(startOffset)
+                                        editor.scrollingModel.scrollToCaret(com.intellij.openapi.editor.ScrollType.CENTER)
+                                    }
+                                    else -> Unit
+                                }
                             }
-                            else -> Unit
+                        } else {
+                            Logger.log("openFileInEditor: editor is null or not found", project)
                         }
+                    } catch (e: Exception) {
+                        Logger.warn("openFileInEditor: Error opening file: ${e.message}", project)
+                    } finally {
+                        // Always notify completion so HTML view can open
+                        onOpened()
                     }
-                } else {
-                    Logger.log("openFileInEditor: editor is null or not found", project)
                 }
-                
-                // Always notify completion so HTML view can open
-                onOpened()
+            } catch (e: Exception) {
+                Logger.warn("openFileInEditor: Critical error: ${e.message}", project)
+                ApplicationManager.getApplication().invokeLater { onOpened() }
             }
         }
     }
@@ -339,95 +354,52 @@ abstract class BaseView<T : BaseXygeniIssue>(
 
         ApplicationManager.getApplication().executeOnPooledThread {
             try {
-                // Render HTML
                 val htmlContent = renderer.render(item)
-                val data: String? = if (item.kind != "" && item.kind != "sca") {
-                    item.fetchData()
-                } else null
+                val data: String? = if (item.kind.isNotEmpty() && item.kind != "sca") item.fetchData() else null
 
                 ApplicationManager.getApplication().invokeLater {
-                    val fileName = "${item.type}.dynamic.html"
-                    val file = LightVirtualFile(fileName, htmlContent).apply { isWritable = false }
+                    // Usamos siempre el LightVirtualFile compartido
+                    detailHtmlFile.setContent(null, htmlContent, true)
+                    val file = detailHtmlFile
 
-                    // 1. Find target window
-                    // First, look for a window that already has a DynamicHtmlFileEditor
+                    // Abrimos o buscamos la ventana
                     val openFiles = fileEditorManager.openFiles
                     var targetWindow = managerEx.windows.find { window ->
-                        openFiles.any { f ->
-                            window.getComposite(f)?.allEditors?.any { it is DynamicHtmlFileEditor } == true
-                        }
+                        openFiles.any { f -> window.getComposite(f)?.allEditors?.any { it is DynamicHtmlFileEditor } == true }
                     }
-                    
-                    // Track if we're creating a new split
-                    var newSplitCreated = false
-
-                    // If not found, check if we have a split (more than one window) and pick the one that is NOT the current one (source code)
                     if (targetWindow == null && managerEx.windows.size > 1) {
-                         val current = managerEx.currentWindow
-                         targetWindow = managerEx.windows.firstOrNull { it != current } 
-                            ?: managerEx.windows.lastOrNull()
+                        val current = managerEx.currentWindow
+                        targetWindow = managerEx.windows.firstOrNull { it != current } ?: managerEx.windows.lastOrNull()
                     }
-
-                    // If still not found, create a new split
                     if (targetWindow == null) {
-                         val baseWindow = managerEx.currentWindow
-                         val oldWindows = managerEx.windows.toSet()
-                         managerEx.createSplitter(SwingConstants.VERTICAL, baseWindow)
-                         targetWindow = managerEx.windows.firstOrNull { it !in oldWindows }
-                         newSplitCreated = true
+                        val oldWindows = managerEx.windows.toSet()
+                        managerEx.createSplitter(SwingConstants.VERTICAL, managerEx.currentWindow)
+                        targetWindow = managerEx.windows.firstOrNull { it !in oldWindows }
                     }
 
-                    // 2. Open new file in target window
                     if (targetWindow != null) {
                         managerEx.openFile(file, targetWindow)
-                        
-                        // Set data
-                        // Use getEditors(file) which is more reliable than targetWindow.getComposite(file) immediately after open
                         val editor = fileEditorManager.getEditors(file)
                             .filterIsInstance<DynamicHtmlFileEditor>()
                             .firstOrNull()
-
-                        if (editor != null) {
-                            editor.loadHtml(htmlContent)
-                            data?.let { editor.renderData(it) }
-                        } else {
-                            Logger.warn("openDynamicHtmlInSplit: editor is null after openFile", project)
-                        }
+                        editor?.loadHtml(htmlContent)
+                        data?.let { editor?.renderData(it) }
                     } else {
-                        // Fallback
-                         fileEditorManager.openFile(file, true)
-                         val editor = fileEditorManager.getEditors(file)
+                        // fallback
+                        fileEditorManager.openFile(file, true)
+                        val editor = fileEditorManager.getEditors(file)
                             .filterIsInstance<DynamicHtmlFileEditor>()
                             .firstOrNull()
-                         editor?.loadHtml(htmlContent)
-                         data?.let { editor?.renderData(it) }
+                        editor?.loadHtml(htmlContent)
+                        data?.let { editor?.renderData(it) }
                     }
 
-                    // 3. Close OLD dynamic HTML editors (after opening the new one to keep the window alive)
+                    // Cerrar editores viejos, opcional
                     fileEditorManager.allEditors
                         .filterIsInstance<DynamicHtmlFileEditor>()
-                        .forEach { editor ->
-                            // Don't close the file we just opened!
-                            if (editor.file != file) {
-                                editor.file?.let { f ->
-                                    fileEditorManager.closeFile(f)
-                                }
-                            }
+                        .forEach { e ->
+                            if (e.file != file) e.file?.let { f -> fileEditorManager.closeFile(f) }
                         }
-                    
-                    // 4. Close any source files that were duplicated in the target window
-                    // This prevents the source file from appearing on the right side
-                    // Only do this if we just created a new split (to avoid closing intentionally opened files)
-                    if (targetWindow != null && newSplitCreated) {
-                        val filesInTargetWindow = targetWindow.fileList.filter { f ->
-                            // Keep only the DynamicHtmlFileEditor file, close everything else
-                            f != file && !f.name.endsWith(".dynamic.html")
-                        }
-                        filesInTargetWindow.forEach { f ->
-                            // Close the file but only from this specific window
-                            targetWindow.closeFile(f)
-                        }
-                    }
                 }
             } catch (e: Exception) {
                 Logger.warn(e.message ?: e.toString(), project)

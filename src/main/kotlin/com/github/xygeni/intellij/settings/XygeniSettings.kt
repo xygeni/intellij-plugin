@@ -9,6 +9,7 @@ package com.github.xygeni.intellij.settings
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.model.report.server.RemediationData
 import com.intellij.credentialStore.CredentialAttributes
+import com.intellij.credentialStore.generateServiceName
 import com.intellij.ide.passwordSafe.PasswordSafe
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.PersistentStateComponent
@@ -45,6 +46,17 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
 
         fun getInstance(): XygeniSettings =
             ApplicationManager.getApplication().getService(XygeniSettings::class.java)
+        
+        /**
+         * Creates CredentialAttributes for storing API token securely.
+         * Note: Plugin verifier may report false positive deprecated warnings due to 
+         * Kotlin-generated synthetic constructors with DefaultConstructorMarker.
+         * These warnings are suppressed in build.gradle.kts.
+         */
+        private fun createCredentialAttributes() = CredentialAttributes(
+            generateServiceName("Xygeni", TOKEN_KEY),
+            null
+        )
     }
 
     var apiUrl: String
@@ -61,14 +73,14 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
     var apiToken: String
         get() {
             cachedToken?.let { return it }
-            val attributes = CredentialAttributes(TOKEN_KEY)
+            val attributes = createCredentialAttributes()
             val token = PasswordSafe.instance.getPassword(attributes) ?: ""
             cachedToken = token
             return token
         }
         set(value) {
             cachedToken = value
-            val attributes = CredentialAttributes(TOKEN_KEY)
+            val attributes = createCredentialAttributes()
             PasswordSafe.instance.setPassword(attributes, value)
         }
 

@@ -114,12 +114,10 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
         listOf(urlTextField, tokenTextField).forEach { field ->
             field.addMouseListener(object : java.awt.event.MouseAdapter() {
                 override fun mouseClicked(e: java.awt.event.MouseEvent?) {
-                    com.intellij.util.SlowOperations.knownIssue("IDEA-307840").use {
-                        ShowSettingsUtil.getInstance().showSettingsDialog(
-                            project,
-                            XygeniSettingsConfigurable::class.java
-                        )
-                    }
+                    ShowSettingsUtil.getInstance().showSettingsDialog(
+                        project,
+                        XygeniSettingsConfigurable::class.java
+                    )
                 }
             })
         }
