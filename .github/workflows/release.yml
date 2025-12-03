@@ -5,7 +5,7 @@
 name: Release
 on:
   release:
-    types: [created] # Release created event (draft)
+    types: [released, prereleased] # Release created event (draft)
 
 jobs:
 
@@ -64,13 +64,6 @@ jobs:
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           PRIVATE_KEY_PASSWORD: ${{ secrets.PRIVATE_KEY_PASSWORD }}
         run: ./gradlew publishPlugin
-
-      # Publish the release as a non-draft (before update the assets)
-      - name: Publish Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release edit ${{ github.event.release.tag_name }} --draft=false  
 
       # Upload an artifact as a release asset
       - name: Upload Release Asset
