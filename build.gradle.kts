@@ -47,7 +47,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-html-jvm:0.8.1")
 
     // JSON packages (required for detector info)
-    implementation("org.json:json:20240303")
+    implementation("org.json:json:20250517")
     implementation("com.vladsch.flexmark:flexmark-all:0.64.8")
 
 
