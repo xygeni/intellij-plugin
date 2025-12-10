@@ -44,7 +44,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.11.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
 
-    implementation("org.jetbrains.kotlinx:kotlinx-html-jvm:0.8.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-html-jvm:0.12.0")
 
     // JSON packages (required for detector info)
     implementation("org.json:json:20240303")
