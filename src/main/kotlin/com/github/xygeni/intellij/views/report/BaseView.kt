@@ -64,7 +64,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
         service.read()
 
         layout = BoxLayout(this, BoxLayout.Y_AXIS)
-        border = MatteBorder(0, 0, 1, 0, Color.LIGHT_GRAY)
+        border = MatteBorder(0, 0, 1, 0, JBColor.GRAY)
 
         // header configuration
         header.icon = Icons.CHEVRON_RIGHT_ICON

@@ -17,14 +17,18 @@ import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
+import com.intellij.ui.JBColor
+import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBTextField
+import com.intellij.util.ui.JBUI
 import icons.Icons
 import java.awt.*
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import javax.swing.*
-import javax.swing.border.EmptyBorder
 import javax.swing.border.MatteBorder
+
+
 
 class XygeniSettingsView(private val project: Project) : JPanel() {
 
@@ -36,7 +40,7 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
 
     init {
         layout = BoxLayout(this, BoxLayout.Y_AXIS)
-        border = MatteBorder(0, 0, 1, 0, Color.LIGHT_GRAY)
+        border = MatteBorder(0, 0, 1, 0, JBColor.GRAY)
     }
 
     fun initialize() {
@@ -57,8 +61,8 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
 
         project.messageBus.connect()
             .subscribe(CONNECTION_STATE_TOPIC, object : ConnectionStateListener {
-                override fun connectionStateChanged(projectFromService: Project?, urlOk: Boolean, tokenOk: Boolean) {
-                    if (projectFromService != this@XygeniSettingsView.project) return
+                override fun connectionStateChanged(project: Project?, urlOk: Boolean, tokenOk: Boolean) {
+                    if (project != this@XygeniSettingsView.project) return
 
                     ApplicationManager.getApplication().invokeLater {
                         statusLabel.text = when {
@@ -92,7 +96,7 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
     private fun createContent() {
         content = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
-            border = EmptyBorder(5, 20, 10, 5)
+            border = JBUI.Borders.empty(5, 20, 10, 5)
             isVisible = false
         }
 
@@ -121,6 +125,8 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
                 }
             })
         }
+
+        val mySwitch = JBCheckBox("Auto scan").apply { isSelected = false }
 
         val formPanel = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)

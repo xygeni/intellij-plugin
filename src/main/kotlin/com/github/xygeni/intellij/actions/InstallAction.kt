@@ -8,15 +8,12 @@ package com.github.xygeni.intellij.actions
  **/
 
 import com.github.xygeni.intellij.services.InstallerService
-import com.github.xygeni.intellij.settings.XygeniSettings
-import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.ui.Messages
 
 
-class InstallAction : AnAction(AllIcons.Actions.Suspend){
+class InstallAction : AnAction(){
     override fun actionPerformed(e: AnActionEvent) {
         ApplicationManager.getApplication().getService(InstallerService::class.java).installOrUpdate(e.project)
     }

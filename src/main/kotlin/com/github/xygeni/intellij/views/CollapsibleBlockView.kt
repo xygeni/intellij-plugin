@@ -1,6 +1,7 @@
 package com.github.xygeni.intellij.views
 
 import com.intellij.ide.BrowserUtil
+import com.intellij.ui.JBColor
 import icons.Icons
 import java.awt.Color
 import java.awt.Cursor
@@ -32,7 +33,7 @@ open class CollapsibleBlockView(
         layout = BoxLayout(this, BoxLayout.Y_AXIS)
         border = if (separate) {
             val padding = EmptyBorder(8, 0, 8, 0)
-            val bottomLine = MatteBorder(0, 0, 1, 0, Color.LIGHT_GRAY)
+            val bottomLine = MatteBorder(0, 0, 1, 0, JBColor.GRAY)
             CompoundBorder(bottomLine, padding)
         } else {
             EmptyBorder(8, 0, 8, 0)

@@ -7,6 +7,7 @@ import com.github.xygeni.intellij.events.ScanStateListener
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.services.ScanService
 import com.intellij.openapi.project.Project
+import com.intellij.ui.JBColor
 import com.intellij.util.ui.JBUI
 import icons.Icons
 import java.awt.Color
@@ -36,7 +37,7 @@ class ScanView(private val project: Project) : JPanel() {
 
     init {
         layout = BoxLayout(this, BoxLayout.Y_AXIS)
-        border = MatteBorder(0, 0, 1, 0, Color.LIGHT_GRAY)
+        border = MatteBorder(0, 0, 1, 0, JBColor.GRAY)
     }
 
     fun initialize() {
@@ -49,9 +50,9 @@ class ScanView(private val project: Project) : JPanel() {
 
         project.messageBus.connect()
             .subscribe(CONNECTION_STATE_TOPIC, object : ConnectionStateListener {
-                override fun connectionStateChanged(projectFromService: Project?, urlOk: Boolean, tokenOk: Boolean) {
+                override fun connectionStateChanged(project: Project?, urlOk: Boolean, tokenOk: Boolean) {
                     Logger.log("Connection state changed to $urlOk, $tokenOk")
-                    if (projectFromService != this@ScanView.project) return
+                    if (project != this@ScanView.project) return
                     isVisible = when {
                         !urlOk -> false
                         !tokenOk -> false
@@ -62,8 +63,8 @@ class ScanView(private val project: Project) : JPanel() {
 
         project.messageBus.connect()
             .subscribe(SCAN_STATE_TOPIC, object : ScanStateListener {
-                override fun scanStateChanged(projectFromService: Project?, status: Int) {
-                    if (projectFromService != this@ScanView.project) return
+                override fun scanStateChanged(project: Project?, status: Int) {
+                    if (project != this@ScanView.project) return
                     //this@ScanView.clickcable = status != 2
                     button.icon = when {
                         status == 2 -> Icons.RUN_IN_QUEUE_ICON
@@ -91,7 +92,6 @@ class ScanView(private val project: Project) : JPanel() {
 
         button.addMouseListener(object : MouseAdapter() {
             override fun mouseClicked(e: MouseEvent) {
-                //if (!clickcable) return
                 if (button.text == "Run Scan") {
                     // scan
                     project.getService(ScanService::class.java).scan(project)

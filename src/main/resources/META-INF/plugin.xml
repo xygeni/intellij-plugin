@@ -48,12 +48,25 @@
                icon="Icons.XYGENI_ICON">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
 
+            <action
+                    id="Xygeni.OpenSettings"
+                    class="com.github.xygeni.intellij.actions.OpenXygeniSettingsAction"
+                    text="Settings"
+                    icon="Icons.SETTINGS_ICON"
+                    description="Open settings">
+            </action>
+            <separator/>
+
             <action id="Xygeni.InstallAction"
                     class="com.github.xygeni.intellij.actions.InstallAction"
                     text="Install"
                     icon="Icons.INSTALL_ICON">
             </action>
-            <separator/>
         </group>
     </actions>
+    <applicationListeners>
+        <listener
+                class="com.github.xygeni.intellij.listener.SaveListener"
+                topic="com.intellij.openapi.fileEditor.FileDocumentManagerListener"/>
+    </applicationListeners>
 </idea-plugin>
