@@ -26,7 +26,7 @@ class ScanService : ProcessExecutorService() {
 
     private val baseArgs: Map<String, String> = mapOf(
         "scan" to "",
-        "--run" to "deps,secrets,misconf,iac,suspectdeps,sast",
+//        "--run" to "deps,secrets,misconf,iac,suspectdeps,sast",
         "-f" to "json",
         "-d" to ".",
         "-o" to this.pluginContext.xygeniReportSuffix,
@@ -37,11 +37,13 @@ class ScanService : ProcessExecutorService() {
     private fun buildArgs(changingValue: String, incremental: Boolean = false): Map<String, String> {
         return if (!incremental) {
             baseArgs.toMutableMap().apply {
+                this["--run"] = "deps,secrets,misconf,iac,suspectdeps,sast"
                 this["-d"] = changingValue
             }
         }else{
             baseArgs.toMutableMap().apply {
                 this["-d"] = changingValue
+                this["--run"] = "deps,secrets,iac,suspectdeps,sast"
                 this["--incremental"] = ""
             }
         }
