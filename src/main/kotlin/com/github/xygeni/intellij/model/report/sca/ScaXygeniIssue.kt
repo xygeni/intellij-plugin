@@ -57,7 +57,7 @@ data class ScaXygeniIssue(
 
     override fun toRemediationData(): RemediationData {
         var dep = "${name}:${version}:${language}"
-        if (group != null && group.isNotEmpty()) {
+        if (!group.isNullOrEmpty()) {
             dep = "${group}${dep}"
         }
         return RemediationData(
