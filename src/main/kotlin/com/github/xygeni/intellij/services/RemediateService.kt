@@ -10,8 +10,13 @@ import com.intellij.diff.DiffManager
 import com.intellij.diff.requests.SimpleDiffRequest
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
+import com.intellij.openapi.fileEditor.FileDocumentManager
+import com.intellij.openapi.editor.Document
+import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.vfs.VfsUtil
 import java.io.File
 
 /**
@@ -105,7 +110,7 @@ class RemediateService : ProcessExecutorService() {
                 val content2 = factory.create(project, right)
 
                 val request = SimpleDiffRequest(
-                    "Remediation diff",
+                    "Remediation Diff",
                     content1, content2,
                     left.name, right.name
                 )
@@ -117,7 +122,7 @@ class RemediateService : ProcessExecutorService() {
     // save applies the new safe file to the vuln one
     fun save(project: Project,
              data: String,
-    ){
+    ) {/*
         try {
             val remediation = JsonConfig.relaxed.decodeFromString<RemediationData>(data)
             val source = File(project.basePath, remediation.filePath)
@@ -125,123 +130,73 @@ class RemediateService : ProcessExecutorService() {
             val target = getTempFile(project, remediation)
             target.copyTo(source, overwrite = true)
             Logger.log("✅ Saved", project)
+
+            // reload the file
+            val virtualFile = LocalFileSystem.getInstance()
+                .refreshAndFindFileByIoFile(source)
+
+            if (virtualFile != null) {
+                ApplicationManager.getApplication().invokeLater {
+                    ApplicationManager.getApplication().runWriteAction {
+                        virtualFile.refresh(false, false)
+                    }
+                }
+            }
+
+            // if auto scan -> scan again
+            if (XygeniSettings.getInstance().autoScan) {
+                project.getService(ScanService::class.java).scan(project, true)
+            }
+
         }
         catch (e: Exception) {
             Logger.error("❌ Failed to save remediation file", project)
         }
-    }
+    }*/
+        try {
+            val remediation =
+                JsonConfig.relaxed.decodeFromString<RemediationData>(data)
 
-    // region OtherFunctions
-    /*
-    // showDiffInDialog opens two files in a dialog
-    // TODO: add diff
-    private fun showDiffInDialog(project: Project, remediation: RemediationData, rightPath: String) {
-        ApplicationManager.getApplication().invokeLater {
             val source = File(project.basePath, remediation.filePath)
 
-            val leftFile = LocalFileSystem.getInstance().findFileByPath(source.absolutePath)
-            val rightFile = LocalFileSystem.getInstance().findFileByPath(rightPath)
+            val virtualFile = LocalFileSystem.getInstance()
+                .refreshAndFindFileByIoFile(source)
+                ?: error("VirtualFile not found for ${source.path}")
 
-            if (leftFile == null || rightFile == null) return@invokeLater
+            val target = getTempFile(project, remediation)
+            val newContent = target.readText()
 
-            val leftBytes = leftFile.contentsToByteArray()
-            val rightBytes = rightFile.contentsToByteArray()
-            val leftText = String(leftBytes, StandardCharsets.UTF_8)
-            val rightText = String(rightBytes, StandardCharsets.UTF_8)
+            ApplicationManager.getApplication().invokeLater {
+                ApplicationManager.getApplication().runWriteAction {
 
-            val leftArea = JTextArea(leftText).apply { isEditable = false; lineWrap = true; wrapStyleWord = true }
-            val rightArea = JTextArea(rightText).apply { isEditable = false; lineWrap = true; wrapStyleWord = true }
+                    val fileDocumentManager = FileDocumentManager.getInstance()
+                    val document: Document? =
+                        fileDocumentManager.getDocument(virtualFile)
 
-            val leftScroll = JBScrollPane(leftArea)
-            val rightScroll = JBScrollPane(rightArea)
-
-            val split = JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftScroll, rightScroll).apply {
-                dividerLocation =  450
+                    if (document != null) {
+                        // 📂 Archivo abierto en editor
+                        if (document.text != newContent) {
+                            document.setText(newContent)
+                            fileDocumentManager.saveDocument(document)
+                        }
+                    } else {
+                        // 📄 Archivo no abierto
+                        VfsUtil.saveText(virtualFile, newContent)
+                    }
+                }
             }
 
-            val panel = JPanel(BorderLayout()).apply { add(split, BorderLayout.CENTER) }
+            Logger.log("✅ Saved", project)
 
-            val dialog = JFrame("Remediation diff").apply {
-                defaultCloseOperation = JFrame.HIDE_ON_CLOSE
-                contentPane = panel
-                setSize(900, 600)
-                setLocationRelativeTo(null)
-                isVisible = true
+            // 🔁 auto scan
+            if (XygeniSettings.getInstance().autoScan) {
+                project.getService(ScanService::class.java)
+                    .scan(project, true)
             }
+
+        } catch (e: Exception) {
+            Logger.error("❌ Failed to save remediation file", project)
         }
     }
-    // openFileSafelyToTheRight try to open as "Split right"
-    // TODO: add diff
-    fun openFileSafelyToTheRight(project: Project,rightPath: String) {
-        val fileToOpen : VirtualFile? = LocalFileSystem.getInstance().refreshAndFindFileByPath(rightPath)
-        if (fileToOpen == null) {return}
-        val managerEx = FileEditorManagerEx.getInstanceEx(project)
 
-        // Elegir una ventana “base” para el split: si currentWindow no tiene VirtualFile, usar null
-        val baseWindow = managerEx.currentWindow
-        val useCurrentWindow = baseWindow?.selectedFile?.isValid == true
-
-        val splitBase = if (useCurrentWindow) baseWindow else null
-
-        // Guardar ventanas antes del split
-        val oldWindows = managerEx.windows.toSet()
-
-        // Crear el split vertical (a la derecha) desde la ventana base o desde el layout raíz
-        managerEx.createSplitter(SwingConstants.VERTICAL, splitBase)
-
-        // Obtener la nueva ventana
-        val newWindow = managerEx.windows.firstOrNull { it !in oldWindows } ?: return
-
-        // Abrir el fichero en el panel derecho
-        managerEx.openFile(
-            fileToOpen,
-            newWindow,
-            FileEditorOpenOptions(requestFocus = true)
-        )
-
-        // Foco en el panel derecho
-        managerEx.currentWindow = newWindow
-    }
-    // showSimpleDiffInRightSplit shows two files in the bottom(or right)
-    // TODO: add diff
-    private fun showSimpleDiffInRightSplit(project: Project, remediation: RemediationData, rightPath: String) {
-        ApplicationManager.getApplication().invokeLater {
-            val source = File(project.basePath, remediation.filePath)
-            val left = LocalFileSystem.getInstance().findFileByPath(source.absolutePath)
-            val right = LocalFileSystem.getInstance().refreshAndFindFileByPath(rightPath)
-            if (left == null || right == null) return@invokeLater
-
-            // Lee contenidos como texto
-            val leftText = left.charset.run { java.nio.charset.Charset.defaultCharset() }.let { left.contentsToByteArray().toString(it) } // simplificado
-            val rightText = right.contentsToByteArray().toString(left.charset)
-
-            val textAreaLeft = JTextArea(leftText).apply { isEditable = false }
-            val textAreaRight = JTextArea(rightText).apply { isEditable = false }
-
-            val panel = JPanel(BorderLayout())
-            val split = JSplitPane(JSplitPane.HORIZONTAL_SPLIT, JScrollPane(textAreaLeft), JScrollPane(textAreaRight)).apply {
-                dividerLocation = 450
-            }
-            panel.add(split, BorderLayout.CENTER)
-
-            val content = ContentFactory.getInstance().createContent(panel, "Remediation: ${left.name} ↔ ${right.name}", true)
-
-            val toolWindowManager = ToolWindowManager.getInstance(project)
-            var toolWindow = toolWindowManager.getToolWindow("Diffs")
-            if (toolWindow == null) {
-                    toolWindowManager.registerToolWindow("Diffs", true, ToolWindowAnchor.BOTTOM, true)
-                toolWindow = toolWindowManager.getToolWindow("Diffs")
-            }
-
-            toolWindow?.let { tw ->
-                val manager = tw.contentManager
-                if (manager.contentCount > 0) manager.removeAllContents(true)
-                manager.addContent(content)
-                manager.setSelectedContent(content)
-                tw.activate(null)
-            }
-        }
-    }
-     */
-    //endregion
 }

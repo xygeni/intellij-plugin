@@ -30,7 +30,6 @@ abstract class BaseReportService<T : BaseXygeniIssue>(
         project.messageBus.connect()
             .subscribe(SCAN_STATE_TOPIC, object : ScanStateListener {
                 override fun scanStateChanged(project: Project?, status: Int) {
-                    //if (project != this@BaseReportService.project || status == 2 /*Running*/) return
                     if (project != this@BaseReportService.project) return
                     if (status == 2) return cleanIssuesAndReturn()
                     read()

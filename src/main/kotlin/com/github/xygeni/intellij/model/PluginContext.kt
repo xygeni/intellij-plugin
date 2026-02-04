@@ -66,7 +66,7 @@ class PluginContext (){
     fun cleanScanResultDir(project : Project): File{
         val dir = getScanDir(project)
         if (dir.exists() ){
-            dir.deleteRecursively()
+            //dir.deleteRecursively()
         }
         ensureTargetExists(dir)
         return dir
