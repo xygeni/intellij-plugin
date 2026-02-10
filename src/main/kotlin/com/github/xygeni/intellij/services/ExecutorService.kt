@@ -129,6 +129,14 @@ abstract class ProcessExecutorService {
                     env.putAll(envs)
                 }
 
+                // Inyectar JAVA_HOME del sistema si existe
+                System.getenv("JAVA_HOME")?.let { env["JAVA_HOME"] = it }
+
+                // Inyectar PATH del sistema si existe
+                System.getenv("PATH")?.let { env["PATH"] = it + ":" + (env["PATH"] ?: "") }
+
+                Logger.log("Command environment: JAVA_HOME=${env["JAVA_HOME"]}, PATH=${env["PATH"]}", project)
+
                 val process = processBuilder.start()
 
                 val handler = object : OSProcessHandler(process, command.joinToString(" ")) {

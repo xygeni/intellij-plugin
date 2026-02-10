@@ -1,6 +1,7 @@
 package com.github.xygeni.intellij.model.report.sast
 
 import com.github.xygeni.intellij.model.report.BaseXygeniIssue
+import com.github.xygeni.intellij.model.report.RawIssueLocation
 import com.github.xygeni.intellij.model.report.server.RemediationData
 import kotlinx.serialization.Serializable
 
@@ -10,6 +11,21 @@ import kotlinx.serialization.Serializable
  * @author : Carmendelope
  * @version : 15/10/25 (Carmendelope)
  **/
+
+
+@Serializable
+data class SastFrameIssue(
+    val kind: String,
+    val location: RawIssueLocation? = null,
+    val container: String? = null,
+    val category: String? = null
+)
+
+@Serializable
+data class SastCodeFlowIssue(
+    val frames: List<SastFrameIssue>? = null
+)
+
 
 @Serializable
 data class SastXygeniIssue(
@@ -38,6 +54,11 @@ data class SastXygeniIssue(
     val cwe: Int = 0,
     val cwes: List<String> = emptyList(),
     val language: String = "",
+
+    // CodeFlow
+    val codeFlows: List<SastCodeFlowIssue>? = null
+
+
 ): BaseXygeniIssue{
 
     override fun toRemediationData(): RemediationData {

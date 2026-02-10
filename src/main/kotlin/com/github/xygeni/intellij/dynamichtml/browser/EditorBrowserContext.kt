@@ -107,17 +107,6 @@ class EditorBrowserContext(private val project: Project) {
         }
     }
 
-    fun loadHtmlOld(html: String) {
-        SwingUtilities.invokeLater {
-            val start = System.currentTimeMillis()
-            // carga la página
-            browserWrapper.browser.loadHTML(html)
-            val elapsed = System.currentTimeMillis() - start
-            Logger.log("loadHtml in ${elapsed} ms")
-            // reset ready/pending cuando cargamos nuevo HTML
-            ready = false
-        }
-    }
     fun renderData(json: String) {
         if (!ready) {
             Logger.log("renderData(): browser not ready → storing pendingData")
