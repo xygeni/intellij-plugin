@@ -48,7 +48,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
     private val title: String,
     protected val service: BaseReportService<T>,
     private val summaryIcon: Icon? = null,
-    private val maxVisibleHeight: Int = 250
+    private val maxVisibleHeight: Int = 500
 ) : JPanel() {
 
     private val header = JLabel(title)

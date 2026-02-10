@@ -57,8 +57,14 @@ class XygeniWindowFactory : ToolWindowFactory {
         menuPanel.add(help)
 
         // ----------------- ToolWindow -----------------
+        val scrollPane = com.intellij.ui.components.JBScrollPane(menuPanel).apply {
+            border = null
+            horizontalScrollBarPolicy = javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
+            verticalScrollBarPolicy = javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED
+        }
+
         val contentManager = toolWindow.contentManager
-        val content = contentManager.factory.createContent(menuPanel, "", false)
+        val content = contentManager.factory.createContent(scrollPane, "", false)
         contentManager.addContent(content)
 
     }
