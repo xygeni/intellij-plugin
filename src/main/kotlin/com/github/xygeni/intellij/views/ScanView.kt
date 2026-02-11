@@ -33,8 +33,6 @@ class ScanView(private val project: Project) : JPanel() {
     private lateinit var content: JPanel
     private lateinit var button: JLabel
 
-    var clickcable = true
-
     init {
         layout = BoxLayout(this, BoxLayout.Y_AXIS)
         border = MatteBorder(0, 0, 1, 0, JBColor.GRAY)

@@ -38,7 +38,8 @@ abstract class BaseReportService<T : BaseXygeniIssue>(
     }
 
     private fun cleanIssuesAndReturn(){
-        this._issues.clear()
+        //this._issues.clear()
+
         ApplicationManager.getApplication().messageBus
             .syncPublisher(READ_TOPIC)
             .readCompleted(project, this@BaseReportService.reportType)
@@ -48,6 +49,10 @@ abstract class BaseReportService<T : BaseXygeniIssue>(
     protected abstract fun processReport(jsonString: String): List<T>
 
     fun read() {
+        // removing the issue tree
+        this._issues.clear()
+
+        // reading the scan report
         val scanResultDir = this.pluginContext.ensureScanResultDirExists(project)
         val secretFile = File(
             scanResultDir,

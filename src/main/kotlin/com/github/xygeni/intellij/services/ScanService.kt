@@ -26,7 +26,6 @@ class ScanService : ProcessExecutorService() {
 
     private val baseArgs: Map<String, String> = mapOf(
         "scan" to "",
-//        "--run" to "deps,secrets,misconf,iac,suspectdeps,sast",
         "-f" to "json",
         "-d" to ".",
         "-o" to this.pluginContext.xygeniReportSuffix,
