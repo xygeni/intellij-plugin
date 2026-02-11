@@ -33,7 +33,7 @@ abstract class BaseReportService<T : BaseXygeniIssue>(
                 override fun scanStateChanged(project: Project?, status: Int) {
                     if (project != this@BaseReportService.project) return
                     if (status == 2) return cleanIssuesAndReturn()
-                    read()
+                    reloadIssuesFromFile()
                 }
             })
     }
@@ -49,7 +49,7 @@ abstract class BaseReportService<T : BaseXygeniIssue>(
 
     protected abstract fun processReport(jsonString: String): List<T>
 
-    fun read() {
+    fun reloadIssuesFromFile() {
         // removing the issue tree
         this._issues.clear()
 

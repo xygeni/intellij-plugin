@@ -63,7 +63,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
 
     init {
 
-        service.read()
+        service.reloadIssuesFromFile()
 
         layout = BoxLayout(this, BoxLayout.Y_AXIS)
         alignmentX = Component.LEFT_ALIGNMENT
@@ -76,7 +76,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
         header.alignmentX = Component.LEFT_ALIGNMENT
         header.addMouseListener(object : MouseAdapter() {
             override fun mouseClicked(e: MouseEvent?) {
-                toggle()
+                toggleTreeVisibility()
             }
         })
 
@@ -86,7 +86,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
             alignmentX = Component.RIGHT_ALIGNMENT // Within its BorderLayout container
             addMouseListener(object : MouseAdapter() {
                 override fun mouseClicked(e: MouseEvent) {
-                    service.read()
+                    service.reloadIssuesFromFile()
                 }
             })
         }
@@ -127,11 +127,11 @@ abstract class BaseView<T : BaseXygeniIssue>(
 
     protected abstract val renderer: BaseHtmlIssueRenderer<T>
 
-    private fun toggle() {
+    private fun toggleTreeVisibility() {
         treeScrollPane.isVisible = !treeScrollPane.isVisible
         header.icon = if (treeScrollPane.isVisible) Icons.CHEVRON_DOWN_ICON else Icons.CHEVRON_RIGHT_ICON
         if (treeScrollPane.isVisible) {
-            loadChildren()
+            populateIssueTree()
         } else {
             updateScrollHeight()
         }
@@ -139,7 +139,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
         repaint()
     }
 
-    protected fun loadChildren() {
+    protected fun populateIssueTree() {
         val items = getItems()
         root.removeAllChildren()
 
@@ -445,7 +445,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
             override fun readCompleted(project: Project?, reportType: String?) {
                 if (project != this@BaseView.project || reportType != service.reportType) return
                 SwingUtilities.invokeLater {
-                    if (treeScrollPane.isVisible) loadChildren()
+                    if (treeScrollPane.isVisible) populateIssueTree()
                 }
             }
         })

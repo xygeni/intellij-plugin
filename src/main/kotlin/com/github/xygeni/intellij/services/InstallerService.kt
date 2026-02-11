@@ -40,7 +40,7 @@ class InstallerService : ProcessExecutorService() {
 
     private fun uninstallIfNeeded(project: Project? = null) {
         Logger.log("Removing previous installation: ${this.pluginContext.installDir.absolutePath}...", project)
-        this.deleteSafe(this.pluginContext.installDir.absolutePath)
+        this.deleteRecursively(this.pluginContext.installDir.absolutePath)
     }
 
     private fun checkUrlAccessible(url: String, project: Project? = null, callback: (Boolean) -> Unit) {
@@ -156,7 +156,7 @@ class InstallerService : ProcessExecutorService() {
                 val tempFile = File(tempDir, fileName)
 
                 // delete the previous script
-                this.deleteSafe(tempFile.absolutePath)
+                this.deleteRecursively(tempFile.absolutePath)
 
                 Logger.log("Downloading from:  $url to: $tempFile", project)
 
@@ -174,8 +174,8 @@ class InstallerService : ProcessExecutorService() {
         }
     }
 
-    // deleteSafe removes the path
-    private fun deleteSafe(path: String): Boolean {
+    // deleteRecursively removes the path
+    private fun deleteRecursively(path: String): Boolean {
         val file = File(path)
         return if (file.exists()) {
             file.deleteRecursively()
