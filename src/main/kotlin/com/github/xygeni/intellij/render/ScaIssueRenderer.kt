@@ -1,9 +1,7 @@
 package com.github.xygeni.intellij.render
 
-import com.github.markusbernhardt.proxy.util.Logger
-import com.github.xygeni.intellij.render.XygeniConstants.EXPLANATION_KEY
-import com.github.xygeni.intellij.model.report.sast.SastXygeniIssue
 import com.github.xygeni.intellij.model.report.sca.ScaXygeniIssue
+import com.github.xygeni.intellij.render.XygeniConstants.EXPLANATION_KEY
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 

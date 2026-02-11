@@ -1,11 +1,10 @@
 package com.github.xygeni.intellij.render
 
+import com.github.xygeni.intellij.model.report.sast.SastXygeniIssue
 import com.github.xygeni.intellij.render.XygeniConstants.EXPLANATION_KEY
 import com.github.xygeni.intellij.render.XygeniConstants.FOUND_BY_KEY
 import com.github.xygeni.intellij.render.XygeniConstants.LOCATION_KEY
-import com.github.xygeni.intellij.model.report.sast.SastXygeniIssue
 import com.google.gson.Gson
-import com.intellij.codeInsight.codeVision.codeVisionEntryOnHighlighterKey
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 

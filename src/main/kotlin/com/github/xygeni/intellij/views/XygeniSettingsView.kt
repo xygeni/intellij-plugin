@@ -7,27 +7,34 @@ package com.github.xygeni.intellij.views
  * @version : 8/10/25 (Carmendelope)
  **/
 
-import com.github.xygeni.intellij.events.*
-import com.github.xygeni.intellij.logger.Logger
+import com.github.xygeni.intellij.events.CONNECTION_STATE_TOPIC
+import com.github.xygeni.intellij.events.ConnectionStateListener
+import com.github.xygeni.intellij.events.SETTINGS_CHANGED_TOPIC
+import com.github.xygeni.intellij.events.SettingsChangeListener
 import com.github.xygeni.intellij.services.InstallerService
 import com.github.xygeni.intellij.settings.XygeniSettings
 import com.github.xygeni.intellij.settings.XygeniSettingsConfigurable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.runReadAction
-import com.intellij.openapi.project.Project
 import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
+import com.intellij.openapi.project.Project
 import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBTextField
 import com.intellij.util.ui.JBUI
 import icons.Icons
-import java.awt.*
+import java.awt.Component
+import java.awt.Cursor
+import java.awt.Dimension
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
-import javax.swing.*
+import javax.swing.Box
+import javax.swing.BoxLayout
+import javax.swing.JLabel
+import javax.swing.JPanel
 import javax.swing.border.MatteBorder
 
 data class ApiSettingsSnapshot(

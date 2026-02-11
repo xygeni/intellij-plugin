@@ -1,11 +1,14 @@
 package com.github.xygeni.intellij.render
 
+import com.github.xygeni.intellij.model.report.iac.IacXygeniIssue
 import com.github.xygeni.intellij.render.XygeniConstants.EXPLANATION_KEY
 import com.github.xygeni.intellij.render.XygeniConstants.FOUND_BY_KEY
 import com.github.xygeni.intellij.render.XygeniConstants.LOCATION_KEY
-import com.github.xygeni.intellij.model.report.iac.IacXygeniIssue
-import kotlinx.html.*
+import kotlinx.html.div
 import kotlinx.html.stream.createHTML
+import kotlinx.html.table
+import kotlinx.html.tbody
+import kotlinx.html.unsafe
 
 /**
  * IadIssueRenderer

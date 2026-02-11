@@ -7,10 +7,8 @@ package com.github.xygeni.intellij.listener
  * @version : 27/1/26 (Carmendelope)
  **/
 
-import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.services.ScanService
 import com.github.xygeni.intellij.settings.XygeniSettings
-import com.intellij.ide.impl.ProjectUtil
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.fileEditor.FileDocumentManager

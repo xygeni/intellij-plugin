@@ -1,7 +1,6 @@
 package com.github.xygeni.intellij.services.report
 
 import com.github.xygeni.intellij.model.JsonConfig
-import com.github.xygeni.intellij.model.report.BaseXygeniIssue
 import com.github.xygeni.intellij.model.report.sast.SastReport
 import com.github.xygeni.intellij.model.report.sast.SastXygeniIssue
 import com.github.xygeni.intellij.model.report.sast.toIssue

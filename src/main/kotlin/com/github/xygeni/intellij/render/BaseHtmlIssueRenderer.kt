@@ -8,7 +8,6 @@ import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 import kotlinx.serialization.json.Json
 import java.awt.Color
-import kotlin.text.lines
 
 /**
  * BaseHtmlIssueRenderer

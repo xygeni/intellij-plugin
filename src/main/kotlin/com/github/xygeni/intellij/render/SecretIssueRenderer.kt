@@ -1,18 +1,11 @@
 package com.github.xygeni.intellij.render
 
-import com.github.xygeni.intellij.render.XygeniConstants.FOUND_BY_KEY
-import com.github.xygeni.intellij.model.report.cicd.CicdXygeniIssue
 import com.github.xygeni.intellij.model.report.secret.SecretsXygeniIssue
-import icons.Icons
+import com.github.xygeni.intellij.render.XygeniConstants.FOUND_BY_KEY
 import kotlinx.html.div
-import kotlinx.html.id
-import kotlinx.html.p
 import kotlinx.html.stream.createHTML
 import kotlinx.html.table
 import kotlinx.html.tbody
-import kotlinx.html.td
-import kotlinx.html.th
-import kotlinx.html.tr
 import kotlinx.html.unsafe
 
 /**

@@ -1,6 +1,9 @@
 package com.github.xygeni.intellij.services.server
 
 import com.github.xygeni.intellij.logger.Logger
+import com.github.xygeni.intellij.settings.XygeniSettings
+import com.vladsch.flexmark.html.HtmlRenderer
+import com.vladsch.flexmark.parser.Parser
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -8,12 +11,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import com.github.xygeni.intellij.settings.XygeniSettings
-
-import com.vladsch.flexmark.html.HtmlRenderer
-import com.vladsch.flexmark.parser.Parser
 import org.json.JSONObject
-
 
 
 /**

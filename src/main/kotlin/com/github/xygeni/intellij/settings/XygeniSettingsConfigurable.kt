@@ -18,7 +18,6 @@ import com.intellij.util.ui.FormBuilder
 import javax.swing.JCheckBox
 import javax.swing.JComponent
 import javax.swing.JPanel
-import kotlin.math.log
 
 // XygeniSettingsConfigurable with a clean setting UI
 class XygeniSettingsConfigurable(private val project: Project) : Configurable {

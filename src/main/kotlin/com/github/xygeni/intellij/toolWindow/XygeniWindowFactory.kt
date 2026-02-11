@@ -1,11 +1,9 @@
 package com.github.xygeni.intellij.toolWindow
 
-import com.github.xygeni.intellij.services.InstallerService
 import com.github.xygeni.intellij.views.HelpBlockView
 import com.github.xygeni.intellij.views.ScanView
 import com.github.xygeni.intellij.views.XygeniSettingsView
 import com.github.xygeni.intellij.views.report.*
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory

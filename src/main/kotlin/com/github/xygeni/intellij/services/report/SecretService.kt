@@ -1,7 +1,6 @@
 package com.github.xygeni.intellij.services.report
 
 import com.github.xygeni.intellij.model.JsonConfig
-import com.github.xygeni.intellij.model.report.BaseXygeniIssue
 import com.github.xygeni.intellij.model.report.secret.SecretsReport
 import com.github.xygeni.intellij.model.report.secret.SecretsXygeniIssue
 import com.github.xygeni.intellij.model.report.secret.toIssue

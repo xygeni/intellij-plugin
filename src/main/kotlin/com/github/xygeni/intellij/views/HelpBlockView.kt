@@ -1,7 +1,5 @@
 package com.github.xygeni.intellij.views
 
-import com.github.xygeni.intellij.logger.Logger
-
 
 /**
  * HelpBlockView

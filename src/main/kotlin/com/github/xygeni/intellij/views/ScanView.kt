@@ -1,14 +1,9 @@
 package com.github.xygeni.intellij.views
 
-import com.github.xygeni.intellij.events.CONNECTION_STATE_TOPIC
-import com.github.xygeni.intellij.events.ConnectionStateListener
-import com.github.xygeni.intellij.events.SCAN_STATE_TOPIC
-import com.github.xygeni.intellij.events.ScanStateListener
+import com.github.xygeni.intellij.events.*
 import com.github.xygeni.intellij.logger.Logger
-import com.github.xygeni.intellij.services.ScanService
-import com.github.xygeni.intellij.events.INSTALLER_STATE_TOPIC
-import com.github.xygeni.intellij.events.InstallerStateListener
 import com.github.xygeni.intellij.services.InstallerService
+import com.github.xygeni.intellij.services.ScanService
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.ui.JBColor

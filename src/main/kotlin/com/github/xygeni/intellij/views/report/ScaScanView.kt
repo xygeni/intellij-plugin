@@ -3,12 +3,8 @@ package com.github.xygeni.intellij.views.report
 import com.github.xygeni.intellij.model.report.sca.ScaXygeniIssue
 import com.github.xygeni.intellij.render.ScaIssueRenderer
 import com.github.xygeni.intellij.services.report.ScaService
-import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
-import com.intellij.testFramework.LightVirtualFile
-import com.intellij.ui.jcef.JBCefApp
 import icons.Icons
-import javax.swing.tree.DefaultMutableTreeNode
 
 /**
  * ScaScanView

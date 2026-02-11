@@ -2,7 +2,10 @@ package com.github.xygeni.intellij.services
 
 import com.github.xygeni.intellij.logger.Logger
 import com.intellij.execution.configurations.GeneralCommandLine
-import com.intellij.execution.process.*
+import com.intellij.execution.process.OSProcessHandler
+import com.intellij.execution.process.ProcessEvent
+import com.intellij.execution.process.ProcessListener
+import com.intellij.execution.process.ProcessOutputTypes
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Key

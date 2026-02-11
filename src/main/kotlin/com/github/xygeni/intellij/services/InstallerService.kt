@@ -1,6 +1,7 @@
 package com.github.xygeni.intellij.services
 
-import com.github.xygeni.intellij.events.*
+import com.github.xygeni.intellij.events.CONNECTION_STATE_TOPIC
+import com.github.xygeni.intellij.events.INSTALLER_STATE_TOPIC
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.model.PluginContext
 import com.github.xygeni.intellij.notifications.NotificationService

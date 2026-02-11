@@ -2,7 +2,6 @@ package com.github.xygeni.intellij.model.report.sast
 
 import com.github.xygeni.intellij.model.report.RawIssueLocation
 import com.github.xygeni.intellij.model.report.RawReportMetadata
-import com.intellij.ide.plugins.Category
 import kotlinx.serialization.Serializable
 
 /**

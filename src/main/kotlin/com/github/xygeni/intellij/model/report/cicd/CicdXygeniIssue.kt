@@ -3,7 +3,6 @@ package com.github.xygeni.intellij.model.report.cicd
 import com.github.xygeni.intellij.model.report.BaseXygeniIssue
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
-import kotlin.String
 
 /**
  * CicdXygeniIssue
