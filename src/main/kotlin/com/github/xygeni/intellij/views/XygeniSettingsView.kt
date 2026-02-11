@@ -66,7 +66,7 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
         add(Box.createVerticalStrut(4).apply { setAlignmentX(0f) })
         add(content)
 
-        loadSettingsAsync(true)
+        loadSettingsAsync(false)
 
         project.messageBus.connect()
             .subscribe(SETTINGS_CHANGED_TOPIC, object : SettingsChangeListener {
