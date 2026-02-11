@@ -31,195 +31,6 @@ import java.awt.Color
  *
  **/
 
-val diagramFunctionScript = """
-<script src="https://d3js.org/d3.v7.min.js"></script>
-<script>
-function renderDiagramInTab(containerId, nodes, links, paths) {
-    const container = d3.select(containerId);
-    container.selectAll("*").remove();
-
-    const svg = container.append("svg")
-        .attr("width","100%")
-        .attr("height","100%")
-        .style("background","var(--intellij-background)")
-        .style("cursor", "grab");
-        
-    svg.on("active", () => svg.style("cursor", "grabbing"));
-
-    const { width, height } = svg.node().getBoundingClientRect();
-    const g = svg.append("g");
-    
-    const nodeRadius = 30;
-    const colSpacing = 220;
-    const rowSpacing = 120;
-
-    // NODE MAP (ID__LEVEL)
-    const nodeMap = new Map();
-    // nodes comes as an array of objects {id, level} from Kotlin
-    nodes.forEach(d => nodeMap.set(d.id + "__" + d.level, { ...d, paths: [] }));
-
-    // Registrar en qué paths aparece cada nodo
-    paths.forEach((path, pIdx) => {
-        path.forEach((id, level) => {
-            const key = id + "__" + level;
-            const node = nodeMap.get(key);
-            if (!node) return;
-            node.paths.push({ pathIndex: pIdx });
-        });
-    });
-
-    // HORIZONTAL 
-    const allNodes = Array.from(nodeMap.values());
-    allNodes.forEach(node => {
-        const avgColumn = node.paths.reduce((sum,p)=>sum+p.pathIndex,0)/node.paths.length;
-        node.x = avgColumn * colSpacing + 150;
-        node.y = node.level * rowSpacing + 80;
-    });
-
-    // CURVE LINKS
-    g.selectAll("path.link")
-      .data(links)
-      .enter()
-      .append("path")
-      .attr("fill","none")
-      .attr("stroke","#999")
-      .attr("stroke-width",2)
-      .attr("d", d=>{
-          const source = nodeMap.get(d.source); // d.source is "id__level" string
-          const target = nodeMap.get(d.target);
-          if(!source || !target) return "";
-          
-          const controlX = source.x + Math.max(30,(target.x-source.x)/2);
-          const controlY = (source.y + target.y)/2;
-          return `M${'$'}{source.x},${'$'}{source.y} Q${'$'}{controlX},${'$'}{controlY} ${'$'}{target.x},${'$'}{target.y}`;
-      });
-
-    // FINAL NODES
-    const finalNodeKeys = new Set();
-    paths.forEach(path => {
-        const lastLevel = path.length - 1;
-        const lastKey = path[lastLevel] + "__" + lastLevel;
-        finalNodeKeys.add(lastKey);
-    });
-
-    // PRINT NODES
-    const node = g.selectAll("circle")
-      .data(allNodes)
-      .enter()
-      .append("circle")
-      .attr("cx", d => d.x)
-      .attr("cy", d => d.y)
-      .attr("r", nodeRadius)
-      .attr("fill", d => finalNodeKeys.has(d.id + "__" + d.level) ? "var(--intellij-foreground)" : "#69b3a2"); // 🔹 color del tema si final
-
-    // PRINT LABELS (staggered to avoid overlap)
-    g.selectAll("text.label")
-      .data(allNodes.sort((a, b) => a.level !== b.level ? a.level - b.level : a.x - b.x))
-      .enter()
-      .append("text")
-      .attr("class", "label")
-      .attr("x", d => d.x)
-      .attr("y", (d, i) => d.y + (i % 2 === 0 ? 45 : 65))
-      .attr("text-anchor", "middle")
-      .text(d => d.label || d.id);
-
-    // COUNT BUBLE
-    const badges = g.selectAll(".badge")
-      .data(allNodes.filter(d => d.paths.length > 1))
-      .enter()
-      .append("g")
-      .attr("class", "badge")
-      .attr("transform", d => `translate(${'$'}{d.x + 15}, ${'$'}{d.y - 15})`);
-
-    badges.append("circle")
-      .attr("r", 10)
-      .attr("fill", "#9e9e9e")
-      .attr("stroke", "white")
-      .attr("stroke-width", 1);
-
-    badges.append("text")
-      .attr("text-anchor", "middle")
-      .attr("dy", "0.3em")
-      .style("font-size", "10px")
-      .style("font-weight", "bold")
-      .style("fill", "white")
-      .text(d => d.paths.length);
-
-    // Zoom
-    const zoom = d3.zoom()
-      .scaleExtent([0.2,4])
-      .on("zoom", event => g.attr("transform", event.transform));
-    svg.call(zoom);
-
-    // Zoom buttons
-     const controls = container.append("div").attr("class","xy-zoom-controls");
-        
-    controls.append("button").text("+")
-        .attr("class", "xy-zoom-btn")
-        .on("click", ()=> svg.transition().duration(300).call(zoom.scaleBy,1.2));
-    controls.append("button").text("-")
-        .attr("class", "xy-zoom-btn")
-        .on("click", ()=> svg.transition().duration(300).call(zoom.scaleBy,0.8));
-        
-    const tooltip = d3.select("body").append("div").attr("class", "tooltip");
-    
-    node
-      .on("mouseover", (event, d) => {
-        tooltip
-          .style("opacity", 1)
-          .html(`
-            ${'$'}{d.filePath ? `<strong>${'$'}{d.filePath}</strong><br>` : ''}
-            ${'$'}{d.line ? `Line: ${'$'}{d.line}<br>` : ''}
-            ${'$'}{d.type ? `Type: ${'$'}{d.type}<br>` : ''}
-            ${'$'}{d.category ? `Category: ${'$'}{d.category}<br>` : ''}  
-            ${'$'}{d.container ? `Container: ${'$'}{d.container}<br>` : ''}
-            ${'$'}{d.injectionPoint ? `InjectionPoint: ${'$'}{d.injectionPoint}<br>` : ''}
-            ${'$'}{d.code ? `<pre><code>${'$'}{d.code}</code></pre>` : ''}
-          `);
-      })
-      .on("mousemove", (event) => {
-        tooltip
-          .style("left", (event.pageX + 15) + "px")
-          .style("top", (event.pageY + 15) + "px");
-      })
-      .on("mouseout", () => {
-        tooltip.style("opacity", 0);
-      });
-    
-}
-
-function renderTextFlowInTab(containerId, nodes) {
-    const container = d3.select(containerId);
-    container.selectAll("*").remove();
-
-    const flowContainer = container.append("div")
-        .attr("class", "xy-text-flow-container");
-
-    nodes.sort((a, b) => a.level - b.level).forEach(node => {
-        const step = flowContainer.append("div")
-            .attr("class", "xy-flow-step");
-        
-        const fileName = node.filePath ? node.filePath.split('/').pop() : 'Unknown';
-        
-        step.html(`
-            <div class="xy-flow-step-header">
-                <span class="xy-flow-step-file">${'$'}{fileName}:${'$'}{node.line}</span>
-                <span class="xy-flow-step-type">${'$'}{node.type}</span>
-            </div>
-            <div class="xy-flow-step-path">${'$'}{node.filePath}</div>
-            <div class="xy-flow-step-details">
-                ${'$'}{node.category ? `<span>Category: <b>${'$'}{node.category}</b></span>` : ''}            
-                ${'$'}{node.container ? `<span>Container: <b>${'$'}{node.container}</b></span>` : ''}
-                ${'$'}{node.injectionPoint ? `<span>InjectionPoint: <b>${'$'}{node.injectionPoint}</b></span>` : ''}
-            </div>
-            ${'$'}{node.code ? `<pre><code>${'$'}{node.code}</code></pre>` : ''}
-        `);
-    });
-}
-</script>
-""".trimIndent()
-
-
 abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
 
     companion object {
@@ -307,7 +118,7 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
         val detail = renderCustomIssueDetails(issue)
         val code = renderCustomCodeSnippet(issue)
         val fix = renderCustomFix(issue)
-        val codeFlow = renderCodeFlow(issue)
+        
         return createHTML().section(classes = "xy-tabs-section") {
             if (detail.isNotEmpty()) {
                 input(type = InputType.radio, name = "tabs") { id = XygeniConstants.ISSUE_DETAILS_TAB_ID; checked = true }
@@ -317,14 +128,15 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
                 input(type = InputType.radio, name = "tabs") { id = XygeniConstants.CODE_SNIPPET_TAB_ID }
                 label { htmlFor = XygeniConstants.CODE_SNIPPET_TAB_ID; +XygeniConstants.CODE_SNIPPET_TAB }
             }
-            if (codeFlow != "") {
-                input(type = InputType.radio, name = "tabs") { id = XygeniConstants.CODE_FLOW_TAB_ID }
-                label { htmlFor = XygeniConstants.CODE_FLOW_TAB_ID; +XygeniConstants.CODE_FLOW_TAB }
-            }
+            
+            // Hook for additional tabs from subclasses
+            renderAdditionalTabs(issue, this)
+            
             if (fix.isNotEmpty()) {
                 input(type = InputType.radio, name = "tabs") { id = XygeniConstants.FIX_IT_TAB_ID}
                 label { htmlFor = XygeniConstants.FIX_IT_TAB_ID; +XygeniConstants.FIX_IT_TAB }
             }
+            
             div {
                 id = XygeniConstants.ISSUE_DETAILS_CONTENT_ID
                 unsafe { +detail }
@@ -335,23 +147,39 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
                     unsafe { +code }
                 }
             }
-            if (codeFlow.isNotEmpty() ) {
-                div{
-                    id=  XygeniConstants.CODE_FLOW_CONTENT_ID
-                    unsafe { +codeFlow }
-                }
-            }
+            
+            // Hook for additional content from subclasses
+            renderAdditionalTabsContent(issue, this)
+            
             if (fix.isNotEmpty()) {
                 div {
                     id = XygeniConstants.FIX_IT_CONTENT_ID
                     unsafe { +fix }
                 }
             }
-
-
         }
     }
 
+    /**
+     * Hook to render additional tabs in the tab bar.
+     */
+    protected open fun renderAdditionalTabs(issue: T, section: SECTION) {
+        // To be overridden by subclasses (e.g. SastIssueRenderer for Code Flow)
+    }
+
+    /**
+     * Hook to render additional tab content divs.
+     */
+    protected open fun renderAdditionalTabsContent(issue: T, section: SECTION) {
+        // To be overridden by subclasses
+    }
+
+    /**
+     * Hook to render additional scripts or styles in the HTML <head>.
+     */
+    protected open fun renderAdditionalScripts(issue: T, head: HEAD) {
+        // To be overridden by subclasses
+    }
 
     protected abstract fun renderCustomIssueDetails(issue: T): String
 
@@ -472,12 +300,6 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
         }
 
     }
-    //endregionF"D
-
-    //region CodeFlow
-    protected open fun renderCodeFlow(issue: T): String {
-        return ""
-    }
     //endregion
 
     protected fun renderDetectorInfo(issue: T): String {
@@ -496,7 +318,7 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
     }
 
     /**
-     * render renders the full HTM
+     * render renders the full HTML
      */
     override fun render(issue: T): String {
         val cssContent = loadCssResource()
@@ -509,7 +331,7 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
                 title(issue.type)
                 meta(charset = "UTF-8")
                 inlineCss(cssContent)
-                unsafe { + diagramFunctionScript}
+                renderAdditionalScripts(issue, this)
             }
             body {
                 script {
