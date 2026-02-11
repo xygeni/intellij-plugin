@@ -3,8 +3,9 @@ package com.github.xygeni.intellij.views
 import com.intellij.ide.BrowserUtil
 import com.intellij.ui.JBColor
 import icons.Icons
-import java.awt.Color
+import java.awt.Component
 import java.awt.Cursor
+import java.awt.Dimension
 import javax.swing.*
 import javax.swing.border.CompoundBorder
 import javax.swing.border.EmptyBorder
@@ -31,6 +32,7 @@ open class CollapsibleBlockView(
 
     fun createUI(separate: Boolean): JPanel {
         layout = BoxLayout(this, BoxLayout.Y_AXIS)
+        alignmentX = Component.LEFT_ALIGNMENT
         border = if (separate) {
             val padding = EmptyBorder(8, 0, 8, 0)
             val bottomLine = MatteBorder(0, 0, 1, 0, JBColor.GRAY)
@@ -42,6 +44,7 @@ open class CollapsibleBlockView(
 
         header = JLabel("$headerText").apply {
             cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
+            alignmentX = Component.LEFT_ALIGNMENT
             icon = Icons.CHEVRON_RIGHT_ICON
             iconTextGap = 10
         }
@@ -52,6 +55,7 @@ open class CollapsibleBlockView(
             text = contentHtml
             border = EmptyBorder(8, 0, 8, 0)
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
+            alignmentX = Component.LEFT_ALIGNMENT
             isVisible = false
 
             // Add hyperlink listener to open links in browser
@@ -71,8 +75,12 @@ open class CollapsibleBlockView(
         })
 
         add(header)
-        add(Box.createVerticalStrut(4))
+        add(Box.createVerticalStrut(4).apply { setAlignmentX(0f) })
         add(contentPane)
+
+        // Initial size limit
+        maximumSize = Dimension(Int.MAX_VALUE, preferredSize.height)
+
         return this
     }
 
@@ -80,6 +88,7 @@ open class CollapsibleBlockView(
         contentPane.isVisible = !contentPane.isVisible
         header.icon = if (contentPane.isVisible) Icons.CHEVRON_DOWN_ICON else Icons.CHEVRON_RIGHT_ICON
         revalidate()
+        maximumSize = Dimension(Int.MAX_VALUE, preferredSize.height)
         repaint()
     }
 

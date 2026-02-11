@@ -48,6 +48,7 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
 
     init {
         layout = BoxLayout(this, BoxLayout.Y_AXIS)
+        alignmentX = Component.LEFT_ALIGNMENT
         border = MatteBorder(0, 0, 1, 0, JBColor.GRAY)
     }
 
@@ -55,7 +56,7 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
         createHeader()
         createContent()
         add(header)
-        add(Box.createVerticalStrut(4))
+        add(Box.createVerticalStrut(4).apply { setAlignmentX(0f) })
         add(content)
 
         loadSettingsAsync(true)
@@ -99,11 +100,13 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
                 toggleContentVisibility()
             }
         })
+        header.alignmentX = Component.LEFT_ALIGNMENT
     }
 
     private fun createContent() {
         content = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
+            alignmentX = Component.LEFT_ALIGNMENT
             border = JBUI.Borders.empty(5, 20, 10, 5)
             isVisible = false
         }
@@ -185,6 +188,7 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
         header.icon = if (content.isVisible) Icons.CHEVRON_DOWN_ICON else Icons.CHEVRON_RIGHT_ICON
 
         revalidate()
+        maximumSize = Dimension(Int.MAX_VALUE, preferredSize.height)
         repaint()
     }
 

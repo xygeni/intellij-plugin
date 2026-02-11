@@ -10,8 +10,9 @@ import com.intellij.openapi.project.Project
 import com.intellij.ui.JBColor
 import com.intellij.util.ui.JBUI
 import icons.Icons
-import java.awt.Color
+import java.awt.Component
 import java.awt.Cursor
+import java.awt.Dimension
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import javax.swing.Box
@@ -35,6 +36,7 @@ class ScanView(private val project: Project) : JPanel() {
 
     init {
         layout = BoxLayout(this, BoxLayout.Y_AXIS)
+        alignmentX = Component.LEFT_ALIGNMENT
         border = MatteBorder(0, 0, 1, 0, JBColor.GRAY)
     }
 
@@ -42,7 +44,7 @@ class ScanView(private val project: Project) : JPanel() {
         createHeader()
         createContent()
         add(header)
-        add(Box.createVerticalStrut(4))
+        add(Box.createVerticalStrut(4).apply { setAlignmentX(0f) })
         add(content)
 
 
@@ -101,6 +103,7 @@ class ScanView(private val project: Project) : JPanel() {
 
         content = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
+            alignmentX = Component.LEFT_ALIGNMENT
             border = JBUI.Borders.empty(5, 20, 10, 5)
             isVisible = false
         }
@@ -129,6 +132,7 @@ class ScanView(private val project: Project) : JPanel() {
         header.icon = if (content.isVisible) Icons.CHEVRON_DOWN_ICON else Icons.CHEVRON_RIGHT_ICON
 
         revalidate()
+        maximumSize = Dimension(Int.MAX_VALUE, preferredSize.height)
         repaint()
     }
 

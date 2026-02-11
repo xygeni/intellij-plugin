@@ -12,6 +12,8 @@ object Icons {
 
     @JvmField val XYGENI_ICON = getIcon("/icons/xygeni.svg", Icons::class.java)
 
+    @JvmField val REFRESH_ICON = com.intellij.icons.AllIcons.Actions.Refresh
+
     @JvmField val SETTINGS_ICON = getIcon("/icons/properties.svg", Icons::class.java)
     @JvmField val INSTALL_ICON = getIcon("/icons/install.svg", Icons::class.java)
 

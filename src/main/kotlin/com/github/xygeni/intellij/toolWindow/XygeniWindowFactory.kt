@@ -56,6 +56,9 @@ class XygeniWindowFactory : ToolWindowFactory {
         help.createUI(false)
         menuPanel.add(help)
 
+        // Add vertical glue to push everything up
+        menuPanel.add(javax.swing.Box.createVerticalGlue())
+
         // ----------------- ToolWindow -----------------
         val scrollPane = com.intellij.ui.components.JBScrollPane(menuPanel).apply {
             border = null

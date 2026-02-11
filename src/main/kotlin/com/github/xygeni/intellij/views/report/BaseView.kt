@@ -32,7 +32,9 @@ import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.Tree
 import icons.Icons
+import java.awt.BorderLayout
 import java.awt.Color
+import java.awt.Component
 import java.awt.Dimension
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
@@ -64,38 +66,63 @@ abstract class BaseView<T : BaseXygeniIssue>(
         service.read()
 
         layout = BoxLayout(this, BoxLayout.Y_AXIS)
+        alignmentX = Component.LEFT_ALIGNMENT
         border = MatteBorder(0, 0, 1, 0, JBColor.GRAY)
 
         // header configuration
         header.icon = Icons.CHEVRON_RIGHT_ICON
         header.iconTextGap = 10
-        header.border = EmptyBorder(8, 0, 0, 0)
         header.cursor = java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR)
+        header.alignmentX = Component.LEFT_ALIGNMENT
         header.addMouseListener(object : MouseAdapter() {
             override fun mouseClicked(e: MouseEvent?) {
                 toggle()
             }
         })
 
-        add(header)
+        val refreshButton = JLabel(Icons.REFRESH_ICON).apply {
+            toolTipText = "Reload issues"
+            cursor = java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR)
+            alignmentX = Component.RIGHT_ALIGNMENT // Within its BorderLayout container
+            addMouseListener(object : MouseAdapter() {
+                override fun mouseClicked(e: MouseEvent) {
+                    service.read()
+                }
+            })
+        }
+
+        val headerPanel = JPanel(BorderLayout()).apply {
+            isOpaque = false
+            alignmentX = Component.LEFT_ALIGNMENT
+            border = EmptyBorder(8, 0, 0, 10)
+            add(header, BorderLayout.WEST)
+            add(refreshButton, BorderLayout.EAST)
+        }
+
+        add(headerPanel)
 
         // Tree configuration
         tree.isRootVisible = false
         tree.showsRootHandles = true
         tree.rowHeight = 20
+        tree.alignmentX = Component.LEFT_ALIGNMENT
 
         treeScrollPane = JBScrollPane(tree).apply {
+            alignmentX = Component.LEFT_ALIGNMENT
             border = EmptyBorder(0, 0, 0, 0)
             horizontalScrollBarPolicy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
             verticalScrollBarPolicy = ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED
             isVisible = false
         }
 
-        add(Box.createVerticalStrut(4))
+        add(Box.createVerticalStrut(4).apply { setAlignmentX(0f) })
         add(treeScrollPane)
 
         setupRenderer()
         subscribeToMessage()
+        
+        // Initial size limit
+        maximumSize = Dimension(Int.MAX_VALUE, preferredSize.height)
     }
 
     protected abstract val renderer: BaseHtmlIssueRenderer<T>
@@ -105,8 +132,9 @@ abstract class BaseView<T : BaseXygeniIssue>(
         header.icon = if (treeScrollPane.isVisible) Icons.CHEVRON_DOWN_ICON else Icons.CHEVRON_RIGHT_ICON
         if (treeScrollPane.isVisible) {
             loadChildren()
+        } else {
+            updateScrollHeight()
         }
-        updateScrollHeight()
         revalidate()
         repaint()
     }
@@ -127,14 +155,18 @@ abstract class BaseView<T : BaseXygeniIssue>(
     }
 
     private fun updateScrollHeight() {
-        val visibleRows = if (treeScrollPane.isVisible) tree.rowCount else 1
+        val visibleRows = if (treeScrollPane.isVisible) tree.rowCount else 0
         val rowHeight = tree.rowHeight.takeIf { it > 0 } ?: 20
-        val contentHeight = visibleRows * rowHeight + 30
+        val contentHeight = if (treeScrollPane.isVisible) visibleRows * rowHeight + 30 else 0
         val actualHeight = contentHeight.coerceAtMost(maxVisibleHeight)
 
         treeScrollPane.preferredSize = Dimension(Int.MAX_VALUE, actualHeight)
         treeScrollPane.maximumSize = Dimension(Int.MAX_VALUE, actualHeight)
         treeScrollPane.minimumSize = Dimension(0, actualHeight)
+        
+        // Limit the panel height overall
+        revalidate()
+        maximumSize = Dimension(Int.MAX_VALUE, preferredSize.height)
     }
 
     private fun setupRenderer() {
