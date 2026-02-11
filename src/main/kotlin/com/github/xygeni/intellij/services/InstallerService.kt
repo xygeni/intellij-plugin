@@ -6,6 +6,7 @@ import com.github.xygeni.intellij.model.PluginContext
 import com.github.xygeni.intellij.notifications.NotificationService
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
+import com.intellij.openapi.components.service
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
@@ -30,7 +31,7 @@ import javax.swing.SwingUtilities
 @Service(Service.Level.APP)
 class InstallerService : ProcessExecutorService() {
 
-    private val pluginContext = PluginContext() //manager.pluginContext
+    private val pluginContext = service<PluginContext>() 
     private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)

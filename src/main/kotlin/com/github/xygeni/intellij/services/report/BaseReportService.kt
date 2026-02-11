@@ -7,6 +7,7 @@ import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.model.PluginContext
 import com.github.xygeni.intellij.model.report.BaseXygeniIssue
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import java.io.File
 
@@ -22,7 +23,7 @@ abstract class BaseReportService<T : BaseXygeniIssue>(
     val reportType: String
 ) {
 
-    private val pluginContext = PluginContext()
+    private val pluginContext = service<PluginContext>()
     private val _issues = mutableListOf<T>()
     val issues: List<T> get() = _issues
 

@@ -7,11 +7,12 @@ package com.github.xygeni.intellij.model
  * @version : 10/10/25 (Carmendelope)
  **/
 
-import com.github.xygeni.intellij.logger.Logger
+import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
 import java.io.File
 
-class PluginContext (){
+@Service(Service.Level.APP)
+class PluginContext {
 
     val installDir: File
     val scriptFiletName: String
@@ -25,8 +26,7 @@ class PluginContext (){
         installDir = File(this.initInstallationDir(), PluginInfo.name + "/" + PluginInfo.version)
         scriptFiletName = this.initScriptFileName()
         ensureTargetExists(installDir)
-        xygeniCommand = "${installDir.canonicalPath}/xygeni_scanner/${getXygeniCommandName()}" // installDir.canonicalPath + "/xygeni_scanner/xygeni"
-        Logger.log("Xygeni command: $xygeniCommand", null)
+        xygeniCommand = "${installDir.canonicalPath}/xygeni_scanner/${getXygeniCommandName()}"
         mcpJarFile = installDir.canonicalPath + "/mcp/xygeni-mcp-server.jar"
     }
 

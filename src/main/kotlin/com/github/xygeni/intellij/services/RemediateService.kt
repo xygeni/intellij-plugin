@@ -10,6 +10,7 @@ import com.intellij.diff.DiffManager
 import com.intellij.diff.requests.SimpleDiffRequest
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
+import com.intellij.openapi.components.service
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.fileEditor.FileEditorManager
@@ -28,7 +29,7 @@ import java.io.File
 @Service(Service.Level.PROJECT)
 class RemediateService : ProcessExecutorService() {
 
-    private val pluginContext = PluginContext() // manager.pluginContext
+    private val pluginContext = service<PluginContext>() 
 
     private val baseArgs: Map<String, String> = mapOf(
         "util" to "",

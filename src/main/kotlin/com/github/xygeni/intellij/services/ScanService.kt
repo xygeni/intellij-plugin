@@ -6,6 +6,7 @@ import com.github.xygeni.intellij.model.PluginContext
 import com.github.xygeni.intellij.settings.XygeniSettings
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
+import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import org.gradle.work.Incremental
 
@@ -19,7 +20,7 @@ import org.gradle.work.Incremental
 @Service(Service.Level.PROJECT)
 class ScanService : ProcessExecutorService() {
 
-    private val pluginContext = PluginContext() // manager.pluginContext
+    private val pluginContext = service<PluginContext>() 
     private var scanning = false
 
     var processHandle: MyProcessHandle? = null
