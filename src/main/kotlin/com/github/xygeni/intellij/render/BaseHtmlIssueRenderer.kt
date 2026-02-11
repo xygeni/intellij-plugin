@@ -199,12 +199,20 @@ function renderTextFlowInTab(containerId, nodes) {
         const step = flowContainer.append("div")
             .attr("class", "xy-flow-step");
         
+        const fileName = node.filePath ? node.filePath.split('/').pop() : 'Unknown';
+        
         step.html(`
-            <strong>${'$'}{node.type}: ${'$'}{node.filePath}:${'$'}{node.line}</strong><br>
-            ${'$'}{node.category ? `Category: ${'$'}{node.category}<br>` : ''}            
-            ${'$'}{node.container ? `Container: ${'$'}{node.container}<br>` : ''}
-            ${'$'}{node.injectionPoint ? `InjectionPoint: ${'$'}{node.injectionPoint}<br>` : ''}
-            ${'$'}{node.code ? `Code:<br><pre><code>${'$'}{node.code}</code></pre>` : ''}
+            <div class="xy-flow-step-header">
+                <span class="xy-flow-step-file">${'$'}{fileName}:${'$'}{node.line}</span>
+                <span class="xy-flow-step-type">${'$'}{node.type}</span>
+            </div>
+            <div class="xy-flow-step-path">${'$'}{node.filePath}</div>
+            <div class="xy-flow-step-details">
+                ${'$'}{node.category ? `<span>Category: <b>${'$'}{node.category}</b></span>` : ''}            
+                ${'$'}{node.container ? `<span>Container: <b>${'$'}{node.container}</b></span>` : ''}
+                ${'$'}{node.injectionPoint ? `<span>InjectionPoint: <b>${'$'}{node.injectionPoint}</b></span>` : ''}
+            </div>
+            ${'$'}{node.code ? `<pre><code>${'$'}{node.code}</code></pre>` : ''}
         `);
     });
 }
@@ -257,7 +265,7 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
         val bg = UIUtil.getPanelBackground()
 
         val root = ":root {\n" +
-                " --intellij-font-size: 15px;\n" +
+                " --intellij-font-size: 17px;\n" +
                 " --intellij-foreground: ${colorToCss(fg)};\n" +
                 " --intellij-background: ${colorToCss(bg)};\n" +
                 "}\n"

@@ -214,7 +214,7 @@
    color: var(--intellij-foreground);
    border: 1px solid rgba(128, 128, 128, 0.5);
    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-   font-size: 16px;
+   font-size: 18px;
    line-height: 1.6;
    border-radius: 6px;
    pointer-events: none;
@@ -256,7 +256,7 @@
    background: var(--intellij-background);
    color: var(--intellij-foreground);
    cursor: pointer;
-   font-size: 13px;
+   font-size: 15px;
    transition: all 0.2s;
  }
 
@@ -290,16 +290,60 @@
  .xy-flow-step {
    background: var(--intellij-background);
    color: var(--intellij-foreground);
-   border: 1px solid rgba(128, 128, 128, 0.3);
-   padding: 15px;
-   border-radius: 6px;
-   font-size: 16px;
-   line-height: 1.6;
+   border: 1px solid rgba(128, 128, 128, 0.2);
+   border-left: 4px solid #3794FF;
+   padding: 12px 16px;
+   border-radius: 4px;
+   font-size: 17px;
+   line-height: 1.5;
    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+   position: relative;
+   margin-bottom: 4px;
  }
 
- .xy-flow-step strong {
+ .xy-flow-step-header {
+   display: flex;
+   justify-content: space-between;
+   align-items: baseline;
+   margin-bottom: 4px;
+ }
+
+ .xy-flow-step-file {
+   font-weight: bold;
+   color: var(--intellij-foreground);
+   font-size: 18px;
+ }
+
+ .xy-flow-step-type {
    color: #3794FF;
+   font-weight: bold;
+   font-size: 14px;
+   text-transform: uppercase;
+   letter-spacing: 0.5px;
+ }
+
+ .xy-flow-step-path {
+   color: #888888;
+   font-size: 14px;
+   margin-bottom: 8px;
+   word-break: break-all;
+ }
+
+ .xy-flow-step-details {
+   font-size: 14px;
+   margin-top: 5px;
+   display: flex;
+   gap: 15px;
+   flex-wrap: wrap;
+ }
+
+ .xy-flow-step-details span {
+   color: #888888;
+ }
+
+ .xy-flow-step-details b {
+   color: var(--intellij-foreground);
+   font-weight: 500;
  }
 
  .xy-flow-step pre {
@@ -308,7 +352,7 @@
    padding: 10px;
    border-radius: 4px;
    margin-top: 8px;
-   font-size: 14px;
+   font-size: 16px;
    overflow-x: auto;
    white-space: pre;
  }
