@@ -152,19 +152,13 @@ function renderDiagramInTab(containerId, nodes, links, paths) {
     svg.call(zoom);
 
     // Zoom buttons
-     const controls = container.append("div").attr("class","controls")
-        .style("position", "absolute")
-        .style("top", "20px")
-        .style("right", "20px")
-        .style("display", "flex")
-        .style("flex-direction", "column")
-        .style("gap", "5px");
+     const controls = container.append("div").attr("class","xy-zoom-controls");
         
     controls.append("button").text("+")
-        .style("width","30px").style("height","30px").style("cursor","pointer")
+        .attr("class", "xy-zoom-btn")
         .on("click", ()=> svg.transition().duration(300).call(zoom.scaleBy,1.2));
     controls.append("button").text("-")
-        .style("width","30px").style("height","30px").style("cursor","pointer")
+        .attr("class", "xy-zoom-btn")
         .on("click", ()=> svg.transition().duration(300).call(zoom.scaleBy,0.8));
         
     const tooltip = d3.select("body").append("div").attr("class", "tooltip");

@@ -11,7 +11,8 @@
    font-family: "Courier New", "Segoe UI", "Helvetica Neue", Arial, sans-serif !important;
    font-size: var(--intellij-font-size);
    margin: 0;
-   padding: 0 0 0 15px; /* Restored original left padding */
+   padding: 0 0 0 15px;
+   /* Restored original left padding */
    overflow-y: auto;
    overflow-x: hidden;
    height: 100%;
@@ -310,4 +311,45 @@
    font-size: 14px;
    overflow-x: auto;
    white-space: pre;
+ }
+
+ /* --- Zoom Controls --- */
+ .xy-zoom-controls {
+   position: absolute;
+   top: 20px;
+   right: 20px;
+   display: flex;
+   flex-direction: column;
+   gap: 8px;
+   z-index: 10;
+ }
+
+ .xy-zoom-btn {
+   width: 32px;
+   height: 32px;
+   border-radius: 50%;
+   border: 1px solid rgba(128, 128, 128, 0.3);
+   background: var(--intellij-background);
+   color: var(--intellij-foreground);
+   cursor: pointer;
+   font-size: 20px;
+   font-weight: bold;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+   transition: all 0.2s;
+   padding: 0;
+   line-height: 1;
+ }
+
+ .xy-zoom-btn:hover {
+   background-color: #3794FF;
+   color: white;
+   border-color: #3794FF;
+   transform: scale(1.1);
+ }
+
+ .xy-zoom-btn:active {
+   transform: scale(0.95);
  }
