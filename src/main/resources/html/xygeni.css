@@ -108,8 +108,8 @@
  }
 
  .xy-tabs-section input[type="radio"]:checked+label {
-   border-color: #a788ce;
-   background-color: rgba(167, 136, 206, 0.1);
+   border-color: #3794FF;
+   background-color: rgba(55, 148, 255, 0.1);
  }
 
  .xy-tabs-section #tab-content-1,
@@ -269,13 +269,13 @@
  }
 
  .xy-toggle-btn.active {
-   background-color: #a788ce;
+   background-color: #3794FF;
    color: white;
-   border-color: #a788ce;
+   border-color: #3794FF;
  }
 
  .xy-toggle-btn:hover:not(.active) {
-   background-color: rgba(167, 136, 206, 0.1);
+   background-color: rgba(55, 148, 255, 0.1);
  }
 
  /* --- Text Flow Styles --- */
