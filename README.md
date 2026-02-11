@@ -35,23 +35,25 @@
 * **Guided Setup**: A simple configuration process to connect to the Xygeni service.
 * **_In-Editor Issue Highlighting_**: View security findings directly in your code, making it easy to pinpoint and fix issues.
 * **_Detailed Vulnerability Information_**: Get rich details for each identified issue, including severity, description, and remediation guidance.
-
+* **_Code Flow Visualization_**: For SAST issues, visualize the complete vulnerability path through both interactive Graph and Path views, identifying sources, sinks, and intermediate frames.
+* **Scan on Save**: Automatically scan your project on file save to identify issues as they are introduced (configurable in settings).
 
 ## Getting started:
 
-1. **Install the plugin** from [JetBrains marketplace](https://plugins.jetbrains.com/search?search=xygeni). Once installed, the plugin automatically downloads and sets up the **Xygeni Scanner**
+1. **Install the plugin** from [JetBrains marketplace](https://plugins.jetbrains.com/search?search=xygeni). Once installed, the plugin automatically downloads and sets up the **Xygeni Scanner**.
 2. **Open the Xygeni View and the Xygeni console**: After installation, click the Xygeni icon in the activity bar to open the view and console.
 3. **Configure the plugin**:
    - You will be prompted to configure the connection to the Xygeni service.
    - Obtain an API token from your [**Xygeni Dashboard**](https://in.xygeni.io/auth/login). If you don’t have an account, you can sign up for a free trial.
    - Enter the **Xygeni API URL** and your **API token** in the configuration view.
 4. **Run a scan**.
-   - Once configured, the scan is ready
-   - Click on the **Run scan** button to initiate a scan of your workspace
-5. **View results**: 
+   - Ensure the **Xygeni Scanner** is fully installed (check the tool window for status). The **Run scan** button will be active once the installation is complete.
+   - Click on the **Run scan** button to initiate a scan of your workspace.
+5. **View and Refresh results**: 
     - Scan results are displayed in the Xygeni view, categorized by type (SAST, SCA, Secrets, etc.).
-    - Click an issue to view the file where the issue is found and 
-    - Click twice on an issue to view detailed information.
+    - Use the **Reload** icon in any report header to refresh the findings manually.
+    - Click an issue to view the file where the issue is found.
+    - Click twice on an issue to view detailed information and explore the **Code Flow** tab for SAST vulnerabilities.
 6. **Fix issues**: 
     - On the detailed information, select the *FIX* tab to remediate the vulnerability.
    
