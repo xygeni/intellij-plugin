@@ -42,7 +42,7 @@ function renderDiagramInTab(containerId, nodes, links, paths) {
     const svg = container.append("svg")
         .attr("width","100%")
         .attr("height","100%")
-        .style("background","#fff")
+        .style("background","var(--intellij-background)")
         .style("cursor", "grab");
         
     svg.on("active", () => svg.style("cursor", "grabbing"));
@@ -111,7 +111,7 @@ function renderDiagramInTab(containerId, nodes, links, paths) {
       .attr("cx", d => d.x)
       .attr("cy", d => d.y)
       .attr("r", nodeRadius)
-      .attr("fill", d => finalNodeKeys.has(d.id + "__" + d.level) ? "black" : "#69b3a2"); // 🔹 color negro si final
+      .attr("fill", d => finalNodeKeys.has(d.id + "__" + d.level) ? "var(--intellij-foreground)" : "#69b3a2"); // 🔹 color del tema si final
 
     // PRINT LABELS (staggered to avoid overlap)
     g.selectAll("text.label")
@@ -155,7 +155,7 @@ function renderDiagramInTab(containerId, nodes, links, paths) {
     // Zoom buttons
      const controls = container.append("div").attr("class","controls")
         .style("position", "absolute")
-        .style("bottom", "20px")
+        .style("top", "20px")
         .style("right", "20px")
         .style("display", "flex")
         .style("flex-direction", "column")
@@ -175,12 +175,13 @@ function renderDiagramInTab(containerId, nodes, links, paths) {
         tooltip
           .style("opacity", 1)
           .html(`
-            <strong>${'$'}{d.filePath}</strong><br>
-            Line: ${'$'}{d.line}<br>
-            Type: ${'$'}{d.type}<br>
-            Category: ${'$'}{d.category}<br>  
-            Container: ${'$'}{d.container}</br>
-            <pre><code>${'$'}{d.code}</code></pre>
+            ${'$'}{d.filePath ? `<strong>${'$'}{d.filePath}</strong><br>` : ''}
+            ${'$'}{d.line ? `Line: ${'$'}{d.line}<br>` : ''}
+            ${'$'}{d.type ? `Type: ${'$'}{d.type}<br>` : ''}
+            ${'$'}{d.category ? `Category: ${'$'}{d.category}<br>` : ''}  
+            ${'$'}{d.container ? `Container: ${'$'}{d.container}<br>` : ''}
+            ${'$'}{d.injectionPoint ? `InjectionPoint: ${'$'}{d.injectionPoint}<br>` : ''}
+            ${'$'}{d.code ? `<pre><code>${'$'}{d.code}</code></pre>` : ''}
           `);
       })
       .on("mousemove", (event) => {
@@ -192,6 +193,27 @@ function renderDiagramInTab(containerId, nodes, links, paths) {
         tooltip.style("opacity", 0);
       });
     
+}
+
+function renderTextFlowInTab(containerId, nodes) {
+    const container = d3.select(containerId);
+    container.selectAll("*").remove();
+
+    const flowContainer = container.append("div")
+        .attr("class", "xy-text-flow-container");
+
+    nodes.sort((a, b) => a.level - b.level).forEach(node => {
+        const step = flowContainer.append("div")
+            .attr("class", "xy-flow-step");
+        
+        step.html(`
+            <strong>${'$'}{node.type}: ${'$'}{node.filePath}:${'$'}{node.line}</strong><br>
+            ${'$'}{node.category ? `Category: ${'$'}{node.category}<br>` : ''}            
+            ${'$'}{node.container ? `Container: ${'$'}{node.container}<br>` : ''}
+            ${'$'}{node.injectionPoint ? `InjectionPoint: ${'$'}{node.injectionPoint}<br>` : ''}
+            ${'$'}{node.code ? `Code:<br><pre><code>${'$'}{node.code}</code></pre>` : ''}
+        `);
+    });
 }
 </script>
 """.trimIndent()
@@ -296,7 +318,7 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
             }
             if (codeFlow != "") {
                 input(type = InputType.radio, name = "tabs") { id = XygeniConstants.CODE_FLOW_TAB_ID }
-                label { htmlFor = XygeniConstants.CODE_FLOW_TAB_ID; +"CODE FLOW" }
+                label { htmlFor = XygeniConstants.CODE_FLOW_TAB_ID; +XygeniConstants.CODE_FLOW_TAB }
             }
             if (fix.isNotEmpty()) {
                 input(type = InputType.radio, name = "tabs") { id = XygeniConstants.FIX_IT_TAB_ID}

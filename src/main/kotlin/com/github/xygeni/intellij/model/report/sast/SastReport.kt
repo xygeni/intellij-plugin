@@ -24,7 +24,8 @@ data class SastFrame(
     val kind: String,
     val location: RawIssueLocation? = null,
     val container: String? = null,
-    val category: String? = null
+    val category: String? = null,
+    val injectionPoint: String? = null
 )
 
 @Serializable
@@ -50,7 +51,7 @@ data class RawSast (
 
 
 fun SastFrame.toFrameIssue(): SastFrameIssue {
-    return SastFrameIssue(kind = kind, location = location, container = container, category = category)
+    return SastFrameIssue(kind = kind, location = location, container = container, category = category, injectionPoint = injectionPoint)
 }
 
 fun SastCodeFlow.toCodeFlowIssue(): SastCodeFlowIssue {
@@ -81,6 +82,6 @@ fun RawSast.toIssue(toolName: String?, currentBranch: String?): SastXygeniIssue 
         cwes = cwes ?: emptyList(),
         language = language ?: "",
         type = kind ?: "",
-        codeFlows = codeFlows?.map { it.toCodeFlowIssue() }
+        codeFlows = codeFlows?.map { it.toCodeFlowIssue() },
     )
 }

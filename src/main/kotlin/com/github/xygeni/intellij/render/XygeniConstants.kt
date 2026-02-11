@@ -16,6 +16,7 @@ object XygeniConstants {
 
     const val ISSUE_DETAILS_TAB = "ISSUE DETAILS"
     const val CODE_SNIPPET_TAB = "CODE SNIPPET"
+    const val CODE_FLOW_TAB = "CODE FLOW"
     const val FIX_IT_TAB = "FIX IT"
 
     const val ISSUE_DETAILS_TAB_ID = "tab-1"

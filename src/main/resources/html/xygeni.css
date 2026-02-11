@@ -1,11 +1,21 @@
- body,
  html {
+   margin: 0;
+   padding: 0;
+   overflow: hidden;
+   height: 100%;
+ }
+
+ body {
    background-color: var(--intellij-background);
    color: var(--intellij-foreground);
    font-family: "Courier New", "Segoe UI", "Helvetica Neue", Arial, sans-serif !important;
    font-size: var(--intellij-font-size);
-   min-width: max-content;
-   margin-left: 15px;
+   margin: 0;
+   padding: 0 0 0 15px; /* Restored original left padding */
+   overflow-y: auto;
+   overflow-x: hidden;
+   height: 100%;
+   box-sizing: border-box;
  }
 
  a {
@@ -108,8 +118,7 @@
  .xy-tabs-section #tab-content-4 {
    display: none;
    margin: 10px;
-   overflow-x: auto;
-   height: calc(100vh - 200px);
+   height: auto;
  }
 
  .xy-tabs-section #tab-1:checked~#tab-content-1,
@@ -193,35 +202,112 @@
 
  text.label {
    font-size: 11px;
-   fill: #424242;
+   fill: var(--intellij-foreground);
    pointer-events: none;
  }
 
-.tooltip {
-  position: absolute;
-  padding: 6px 10px;
-  background: #333;
-  color: #fff;
-  font-size: 14px;       /* tamaño del texto general */
-  border-radius: 6px;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.15s;
-  white-space: normal;   /* permite que el texto normal haga wrap */
-}
+ .tooltip {
+   position: absolute;
+   padding: 10px 15px;
+   background: var(--intellij-background);
+   color: var(--intellij-foreground);
+   border: 1px solid rgba(128, 128, 128, 0.5);
+   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+   font-size: 16px;
+   line-height: 1.6;
+   border-radius: 6px;
+   pointer-events: none;
+   opacity: 0;
+   transition: opacity 0.15s;
+   white-space: normal;
+ }
 
-.tooltip pre, .tooltip code {
-  font-family: inherit;   /* hereda la fuente del tooltip */
-  font-size: 12px;        /* tamaño igual al resto del tooltip */
-}
+ .tooltip pre,
+ .tooltip code {
+   font-family: inherit;
+   font-size: 14px;
+ }
 
-.tooltip pre {
-  margin: 4px 0 0 0;      /* margen arriba para separar de línea anterior */
-  padding: 4px 6px;       /* padding interno para que no quede pegado al borde */
-  background: #1e1e1e;    /* color de fondo del bloque */
-  color: #e0e0e0;         /* color del código */
-  font-size: 12px;        /* igual que el resto del tooltip */
-  border-radius: 4px;
-  overflow-x: auto;       /* scroll horizontal si es muy largo */
-  white-space: pre;       /* respeta los espacios y saltos de línea */
-}
+ .tooltip pre {
+   margin: 4px 0 0 0;
+   padding: 4px 6px;
+   background: rgba(128, 128, 128, 0.1);
+   color: var(--intellij-foreground);
+   font-size: 14px;
+   border-radius: 4px;
+   overflow-x: auto;
+   /* scroll horizontal si es muy largo */
+   white-space: pre;
+   /* respeta los espacios y saltos de línea */
+ }
+
+ /* --- View Toggle Styles --- */
+ .xy-view-toggle {
+   display: flex;
+   justify-content: flex-end;
+   margin-bottom: 10px;
+   gap: 0;
+ }
+
+ .xy-toggle-btn {
+   padding: 6px 12px;
+   border: 1px solid #ccc;
+   background: var(--intellij-background);
+   color: var(--intellij-foreground);
+   cursor: pointer;
+   font-size: 13px;
+   transition: all 0.2s;
+ }
+
+ .xy-toggle-btn:first-child {
+   border-radius: 4px 0 0 4px;
+ }
+
+ .xy-toggle-btn:last-child {
+   border-radius: 0 4px 4px 0;
+   border-left: none;
+ }
+
+ .xy-toggle-btn.active {
+   background-color: #a788ce;
+   color: white;
+   border-color: #a788ce;
+ }
+
+ .xy-toggle-btn:hover:not(.active) {
+   background-color: rgba(167, 136, 206, 0.1);
+ }
+
+ /* --- Text Flow Styles --- */
+ .xy-text-flow-container {
+   display: flex;
+   flex-direction: column;
+   gap: 12px;
+   padding: 10px;
+ }
+
+ .xy-flow-step {
+   background: var(--intellij-background);
+   color: var(--intellij-foreground);
+   border: 1px solid rgba(128, 128, 128, 0.3);
+   padding: 15px;
+   border-radius: 6px;
+   font-size: 16px;
+   line-height: 1.6;
+   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+ }
+
+ .xy-flow-step strong {
+   color: #3794FF;
+ }
+
+ .xy-flow-step pre {
+   background: rgba(128, 128, 128, 0.1);
+   color: var(--intellij-foreground);
+   padding: 10px;
+   border-radius: 4px;
+   margin-top: 8px;
+   font-size: 14px;
+   overflow-x: auto;
+   white-space: pre;
+ }

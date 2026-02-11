@@ -73,10 +73,12 @@ class SastIssueRenderer : BaseHtmlIssueRenderer<SastXygeniIssue>() {
                 val lineNum = frame.location?.beginLine ?: 0
                 val id = "$filePath($lineNum)"
                 val label = "$fileName($lineNum)"
-                val category = frame.category ?: "Unknown"
-                val container = frame.container ?: "Unknown"
+                val category = frame.category ?: ""
+                val container = frame.container ?: ""
                 val kind = frame.kind  ?: "Unknown"
                 val code = frame.location?.code ?: ""
+                val  injectionPoint = frame.injectionPoint ?: ""
+
                 
                 currentPathNodes.add(id)
 
@@ -91,7 +93,8 @@ class SastIssueRenderer : BaseHtmlIssueRenderer<SastXygeniIssue>() {
                         "category" to category,
                         "container" to container,
                         "type" to kind,
-                        "code" to code
+                        "code" to code,
+                        "injectionPoint" to injectionPoint
                     )
                 }
                 
@@ -118,20 +121,59 @@ class SastIssueRenderer : BaseHtmlIssueRenderer<SastXygeniIssue>() {
 
         val nodes = nodesMap.values.toList()
 
+
         return """
+            <div class="xy-view-toggle">
+                <button id="btn-graph" class="xy-toggle-btn active" onclick="switchView('graph')">Graph view</button>
+                <button id="btn-text" class="xy-toggle-btn" onclick="switchView('text')">Path</button>
+            </div>
+            <div id="code-flow-container" style="min-height: auto; position: relative;">
+                <!-- Content will be rendered here -->
+            </div>
+
             <script>
+                const flowNodes = ${Gson().toJson(nodes)};
+                const flowLinks = ${Gson().toJson(diagramLinks)};
+                const flowPaths = ${Gson().toJson(paths)};
+                let currentView = 'graph';
+
+                function switchView(view) {
+                    currentView = view;
+                    document.getElementById('btn-graph').classList.toggle('active', view === 'graph');
+                    document.getElementById('btn-text').classList.toggle('active', view === 'text');
+                    
+                    const container = document.getElementById('code-flow-container');
+                    if (view === 'graph') {
+                        const maxLevel = Math.max(...flowNodes.map(n => n.level), 0);
+                        const rowSpacing = 120; // Match BaseHtmlIssueRenderer.kt
+                        const requiredHeight = (maxLevel * rowSpacing) + 180;
+                        container.style.height = requiredHeight + 'px';
+                        container.style.minHeight = '0';
+                    } else {
+                        container.style.minHeight = '0';
+                        container.style.height = 'auto';
+                    }
+                    
+                    render();
+                }
+
+                function render() {
+                    const containerId = "#code-flow-container";
+                    if (currentView === 'graph') {
+                        renderDiagramInTab(containerId, flowNodes, flowLinks, flowPaths);
+                    } else {
+                        renderTextFlowInTab(containerId, flowNodes);
+                    }
+                }
+
                 document.getElementById('${XygeniConstants.CODE_FLOW_TAB_ID}').addEventListener('change', function() {
                     if (this.checked) {
-                         renderDiagramInTab(
-                            "#${XygeniConstants.CODE_FLOW_CONTENT_ID}",
-                            ${Gson().toJson(nodes)},
-                            ${Gson().toJson(diagramLinks)},
-                            ${Gson().toJson(paths)}
-                        );
+                        setTimeout(() => switchView(currentView), 100); // Small delay to ensure container is visible and has size
                     }
                 });
             </script>
             """.trimIndent()
+
 
     }
 

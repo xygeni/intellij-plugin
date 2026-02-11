@@ -18,7 +18,8 @@ data class SastFrameIssue(
     val kind: String,
     val location: RawIssueLocation? = null,
     val container: String? = null,
-    val category: String? = null
+    val category: String? = null,
+    val injectionPoint: String? = null
 )
 
 @Serializable
