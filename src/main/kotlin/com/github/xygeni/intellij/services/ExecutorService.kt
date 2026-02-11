@@ -1,6 +1,7 @@
 package com.github.xygeni.intellij.services
 
 import com.github.xygeni.intellij.logger.Logger
+import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.process.*
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
@@ -116,36 +117,31 @@ abstract class ProcessExecutorService {
                 }
 
                 val command = buildCommand(path, args)
+                val commandLine = GeneralCommandLine(command)
+                    .withWorkDirectory(workingDir)
+                    .withEnvironment(envs ?: emptyMap())
+                    .withRedirectErrorStream(false)
 
-                val processBuilder = ProcessBuilder(command)
-                    .redirectErrorStream(false)
-
-                if (workingDir != null) {
-                    processBuilder.directory(workingDir)
+                // Manage PATH and JAVA_HOME
+                val parentEnv = commandLine.parentEnvironment
+                System.getenv("JAVA_HOME")?.let { commandLine.withEnvironment("JAVA_HOME", it) }
+                
+                System.getenv("PATH")?.let { systemPath ->
+                    val currentPath = commandLine.environment["PATH"] ?: ""
+                    val updatedPath = if (currentPath.isEmpty()) systemPath else "$systemPath${File.pathSeparator}$currentPath"
+                    commandLine.withEnvironment("PATH", updatedPath)
                 }
-                val env = processBuilder.environment()
 
-                if (envs != null){
-                    env.putAll(envs)
-                }
+                Logger.log("Command environment: JAVA_HOME=${commandLine.environment["JAVA_HOME"]}, PATH=${commandLine.environment["PATH"]}", project)
 
-                // Inyectar JAVA_HOME del sistema si existe
-                System.getenv("JAVA_HOME")?.let { env["JAVA_HOME"] = it }
-
-                // Inyectar PATH del sistema si existe
-                System.getenv("PATH")?.let { env["PATH"] = it + ":" + (env["PATH"] ?: "") }
-
-                Logger.log("Command environment: JAVA_HOME=${env["JAVA_HOME"]}, PATH=${env["PATH"]}", project)
-
-                val process = processBuilder.start()
-
-                val handler = object : OSProcessHandler(process, command.joinToString(" ")) {
+                val handler = object : OSProcessHandler(commandLine) {
                     override fun readerOptions(): BaseOutputReader.Options {
                         return BaseOutputReader.Options.forMostlySilentProcess()
                     }
                 }
 
-                processHandle.attach( process, handler)
+                val process = handler.process
+                processHandle.attach(process, handler)
 
                 handler.addProcessListener(object : ProcessListener {
 
