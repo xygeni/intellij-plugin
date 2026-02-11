@@ -6,6 +6,10 @@ import com.github.xygeni.intellij.events.SCAN_STATE_TOPIC
 import com.github.xygeni.intellij.events.ScanStateListener
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.services.ScanService
+import com.github.xygeni.intellij.events.INSTALLER_STATE_TOPIC
+import com.github.xygeni.intellij.events.InstallerStateListener
+import com.github.xygeni.intellij.services.InstallerService
+import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.ui.JBColor
 import com.intellij.util.ui.JBUI
@@ -33,6 +37,7 @@ class ScanView(private val project: Project) : JPanel() {
     private lateinit var header: JLabel
     private lateinit var content: JPanel
     private lateinit var button: JLabel
+    private var scannerInstalled = false
 
     init {
         layout = BoxLayout(this, BoxLayout.Y_AXIS)
@@ -47,6 +52,17 @@ class ScanView(private val project: Project) : JPanel() {
         add(Box.createVerticalStrut(4).apply { setAlignmentX(0f) })
         add(content)
 
+        val installer = project.service<InstallerService>()
+        scannerInstalled = installer.isInstalled()
+        updateButtonState()
+
+        project.messageBus.connect().subscribe(INSTALLER_STATE_TOPIC, object : InstallerStateListener {
+            override fun installerStateChanged(project: Project?, installed: Boolean) {
+                if (project != this@ScanView.project) return
+                scannerInstalled = installed
+                updateButtonState()
+            }
+        })
 
         project.messageBus.connect()
             .subscribe(CONNECTION_STATE_TOPIC, object : ConnectionStateListener {
@@ -66,20 +82,38 @@ class ScanView(private val project: Project) : JPanel() {
                 override fun scanStateChanged(project: Project?, status: Int) {
                     if (project != this@ScanView.project) return
                     //this@ScanView.clickcable = status != 2
-                    button.icon = when {
-                        status == 2 -> Icons.RUN_IN_QUEUE_ICON
-                        else -> Icons.RUN_ICON
-                    }
-                    button.text = when {
-                        status == 2 -> "Scanning"
-                        else -> "Run Scan"
-                    }
-                    button.toolTipText = when {
-                        status == 2 -> "Stop scanning"
-                        else -> "Run Scan"
-                    }
+                    updateButtonState(status)
                 }
             })
+    }
+
+    private fun updateButtonState(scanStatus: Int? = null) {
+        val status = scanStatus ?: 0 // Default to not running if not provided
+
+        button.isEnabled = scannerInstalled
+        button.cursor = if (scannerInstalled) Cursor.getPredefinedCursor(Cursor.HAND_CURSOR) else Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR)
+
+        if (!scannerInstalled) {
+            button.icon = Icons.RUN_ICON // Or a disabled version if available
+            button.text = "Run Scan (Required Install)"
+            button.toolTipText = "Please install Xygeni scanner first (Tools -> Xygeni -> Install)"
+            button.foreground = JBColor.GRAY
+            return
+        }
+
+        button.foreground = JBColor.namedColor("Label.foreground", JBColor.BLACK)
+        button.icon = when {
+            status == 2 -> Icons.RUN_IN_QUEUE_ICON
+            else -> Icons.RUN_ICON
+        }
+        button.text = when {
+            status == 2 -> "Scanning"
+            else -> "Run Scan"
+        }
+        button.toolTipText = when {
+            status == 2 -> "Stop scanning"
+            else -> "Run Scan"
+        }
     }
 
     private fun createContent() {
@@ -92,6 +126,8 @@ class ScanView(private val project: Project) : JPanel() {
 
         button.addMouseListener(object : MouseAdapter() {
             override fun mouseClicked(e: MouseEvent) {
+                if (!scannerInstalled) return
+
                 if (button.text == "Run Scan") {
                     // scan
                     project.getService(ScanService::class.java).scan(project)

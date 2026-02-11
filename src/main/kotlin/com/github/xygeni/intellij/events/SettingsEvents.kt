@@ -53,4 +53,15 @@ interface ReadListener {
     fun readCompleted(project: Project?, reportType: String?)
 }
 
+// --------------------- //
+// -- Installer state -- //
+// --------------------- //
+val INSTALLER_STATE_TOPIC = Topic.create(
+    "Xygeni Installer State",
+    InstallerStateListener::class.java
+)
+interface InstallerStateListener {
+    fun installerStateChanged(project: Project?, installed: Boolean)
+}
+
 
