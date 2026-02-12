@@ -80,6 +80,44 @@ class SastIssueRenderer : BaseHtmlIssueRenderer<SastXygeniIssue>() {
                       return `M${'$'}{source.x},${'$'}{source.y} Q${'$'}{controlX},${'$'}{controlY} ${'$'}{target.x},${'$'}{target.y}`;
                   });
 
+            // ADD DIRECTIONAL ARROWS IN THE MIDDLE
+            g.selectAll("path.link-arrow")
+              .data(links)
+              .enter()
+              .append("path")
+              .attr("fill", "#999")
+              .attr("stroke", "#999")
+              .attr("stroke-width", 2)
+              .attr("d", d => {
+                  const source = nodeMap.get(d.source);
+                  const target = nodeMap.get(d.target);
+                  if(!source || !target) return "";
+                  
+                  const controlX = source.x + Math.max(30,(target.x-source.x)/2);
+                  const controlY = (source.y + target.y)/2;
+                  
+                  // Midpoint of Quadratic Bezier at t=0.5
+                  const mx = 0.25 * source.x + 0.5 * controlX + 0.25 * target.x;
+                  const my = 0.25 * source.y + 0.5 * controlY + 0.25 * target.y;
+                  
+                  // Tangent at t=0.5 is parallel to P2 - P0
+                  const angle = Math.atan2(target.y - source.y, target.x - source.x) * 180 / Math.PI;
+                  
+                  // Filled triangle arrow head
+                  return `M${'$'}{mx-7},${'$'}{my-5} L${'$'}{mx},${'$'}{my} L${'$'}{mx-7},${'$'}{my+5} Z`;
+              })
+              .attr("transform", d => {
+                  const source = nodeMap.get(d.source);
+                  const target = nodeMap.get(d.target);
+                  if(!source || !target) return "";
+                  const controlX = source.x + Math.max(30,(target.x-source.x)/2);
+                  const controlY = (source.y + target.y)/2;
+                  const mx = 0.25 * source.x + 0.5 * controlX + 0.25 * target.x;
+                  const my = 0.25 * source.y + 0.5 * controlY + 0.25 * target.y;
+                  const angle = Math.atan2(target.y - source.y, target.x - source.x) * 180 / Math.PI;
+                  return `rotate(${'$'}{angle}, ${'$'}{mx}, ${'$'}{my})`;
+              });
+
                 // FINAL NODES
                 const finalNodeKeys = new Set();
                 paths.forEach(path => {
@@ -96,7 +134,27 @@ class SastIssueRenderer : BaseHtmlIssueRenderer<SastXygeniIssue>() {
                   .attr("cx", d => d.x)
                   .attr("cy", d => d.y)
                   .attr("r", nodeRadius)
-                  .attr("fill", d => finalNodeKeys.has(d.id + "__" + d.level) ? "var(--intellij-foreground)" : "#69b3a2"); // 🔹 color del tema si final
+                  .attr("fill", d => {
+                      const key = d.id + "__" + d.level;
+                      if (d.level === 0) return "#69b3a2"; // First is always Green
+                      if (finalNodeKeys.has(key)) return "var(--intellij-foreground)"; // Last is always Black/Dark
+                      
+                      const type = (d.type || "").toLowerCase();
+                      if (type.includes("sink")) return "#69b3a2"; // Sink is Green
+                      if (type.includes("propagation")) return "#3794FF"; // Propagation is Blue
+                      
+                      return "#3794FF"; // Default Blue
+                  })
+                  .attr("stroke", d => {
+                      const key = d.id + "__" + d.level;
+                      if (d.level === 0) return "#4d8a7c"; // Darker Green
+                      if (finalNodeKeys.has(key)) return "#888";     // Grey for Black nodes
+                      
+                      const type = (d.type || "").toLowerCase();
+                      if (type.includes("sink")) return "#4d8a7c";   // Darker Green
+                      return "#2a70c2";                             // Darker Blue
+                  })
+                  .attr("stroke-width", 2);
 
                 // PRINT LABELS (staggered to avoid overlap)
                 g.selectAll("text.label")

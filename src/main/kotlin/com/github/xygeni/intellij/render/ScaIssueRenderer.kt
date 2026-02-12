@@ -25,7 +25,7 @@ class ScaIssueRenderer: BaseHtmlIssueRenderer<ScaXygeniIssue>() {
                 unsafe { +"&nbsp;&nbsp;&nbsp;" }
             }
             if (issue.baseScore != null && issue.baseScore > 0) {
-                span(classes = "xy-slide-${issue.severity}") { +issue.baseScore.toString() }
+                span(classes = "xy-severity-chip xy-severity-${issue.severity.lowercase()}") { +issue.baseScore.toString() }
             }
         }
     }

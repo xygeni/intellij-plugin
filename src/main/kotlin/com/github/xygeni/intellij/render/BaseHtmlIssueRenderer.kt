@@ -98,7 +98,7 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
             h1 { +"Xygeni ${issue.categoryName} Issue " }
             p {
                 span {
-                    classes = setOf("xy-slide-${issue.severity}")
+                    classes = setOf("xy-severity-chip", "xy-severity-${issue.severity.lowercase()}")
                     text(issue.severity)
                 }
                 +text

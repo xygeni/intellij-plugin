@@ -28,40 +28,40 @@
    color: #569CD6;
  }
 
- .xy-slide-critical {
-   color: white;
+ .xy-severity-chip {
+   display: inline-block;
+   padding: 2px 12px;
+   border-radius: 20px;
    font-weight: bold;
-   background-color: #E06C75;
-   padding: 0 10px;
-   border-radius: 4px;
-   margin-right: 16px;
+   font-size: 13px;
+   margin-right: 12px;
+   text-transform: uppercase;
+   letter-spacing: 0.5px;
+   vertical-align: middle;
  }
 
- .xy-slide-high {
-   color: white;
-   font-weight: bold;
-   background-color: #D19A66;
-   padding: 0 10px;
-   border-radius: 4px;
-   margin-right: 16px;
+ .xy-severity-critical {
+   background-color: #FEE2E2;
+   color: #991B1B;
+   border: 1px solid #F87171;
  }
 
- .xy-slide-low {
-   color: #333333;
-   font-weight: bold;
-   background-color: #FAC711;
-   padding: 0 10px;
-   border-radius: 4px;
-   margin-right: 16px;
+ .xy-severity-high {
+   background-color: #FFEDD5;
+   color: #9A3412;
+   border: 1px solid #FB923C;
  }
 
- .xy-slide-info {
-   color: #333333;
-   font-weight: bold;
-   background-color: #E5C07B;
-   padding: 0 10px;
-   border-radius: 4px;
-   margin-right: 16px;
+ .xy-severity-low {
+   background-color: #FEF9C3;
+   color: #854D0E;
+   border: 1px solid #FACC15;
+ }
+
+ .xy-severity-info {
+   background-color: #DBEAFE;
+   color: #1E40AF;
+   border: 1px solid #60A5FA;
  }
 
  .xy-container-chip {
@@ -214,7 +214,7 @@
    color: var(--intellij-foreground);
    border: 1px solid rgba(128, 128, 128, 0.5);
    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-   font-size: 18px;
+   font-size: 15px;
    line-height: 1.6;
    border-radius: 6px;
    pointer-events: none;
