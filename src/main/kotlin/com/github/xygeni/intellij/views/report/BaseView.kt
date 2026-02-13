@@ -387,7 +387,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
             try {
                 val htmlContent = renderer.render(item)
                 val data: String? = if (item.kind.isNotEmpty() && item.kind != "sca") item.fetchData() else null
-
+                
                 ApplicationManager.getApplication().invokeLater {
                     // Usamos siempre el LightVirtualFile compartido
                     detailHtmlFile.setContent(null, htmlContent, true)

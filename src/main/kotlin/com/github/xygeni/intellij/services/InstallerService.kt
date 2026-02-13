@@ -5,6 +5,7 @@ import com.github.xygeni.intellij.events.INSTALLER_STATE_TOPIC
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.model.PluginContext
 import com.github.xygeni.intellij.notifications.NotificationService
+import com.github.xygeni.intellij.settings.XygeniSettings
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
@@ -131,14 +132,16 @@ class InstallerService : ProcessExecutorService() {
         }
     }
 
-    private fun download(url: String, project: Project? = null): File? {
-        val client = OkHttpClient()
-        val fileName = url.substringAfterLast('/')
-
+    private fun downloadFile(url: String,  fileName: String, token: String = "", project: Project? = null): File? {
         return try {
 
             val request = Request.Builder()
                 .url(url)
+                .apply {
+                    if (!token.isNullOrBlank()) {
+                        addHeader("Authorization", "Bearer $token")
+                    }
+                }
                 .get()
                 .build()
 
@@ -224,12 +227,13 @@ class InstallerService : ProcessExecutorService() {
         Logger.log("==================================", project)
         Logger.log("== Running MCP installation ==", project)
         Logger.log("==================================", project)
-        val jarFile = File(this.pluginContext.mcpJarFile)
-        jarFile.parentFile.mkdirs()
-        val f =
-            download(this@InstallerService.pluginContext.mcpUrl + "", project)
-        Logger.log("moving mcp to ${jarFile.absolutePath}", project)
-        f?.copyTo(jarFile, true)
+        val settings = XygeniSettings.getInstance()
+        val f = downloadFile( settings.getMcpDownloadUrl(),
+            this@InstallerService.pluginContext.mcpJarFileName,
+            settings.apiToken ?: "",
+            project)
+        Logger.log("moving mcp to ${this.pluginContext.mcpJarFile}", project)
+        f?.copyTo(this.pluginContext.mcpJarFile, true)
         Logger.log("Xygeni MCP installed successfully!", project)
     }
 
@@ -237,7 +241,13 @@ class InstallerService : ProcessExecutorService() {
         Logger.log("==================================", project)
         Logger.log("== Running scanner installation ==", project)
         Logger.log("==================================", project)
-        val f = download(this@InstallerService.pluginContext.scriptUrl + "xygeni_scanner.zip", project)
+
+        // val f = download(this@InstallerService.pluginContext.scriptUrl + "xygeni_scanner.zip", project)
+        val settings = XygeniSettings.getInstance()
+        val f = downloadFile( settings.getScannerDownloadUrl(),
+            this@InstallerService.pluginContext.scannerZipFileName,
+            settings.apiToken ?: "",
+            project)
         if (f != null) {
             unzip(
                 f.toPath(),
@@ -254,8 +264,7 @@ class InstallerService : ProcessExecutorService() {
     // isInstalled checks if the xygeni command already exists
     fun isInstalled(mcp: Boolean = false): Boolean {
         if (!mcp) return File(this.pluginContext.xygeniCommand).exists()
-        // else (MCP)
-        return File(this.pluginContext.mcpJarFile).exists()
+        return this.pluginContext.mcpJarFile.exists()
     }
 
     fun publishInstallerState(project: Project?) {
@@ -290,6 +299,7 @@ class InstallerService : ProcessExecutorService() {
     // installOrUpdate forces a new installation removing the previous one
     fun installOrUpdate(project: Project?) {
         uninstallIfNeeded(project)
+        publishInstallerState(project)
         install(project)
     }
 
@@ -316,7 +326,7 @@ class InstallerService : ProcessExecutorService() {
                     }
                 }
                 
-                Logger.log("Xygeni plugin installed", project)
+                Logger.log("Xygeni plugin installed on ${PluginContext().installDir}", project)
                 
                 if (installedComponents.isNotEmpty()) {
                     NotificationService.notifyInfo(

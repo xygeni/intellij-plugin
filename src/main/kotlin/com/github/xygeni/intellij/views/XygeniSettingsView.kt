@@ -11,6 +11,7 @@ import com.github.xygeni.intellij.events.CONNECTION_STATE_TOPIC
 import com.github.xygeni.intellij.events.ConnectionStateListener
 import com.github.xygeni.intellij.events.SETTINGS_CHANGED_TOPIC
 import com.github.xygeni.intellij.events.SettingsChangeListener
+import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.services.InstallerService
 import com.github.xygeni.intellij.settings.XygeniSettings
 import com.github.xygeni.intellij.settings.XygeniSettingsConfigurable
@@ -52,6 +53,10 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
     private lateinit var tokenTextField: JBTextField
     private lateinit var statusLabel: JLabel
     private lateinit var autoScanCheck : JBCheckBox
+    
+    // Track last checked values to avoid redundant validations
+    private var lastCheckedUrl: String? = null
+    private var lastCheckedToken: String? = null
 
     init {
         layout = BoxLayout(this, BoxLayout.Y_AXIS)
@@ -71,7 +76,7 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
         project.messageBus.connect()
             .subscribe(SETTINGS_CHANGED_TOPIC, object : SettingsChangeListener {
                 override fun settingsChanged() {
-                    loadSettingsAsync()
+                    loadSettingsAsync(reinstall =  true)
                 }
             })
 
@@ -128,7 +133,7 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
             addMouseListener(object : MouseAdapter() {
                 override fun mouseClicked(e: MouseEvent?) {
                     statusLabel.text = "⏳ Checking connection status..."
-                    triggerConnectionCheck()
+                    triggerConnectionCheck(force = true)
                 }
             })
         }
@@ -169,16 +174,35 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
         content.add(formPanel)
     }
 
-    private fun triggerConnectionCheck() {
+    private fun triggerConnectionCheck(reinstall: Boolean = false, force: Boolean = false) {
         val settings = XygeniSettings.getInstance()
         val apiUrl = settings.apiUrl
         val token = settings.apiToken ?: ""
+
+        // Check if values actually changed
+        val urlChanged = apiUrl != lastCheckedUrl
+        val tokenChanged = token != lastCheckedToken
+
+        // Only check if forced or if URL/token have changed
+        if (!force && !urlChanged && !tokenChanged) {
+            Logger.log("Skipping connection check - URL and token unchanged", project)
+            return
+        }
+
+        // Update tracked values
+        lastCheckedUrl = apiUrl
+        lastCheckedToken = token
 
         // Llamamos al servicio global para validar
         val installer = ApplicationManager.getApplication().getService(InstallerService::class.java)
         installer.validateConnection(apiUrl, token, project) { urlOk, tokenOk ->
             // Publicamos el resultado al MessageBus global
             installer.publishConnectionState(project, urlOk, tokenOk)
+            // Only reinstall if URL/token changed AND reinstall was requested AND validation passed
+            if (reinstall && (urlChanged || tokenChanged) && urlOk && tokenOk) {
+                Logger.log("Reinstalling scanner due to URL/token change", project)
+                installer.installOrUpdate(project)
+            }
         }
     }
 
@@ -199,7 +223,7 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
         repaint()
     }
 
-    private fun loadSettingsAsync(check: Boolean = true) {
+    private fun loadSettingsAsync(check: Boolean = true, reinstall: Boolean = false) {
         ProgressManager.getInstance().run(object :
             Task.Backgroundable(project, "Loading Xygeni Settings", false) {
 
@@ -221,10 +245,16 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
                     urlTextField.text = apiUrl
                     tokenTextField.text = "•".repeat(tokenLen)
                     autoScanCheck.isSelected = autoScan
+                    
+                    // Initialize tracking values on first load to avoid unnecessary checks
+                    if (lastCheckedUrl == null && lastCheckedToken == null) {
+                        lastCheckedUrl = apiUrl
+                        lastCheckedToken = settings.apiToken
+                    }
                 }, project.disposed)
 
                 if (check) {
-                    triggerConnectionCheck()
+                    triggerConnectionCheck(reinstall)
                 }
             }
         })

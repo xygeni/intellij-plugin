@@ -406,8 +406,9 @@ class SastIssueRenderer : BaseHtmlIssueRenderer<SastXygeniIssue>() {
                     if (view === 'graph') {
                         const maxLevel = Math.max(...flowNodes.map(n => n.level), 0);
                         const rowSpacing = 120; 
-                        const requiredHeight = (maxLevel * rowSpacing) + 180;
-                        container.style.height = requiredHeight + 'px';
+                        //const requiredHeight = (maxLevel * rowSpacing) + 180;
+                        //container.style.height = requiredHeight + 'px';
+                        container.style.height = '80%';
                         container.style.minHeight = '0';
                     } else {
                         container.style.minHeight = '0';

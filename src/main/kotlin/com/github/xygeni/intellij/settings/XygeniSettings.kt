@@ -45,7 +45,7 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
 
         fun getInstance(): XygeniSettings =
             ApplicationManager.getApplication().getService(XygeniSettings::class.java)
-        
+
         /**
          * Creates CredentialAttributes for storing API token securely.
          * Note: Plugin verifier may report false positive deprecated warnings due to 
@@ -93,5 +93,19 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
         "XYGENI_TOKEN" to apiToken,
         "XYGENI_URL" to apiUrl
     )
+
+
+    fun getScannerDownloadUrl(): String {
+        return if (apiUrl.contains("api.xygeni.io")) {
+            "https://get.xygeni.io/latest/scanner/xygeni_scanner.zip"
+        } else {
+            "${apiUrl}/scan/releases/"
+        }
+    }
+
+    fun getMcpDownloadUrl(): String {
+        return "https://get.xygeni.io/latest/mcp-server/xygeni-mcp-server.jar"
+    }
+
 
 }

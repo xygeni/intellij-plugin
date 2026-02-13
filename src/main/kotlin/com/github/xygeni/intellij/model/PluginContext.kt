@@ -15,19 +15,28 @@ import java.io.File
 class PluginContext {
 
     val installDir: File
-    val scriptFiletName: String
-    val scriptUrl = "https://get.xygeni.io/latest/scanner/"
     val xygeniCommand: String
+    val scannerZipFileName = "xygeni_scanner.zip"
     val xygeniReportSuffix = "xygeni.plugin.json"
-    val mcpJarFile: String
-    val mcpUrl = "https://get.xygeni.io/latest/mcp-server/xygeni-mcp-server.jar"
+    val mcpJarFileName = "xygeni-mcp-server.jar"
+    val mcpInstallDir: File
+    val mcpJarFile: File
 
     init {
+        // install dir
         installDir = File(this.initInstallationDir(), PluginInfo.name + "/" + PluginInfo.version)
-        scriptFiletName = this.initScriptFileName()
         ensureTargetExists(installDir)
+
+        // mcp data (install dir, file)
+        mcpInstallDir = File(installDir, "mcp")
+        ensureTargetExists(mcpInstallDir)
+        mcpJarFile = File(mcpInstallDir, mcpJarFileName)
+
+        // scanner dir -> it is created moving the scanner on unzip
+
         xygeniCommand = "${installDir.canonicalPath}/xygeni_scanner/${getXygeniCommandName()}"
-        mcpJarFile = installDir.canonicalPath + "/mcp/xygeni-mcp-server.jar"
+       //  mcpJarFile = installDir.canonicalPath + "/mcp/xygeni-mcp-server.jar"
+
     }
 
     private fun initInstallationDir(): String {
@@ -42,21 +51,6 @@ class PluginContext {
             xygeniCommand += ".ps1"
         }
         return xygeniCommand
-    }
-
-    private fun initScriptFileName(): String {
-        val osName = System.getProperty("os.name").lowercase()
-        val osType = when {
-            osName.contains("win") -> "windows"
-            osName.contains("mac") -> "macos"
-            osName.contains("nux") || osName.contains("nix") -> "linux"
-            else -> "unknown"
-        }
-        return when (osType) {
-            "windows" -> "install.ps1"
-            "macos", "linux" -> "install.sh"
-            else -> "unknown"
-        }
     }
 
     private fun getScanDir (project: Project): File {
