@@ -42,7 +42,7 @@ class ScanService : ProcessExecutorService() {
         }else{
             baseArgs.toMutableMap().apply {
                 this["-d"] = changingValue
-                this["--run"] = "deps,secrets,iac,suspectdeps,sast"
+                this["--run"] = "secrets,iac,sast"
                 this["--incremental"] = ""
             }
         }

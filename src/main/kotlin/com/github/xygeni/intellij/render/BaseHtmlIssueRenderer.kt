@@ -116,7 +116,6 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
 
     protected open fun renderTabs(issue: T): String {
         val detail = renderCustomIssueDetails(issue)
-        val code = renderCustomCodeSnippet(issue)
         val fix = renderCustomFix(issue)
         
         return createHTML().section(classes = "xy-tabs-section") {
@@ -124,11 +123,7 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
                 input(type = InputType.radio, name = "tabs") { id = XygeniConstants.ISSUE_DETAILS_TAB_ID; checked = true }
                 label { htmlFor = XygeniConstants.ISSUE_DETAILS_TAB_ID; +XygeniConstants.ISSUE_DETAILS_TAB }
             }
-            if (code.isNotEmpty()) {
-                input(type = InputType.radio, name = "tabs") { id = XygeniConstants.CODE_SNIPPET_TAB_ID }
-                label { htmlFor = XygeniConstants.CODE_SNIPPET_TAB_ID; +XygeniConstants.CODE_SNIPPET_TAB }
-            }
-            
+
             // Hook for additional tabs from subclasses
             renderAdditionalTabs(issue, this)
             
@@ -141,13 +136,7 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
                 id = XygeniConstants.ISSUE_DETAILS_CONTENT_ID
                 unsafe { +detail }
             }
-            if (code.isNotEmpty()) {
-                div {
-                    id = XygeniConstants.CODE_SNIPPET_CONTENT_ID
-                    unsafe { +code }
-                }
-            }
-            
+
             // Hook for additional content from subclasses
             renderAdditionalTabsContent(issue, this)
             
