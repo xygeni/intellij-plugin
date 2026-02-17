@@ -383,6 +383,7 @@ class SastIssueRenderer : BaseHtmlIssueRenderer<SastXygeniIssue>() {
         val nodes = nodesMap.values.toList()
 
         return """
+            <div class="xy-code-flow-container">
             <div class="xy-view-toggle">
                 <button id="btn-graph" class="xy-toggle-btn active" onclick="switchView('graph')">Graph view</button>
                 <button id="btn-text" class="xy-toggle-btn" onclick="switchView('text')">Path</button>
@@ -390,7 +391,11 @@ class SastIssueRenderer : BaseHtmlIssueRenderer<SastXygeniIssue>() {
             <div id="code-flow-container" style="min-height: auto; position: relative;">
                 <!-- Content will be rendered here -->
             </div>
-
+            </div>
+            <script type="application/json" id="vuln-json">${issue.vulnerabilityRaw}</script>
+            <div class="xy-view-toggle">
+                <button id="how-to-fix" class="xy-toggle-btn active">How to fix</button>                
+            </div>
             <script>
                 const flowNodes = ${Gson().toJson(nodes)};
                 const flowLinks = ${Gson().toJson(diagramLinks)};
@@ -408,7 +413,7 @@ class SastIssueRenderer : BaseHtmlIssueRenderer<SastXygeniIssue>() {
                         const rowSpacing = 120; 
                         //const requiredHeight = (maxLevel * rowSpacing) + 180;
                         //container.style.height = requiredHeight + 'px';
-                        container.style.height = '80%';
+                        container.style.height = '65%';                        
                         container.style.minHeight = '0';
                     } else {
                         container.style.minHeight = '0';
@@ -426,6 +431,14 @@ class SastIssueRenderer : BaseHtmlIssueRenderer<SastXygeniIssue>() {
                         renderTextFlowInTab(containerId, flowNodes);
                     }
                 }
+                const button = document.getElementById("how-to-fix");
+                // document.getElementById("how-to-fix").addEventListener("click", () => {
+                button.addEventListener("click", () => {
+                    const json = document.getElementById("vuln-json").textContent;
+                    pluginAction('explain', json);
+                    button.innerText="Processing..."
+                    button.disabled=true;
+                });
 
                 document.getElementById('${XygeniConstants.CODE_FLOW_TAB_ID}').addEventListener('change', function() {
                     if (this.checked) {
@@ -433,6 +446,7 @@ class SastIssueRenderer : BaseHtmlIssueRenderer<SastXygeniIssue>() {
                     }
                 });
             </script>
+                       
             """.trimIndent()
     }
 }

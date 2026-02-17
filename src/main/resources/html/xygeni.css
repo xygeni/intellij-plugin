@@ -280,6 +280,14 @@
  }
 
  /* --- Text Flow Styles --- */
+
+ .xy-code-flow-container {
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 20px;
+ }
+
  .xy-text-flow-container {
    display: flex;
    flex-direction: column;

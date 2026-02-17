@@ -469,7 +469,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
             ))
     }
 
-
+/*
     protected open fun openDynamicHtml(project: Project, item: T) {
         val fileEditorManager = FileEditorManager.getInstance(project)
 
@@ -510,4 +510,6 @@ abstract class BaseView<T : BaseXygeniIssue>(
             }
         }
     }
+
+ */
 }

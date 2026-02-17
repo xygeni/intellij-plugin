@@ -3,6 +3,8 @@ package com.github.xygeni.intellij.model.report.sast
 import com.github.xygeni.intellij.model.report.RawIssueLocation
 import com.github.xygeni.intellij.model.report.RawReportMetadata
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
+import kotlinx.serialization.json.*
 
 /**
  * RawSast
@@ -45,9 +47,46 @@ data class RawSast (
     val cwe: Int? = null,
     val explanation: String? = null,
     val tags: List<String>? = null,
-    val codeFlows: List<SastCodeFlow>? = null
+    val codeFlows: List<SastCodeFlow>? = null,
+
+    @Transient
+    val raw: JsonObject? = null
+
 )
 
+fun parseSastReport(jsonString: String): SastReport {
+
+    val json = Json {
+        ignoreUnknownKeys = true
+    }
+
+    val root = json.parseToJsonElement(jsonString).jsonObject
+
+    val metadata = json.decodeFromJsonElement<RawReportMetadata>(
+        root["metadata"]!!
+    )
+
+    val currentBranch = root["currentBranch"]
+        ?.jsonPrimitive
+        ?.contentOrNull
+
+    val vulnerabilities = root["vulnerabilities"]!!
+        .jsonArray
+        .map { element ->
+
+            val obj = element.jsonObject
+
+            val parsed = json.decodeFromJsonElement<RawSast>(obj)
+
+            parsed.copy(raw = obj)
+        }
+
+    return SastReport(
+        metadata = metadata,
+        vulnerabilities = vulnerabilities,
+        currentBranch = currentBranch
+    )
+}
 
 fun SastFrame.toFrameIssue(): SastFrameIssue {
     return SastFrameIssue(kind = kind, location = location, container = container, category = category, injectionPoint = injectionPoint)
@@ -82,5 +121,6 @@ fun RawSast.toIssue(toolName: String?, currentBranch: String?): SastXygeniIssue 
         language = language ?: "",
         type = kind ?: "",
         codeFlows = codeFlows?.map { it.toCodeFlowIssue() },
+        vulnerabilityRaw = raw
     )
 }

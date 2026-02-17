@@ -7,6 +7,7 @@ package com.github.xygeni.intellij.dynamichtml.browser
  * @version : 14/11/25 (Carmendelope)
  **/
 import com.github.xygeni.intellij.logger.Logger
+import com.github.xygeni.intellij.services.AIExplainService
 import com.github.xygeni.intellij.services.RemediateService
 import com.intellij.openapi.project.Project
 import com.intellij.ui.jcef.JBCefBrowser
@@ -153,24 +154,29 @@ class EditorBrowserContext(private val project: Project) {
                     project.getService(RemediateService::class.java)
                         .save(project, payload ?: "")
                 }
+                "explain"->{
+                    project.getService(AIExplainService::class.java)
+                        .explain(project, payload ?: "") { success ->
+                            SwingUtilities.invokeLater {
+                                browserWrapper.browser.cefBrowser.executeJavaScript(
+                                    if (success) """
+                                        const btn = document.getElementById('how-to-fix');
+                                        if (btn) btn.hidden=true;
+                                    """.trimIndent() else """
+                                        const btn = document.getElementById('how-to-fix');
+                                        if (btn) btn.innerText='❌ Error';
+                                    """.trimIndent(),
+                                    browserWrapper.browser.cefBrowser.url, 0
+                                )
+                            }
+                        }
+                }
             }
         } catch (e: Exception) {
             println("Error parsing JSQuery data: ${e.message}")
         }
     }
 
-
-    // Ejecutar script JS arbitrario
-    fun executeScript(script: String) {
-        SwingUtilities.invokeLater {
-            browserWrapper.browser.cefBrowser.executeJavaScript(script, browserWrapper.browser.cefBrowser.url, 0)
-        }
-    }
-
-    // Enviar acción Kotlin → JS
-    fun sendActionToKotlin(action: String, data: String) {
-        jsQuery.inject("""${action}:${data}""")
-    }
 
     val browserComponent: JComponent get() = browserWrapper.component
 
