@@ -7,6 +7,10 @@ All notable changes to this project will be documented in this file.
 
 [Unreleased]: https://github.com/xygeni/intellij-plugin/compare/v0.0.2.dev...HEAD
 
+## [1.3.0] - 2026-02-20
+### Added
+- Support for AI Explanation for SAST vulnerabilities
+
 ## [1.2.0] - 2026-02-11
 ### Added
 - Code Flow visualization for SAST vulnerabilities, featuring interactive Graph and Path views.

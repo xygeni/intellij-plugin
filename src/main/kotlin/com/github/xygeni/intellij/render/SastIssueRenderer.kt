@@ -525,7 +525,8 @@ class SastIssueRenderer : BaseHtmlIssueRenderer<SastXygeniIssue>() {
         // Generate the HTML container and embedded JavaScript logic
         return """
             <div class="xy-code-flow-container">
-            <div class="xy-view-toggle">
+            <div class="xy-view-toggle">                
+                <button id="how-to-fix" class="xy-toggle-btn active left">How to fix</button>
                 <button id="btn-graph" class="xy-toggle-btn active" onclick="switchView('graph')">Graph view</button>
                 <button id="btn-text" class="xy-toggle-btn" onclick="switchView('text')">Path</button>
             </div>
@@ -533,10 +534,7 @@ class SastIssueRenderer : BaseHtmlIssueRenderer<SastXygeniIssue>() {
                 <!-- Content will be rendered here via JS -->
             </div>
             </div>
-            <script type="application/json" id="vuln-json">${issue.vulnerabilityRaw}</script>
-            <div class="xy-view-toggle">
-                <button id="how-to-fix" class="xy-toggle-btn active">How to fix</button>                
-            </div>
+            <script type="application/json" id="vuln-json">${issue.vulnerabilityRaw}</script>            
             <script>
                 // Pass the processed Kotlin data structures into the JavaScript context
                 const flowNodes = ${Gson().toJson(nodes)};
