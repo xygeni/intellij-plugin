@@ -49,6 +49,9 @@ class XygeniWindowFactory : ToolWindowFactory {
         val iacView = IacScanView(project)
         menuPanel.add(iacView)
 
+        val malwareView = MalwareScanView(project)
+        menuPanel.add(malwareView)
+
         // ----------------- help panel -----------------
         val help = HelpBlockView()
         help.createUI(false)

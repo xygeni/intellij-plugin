@@ -108,6 +108,10 @@
    background-color: rgba(0, 0, 0, 0.05);
  }
 
+ .resolved-code {
+   background:rgba(128, 128, 128, 0.1);
+ }
+
  .xy-tabs-section input[type="radio"]:checked+label {
    border-color: #3794FF;
    background-color: rgba(55, 148, 255, 0.1);
@@ -409,3 +413,4 @@
  .xy-zoom-btn:active {
    transform: scale(0.95);
  }
+

@@ -49,7 +49,7 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
                   };                                                
                   window.domReady = true;
                   """
-        
+
         // Cache CSS content to avoid reading from disk on every render
         private val cachedCssContent: String by lazy {
             val cssStream = javaClass.classLoader.getResourceAsStream("html/xygeni.css")
@@ -117,21 +117,29 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
     protected open fun renderTabs(issue: T): String {
         val detail = renderCustomIssueDetails(issue)
         val fix = renderCustomFix(issue)
-        
+        val code = renderCustomCodeSnippet(issue)
+
         return createHTML().section(classes = "xy-tabs-section") {
             if (detail.isNotEmpty()) {
-                input(type = InputType.radio, name = "tabs") { id = XygeniConstants.ISSUE_DETAILS_TAB_ID; checked = true }
+                input(type = InputType.radio, name = "tabs") {
+                    id = XygeniConstants.ISSUE_DETAILS_TAB_ID; checked = true
+                }
                 label { htmlFor = XygeniConstants.ISSUE_DETAILS_TAB_ID; +XygeniConstants.ISSUE_DETAILS_TAB }
+            }
+
+            if (code.isNotEmpty()) {
+                input(type = InputType.radio, name = "tabs") { id = XygeniConstants.CODE_SNIPPET_TAB_ID }
+                label { htmlFor = XygeniConstants.CODE_SNIPPET_TAB_ID; +XygeniConstants.CODE_SNIPPET_TAB }
             }
 
             // Hook for additional tabs from subclasses
             renderAdditionalTabs(issue, this)
-            
+
             if (fix.isNotEmpty()) {
-                input(type = InputType.radio, name = "tabs") { id = XygeniConstants.FIX_IT_TAB_ID}
+                input(type = InputType.radio, name = "tabs") { id = XygeniConstants.FIX_IT_TAB_ID }
                 label { htmlFor = XygeniConstants.FIX_IT_TAB_ID; +XygeniConstants.FIX_IT_TAB }
             }
-            
+
             div {
                 id = XygeniConstants.ISSUE_DETAILS_CONTENT_ID
                 unsafe { +detail }
@@ -139,7 +147,14 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
 
             // Hook for additional content from subclasses
             renderAdditionalTabsContent(issue, this)
-            
+
+            if (code.isNotEmpty()) {
+                div {
+                    id = XygeniConstants.CODE_SNIPPET_CONTENT_ID
+                    unsafe { +code }
+                }
+            }
+
             if (fix.isNotEmpty()) {
                 div {
                     id = XygeniConstants.FIX_IT_CONTENT_ID
@@ -225,14 +240,16 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
                 div {
                     id = XygeniConstants.REMEDIATION_BUTTONS_ID
                     button {
-                        id = XygeniConstants.REMEDIATION_BUTTON_ID; type = ButtonType.button; classes = setOf("xy-button");
+                        id = XygeniConstants.REMEDIATION_BUTTON_ID; type = ButtonType.button; classes =
+                        setOf("xy-button");
                         onClick =
                             "this.disabled = true; this.innerText = 'Processing...';pluginAction('remediate', document.getElementById('remediation-data').value)"
                         +"Remediate with Xygeni Agent"
                     }
                     button {
                         hidden = true
-                        id = XygeniConstants.REMEDIATION_SAVE_BUTTON_ID; type = ButtonType.button; classes = setOf("xy-button");
+                        id = XygeniConstants.REMEDIATION_SAVE_BUTTON_ID; type = ButtonType.button; classes =
+                        setOf("xy-button");
                         onClick =
                             "this.style.display='none'; this.disabled = true; this.innerText = 'Saving...';pluginAction('save', document.getElementById('remediation-data').value)"
                         +"Save"
