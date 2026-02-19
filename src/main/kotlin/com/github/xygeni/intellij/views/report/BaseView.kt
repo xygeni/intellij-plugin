@@ -386,7 +386,6 @@ abstract class BaseView<T : BaseXygeniIssue>(
         ApplicationManager.getApplication().executeOnPooledThread {
             try {
                 val htmlContent = renderer.render(item)
-                Logger.log("${htmlContent}", project)
                 val data: String? = if (item.kind.isNotEmpty() && item.kind != "sca") item.fetchData() else null
                 
                 ApplicationManager.getApplication().invokeLater {
