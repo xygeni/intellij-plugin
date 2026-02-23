@@ -1,6 +1,7 @@
 package com.github.xygeni.intellij.model.report.sast
 
 import com.github.xygeni.intellij.model.report.BaseXygeniIssue
+import com.github.xygeni.intellij.model.report.CodeFlowIssue
 import com.github.xygeni.intellij.model.report.RawIssueLocation
 import com.github.xygeni.intellij.model.report.server.RemediationData
 import kotlinx.serialization.Serializable
@@ -58,10 +59,10 @@ data class SastXygeniIssue(
     val language: String = "",
 
     // CodeFlow
-    val codeFlows: List<SastCodeFlowIssue>? = null,
+    override val codeFlows: List<CodeFlowIssue>? = null,
 
     // JSON Field
-    val vulnerabilityRaw: JsonObject? = null
+    override  val vulnerabilityRaw: JsonObject? = null
 
 
 ): BaseXygeniIssue{

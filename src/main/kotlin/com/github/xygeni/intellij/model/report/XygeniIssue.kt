@@ -3,6 +3,8 @@ package com.github.xygeni.intellij.model.report
 import com.github.xygeni.intellij.model.report.server.RemediationData
 import com.github.xygeni.intellij.services.server.ServerClient
 import icons.Icons
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
 import javax.swing.Icon
 
 /**
@@ -32,6 +34,9 @@ interface BaseXygeniIssue {
     val tags: List<String>
     val remediableLevel: String // "MANUAL" | "AUTO" | "NONE"
 
+    val codeFlows: List<CodeFlowIssue>?
+    val vulnerabilityRaw: JsonObject?
+
     fun getIcon(): Icon {
         return when(severity.lowercase()) {
             "critical" -> Icons.CRITICAL_ICON
@@ -57,3 +62,17 @@ interface BaseXygeniIssue {
     }
 
 }
+
+@Serializable
+data class FrameIssue(
+    val kind: String,
+    val location: RawIssueLocation? = null,
+    val container: String? = null,
+    val category: String? = null,
+    val injectionPoint: String? = null
+)
+
+@Serializable
+data class CodeFlowIssue(
+    val frames: List<FrameIssue>? = null
+)

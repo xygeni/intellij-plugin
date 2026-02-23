@@ -1,7 +1,9 @@
 package com.github.xygeni.intellij.model.report.sast
 
+import com.github.xygeni.intellij.model.report.RawCodeFlow
 import com.github.xygeni.intellij.model.report.RawIssueLocation
 import com.github.xygeni.intellij.model.report.RawReportMetadata
+import com.github.xygeni.intellij.model.report.toCodeFlowIssue
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import kotlinx.serialization.json.*
@@ -47,7 +49,8 @@ data class RawSast (
     val cwe: Int? = null,
     val explanation: String? = null,
     val tags: List<String>? = null,
-    val codeFlows: List<SastCodeFlow>? = null,
+    // val codeFlows: List<SastCodeFlow>? = null,
+    val codeFlows: List<RawCodeFlow>?=null,
 
     @Transient
     val raw: JsonObject? = null

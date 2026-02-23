@@ -1,7 +1,9 @@
 package com.github.xygeni.intellij.model.report.secret
 
 import com.github.xygeni.intellij.model.report.BaseXygeniIssue
+import com.github.xygeni.intellij.model.report.CodeFlowIssue
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
 
 /**
  * SecretsXygeniIssue
@@ -29,6 +31,9 @@ data class SecretsXygeniIssue(
     override val explanation: String,
     override val tags: List<String> = emptyList(),
     override val remediableLevel: String = "NONE",
+
+    override val codeFlows: List<CodeFlowIssue>? = null,
+    override  val vulnerabilityRaw: JsonObject? = null,
 
     // -- Secret --
     val hash: String = "",

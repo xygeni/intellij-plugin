@@ -1,8 +1,10 @@
 package com.github.xygeni.intellij.model.report.sca
 
 import com.github.xygeni.intellij.model.report.BaseXygeniIssue
+import com.github.xygeni.intellij.model.report.CodeFlowIssue
 import com.github.xygeni.intellij.model.report.server.RemediationData
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
 
 /**
  * ScaXygeniIssue
@@ -32,6 +34,9 @@ data class ScaXygeniIssue(
     override val beginColumn: Int = 0,
     override val endColumn: Int = 0,
     override val code: String = "",
+
+    override val codeFlows: List<CodeFlowIssue>? = null,
+    override  val vulnerabilityRaw: JsonObject? = null,
 
     // -- Sca
     val virtual: Boolean? = false,

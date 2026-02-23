@@ -18,7 +18,6 @@ class SastService(project: Project) : BaseReportService<SastXygeniIssue>(
     "sast") {
 
     override fun processReport(jsonString : String): List<SastXygeniIssue> {
-        // val report = JsonConfig.relaxed.decodeFromString<SastReport>(jsonString)
         val report = parseSastReport(jsonString)
         val toolName = report.metadata.reportProperties["tool.name"]
         val branch = report.currentBranch
