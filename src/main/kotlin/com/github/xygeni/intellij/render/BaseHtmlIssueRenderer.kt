@@ -694,9 +694,6 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
                 title(issue.type)
                 meta(charset = "UTF-8")
                 inlineCss(cssContent)
-                if (!issue.codeFlows.isNullOrEmpty()) {
-                    unsafe { +BaseHtmlIssueRenderer.Companion.diagramFunctionScript }
-                }
             }
             body {
                 script {
