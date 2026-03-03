@@ -1,8 +1,10 @@
 package com.github.xygeni.intellij.model.report.iac
 
 import com.github.xygeni.intellij.model.report.BaseXygeniIssue
+import com.github.xygeni.intellij.model.report.CodeFlowIssue
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 
 /**
  * IacXygeniIssue
@@ -32,6 +34,9 @@ data class IacXygeniIssue(
     override val beginColumn: Int = 0,
     override val endColumn: Int = 0,
     override val code: String = "",
+
+    override val codeFlows: List<CodeFlowIssue>? = null,
+    override  val vulnerabilityRaw: JsonObject? = null,
 
     // -- Iac --
     val properties: Map<String, JsonElement> = emptyMap(),

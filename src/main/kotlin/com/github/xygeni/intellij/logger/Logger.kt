@@ -8,7 +8,6 @@ package com.github.xygeni.intellij.logger
  **/
 import com.github.xygeni.intellij.services.ConsoleService
 import com.intellij.execution.ui.ConsoleViewContentType
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 
 object Logger {

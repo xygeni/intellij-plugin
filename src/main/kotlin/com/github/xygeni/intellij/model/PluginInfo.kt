@@ -2,7 +2,6 @@ package com.github.xygeni.intellij.model
 
 import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.openapi.extensions.PluginId
-import kotlin.lazy
 
 /**
  * PluginInfo

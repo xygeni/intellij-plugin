@@ -7,27 +7,36 @@ package com.github.xygeni.intellij.model
  * @version : 10/10/25 (Carmendelope)
  **/
 
-import com.github.xygeni.intellij.logger.Logger
+import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
 import java.io.File
 
-class PluginContext (){
+@Service(Service.Level.APP)
+class PluginContext {
 
     val installDir: File
-    val scriptFiletName: String
-    val scriptUrl = "https://get.xygeni.io/latest/scanner/"
     val xygeniCommand: String
+    val scannerZipFileName = "xygeni_scanner.zip"
     val xygeniReportSuffix = "xygeni.plugin.json"
-    val mcpJarFile: String
-    val mcpUrl = "https://get.xygeni.io/latest/mcp-server/xygeni-mcp-server.jar"
+    val mcpJarFileName = "xygeni-mcp-server.jar"
+    val mcpInstallDir: File
+    val mcpJarFile: File
 
     init {
+        // install dir
         installDir = File(this.initInstallationDir(), PluginInfo.name + "/" + PluginInfo.version)
-        scriptFiletName = this.initScriptFileName()
         ensureTargetExists(installDir)
-        xygeniCommand = "${installDir.canonicalPath}/xygeni_scanner/${getXygeniCommandName()}" // installDir.canonicalPath + "/xygeni_scanner/xygeni"
-        Logger.log("Xygeni command: $xygeniCommand", null)
-        mcpJarFile = installDir.canonicalPath + "/mcp/xygeni-mcp-server.jar"
+
+        // mcp data (install dir, file)
+        mcpInstallDir = File(installDir, "mcp")
+        ensureTargetExists(mcpInstallDir)
+        mcpJarFile = File(mcpInstallDir, mcpJarFileName)
+
+        // scanner dir -> it is created moving the scanner on unzip
+
+        xygeniCommand = "${installDir.canonicalPath}/xygeni_scanner/${getXygeniCommandName()}"
+       //  mcpJarFile = installDir.canonicalPath + "/mcp/xygeni-mcp-server.jar"
+
     }
 
     private fun initInstallationDir(): String {
@@ -44,30 +53,15 @@ class PluginContext (){
         return xygeniCommand
     }
 
-    private fun initScriptFileName(): String {
-        val osName = System.getProperty("os.name").lowercase()
-        val osType = when {
-            osName.contains("win") -> "windows"
-            osName.contains("mac") -> "macos"
-            osName.contains("nux") || osName.contains("nix") -> "linux"
-            else -> "unknown"
-        }
-        return when (osType) {
-            "windows" -> "install.ps1"
-            "macos", "linux" -> "install.sh"
-            else -> "unknown"
-        }
-    }
-
     private fun getScanDir (project: Project): File {
         return File(project.basePath, ".idea/.xygeni/scan")
     }
 
     fun cleanScanResultDir(project : Project): File{
         val dir = getScanDir(project)
-        if (dir.exists() ){
-            dir.deleteRecursively()
-        }
+        //if (dir.exists()){
+        //    dir.deleteRecursively()
+        //}
         ensureTargetExists(dir)
         return dir
     }

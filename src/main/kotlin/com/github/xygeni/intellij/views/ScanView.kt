@@ -1,16 +1,17 @@
 package com.github.xygeni.intellij.views
 
-import com.github.xygeni.intellij.events.CONNECTION_STATE_TOPIC
-import com.github.xygeni.intellij.events.ConnectionStateListener
-import com.github.xygeni.intellij.events.SCAN_STATE_TOPIC
-import com.github.xygeni.intellij.events.ScanStateListener
+import com.github.xygeni.intellij.events.*
 import com.github.xygeni.intellij.logger.Logger
+import com.github.xygeni.intellij.services.InstallerService
 import com.github.xygeni.intellij.services.ScanService
+import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
+import com.intellij.ui.JBColor
 import com.intellij.util.ui.JBUI
 import icons.Icons
-import java.awt.Color
+import java.awt.Component
 import java.awt.Cursor
+import java.awt.Dimension
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import javax.swing.Box
@@ -31,27 +32,38 @@ class ScanView(private val project: Project) : JPanel() {
     private lateinit var header: JLabel
     private lateinit var content: JPanel
     private lateinit var button: JLabel
-
-    var clickcable = true
+    private var scannerInstalled = false
 
     init {
         layout = BoxLayout(this, BoxLayout.Y_AXIS)
-        border = MatteBorder(0, 0, 1, 0, Color.LIGHT_GRAY)
+        alignmentX = Component.LEFT_ALIGNMENT
+        border = MatteBorder(0, 0, 1, 0, JBColor.GRAY)
     }
 
     fun initialize() {
         createHeader()
         createContent()
         add(header)
-        add(Box.createVerticalStrut(4))
+        add(Box.createVerticalStrut(4).apply { setAlignmentX(0f) })
         add(content)
 
+        val installer = project.service<InstallerService>()
+        scannerInstalled = installer.isInstalled()
+        updateButtonState()
+
+        project.messageBus.connect().subscribe(INSTALLER_STATE_TOPIC, object : InstallerStateListener {
+            override fun installerStateChanged(project: Project?, installed: Boolean) {
+                if (project != this@ScanView.project) return
+                scannerInstalled = installed
+                updateButtonState()
+            }
+        })
 
         project.messageBus.connect()
             .subscribe(CONNECTION_STATE_TOPIC, object : ConnectionStateListener {
-                override fun connectionStateChanged(projectFromService: Project?, urlOk: Boolean, tokenOk: Boolean) {
+                override fun connectionStateChanged(project: Project?, urlOk: Boolean, tokenOk: Boolean) {
                     Logger.log("Connection state changed to $urlOk, $tokenOk")
-                    if (projectFromService != this@ScanView.project) return
+                    if (project != this@ScanView.project) return
                     isVisible = when {
                         !urlOk -> false
                         !tokenOk -> false
@@ -62,23 +74,41 @@ class ScanView(private val project: Project) : JPanel() {
 
         project.messageBus.connect()
             .subscribe(SCAN_STATE_TOPIC, object : ScanStateListener {
-                override fun scanStateChanged(projectFromService: Project?, status: Int) {
-                    if (projectFromService != this@ScanView.project) return
+                override fun scanStateChanged(project: Project?, status: Int) {
+                    if (project != this@ScanView.project) return
                     //this@ScanView.clickcable = status != 2
-                    button.icon = when {
-                        status == 2 -> Icons.RUN_IN_QUEUE_ICON
-                        else -> Icons.RUN_ICON
-                    }
-                    button.text = when {
-                        status == 2 -> "Scanning"
-                        else -> "Run Scan"
-                    }
-                    button.toolTipText = when {
-                        status == 2 -> "Stop scanning"
-                        else -> "Run Scan"
-                    }
+                    updateButtonState(status)
                 }
             })
+    }
+
+    private fun updateButtonState(scanStatus: Int? = null) {
+        val status = scanStatus ?: 0 // Default to not running if not provided
+
+        button.isEnabled = scannerInstalled
+        button.cursor = if (scannerInstalled) Cursor.getPredefinedCursor(Cursor.HAND_CURSOR) else Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR)
+
+        if (!scannerInstalled) {
+            button.icon = Icons.RUN_ICON // Or a disabled version if available
+            button.text = "Run Scan (Required Install)"
+            button.toolTipText = "Please install Xygeni scanner first (Tools -> Xygeni -> Install)"
+            button.foreground = JBColor.GRAY
+            return
+        }
+
+        button.foreground = JBColor.namedColor("Label.foreground", JBColor.BLACK)
+        button.icon = when {
+            status == 2 -> Icons.RUN_IN_QUEUE_ICON
+            else -> Icons.RUN_ICON
+        }
+        button.text = when {
+            status == 2 -> "Scanning"
+            else -> "Run Scan"
+        }
+        button.toolTipText = when {
+            status == 2 -> "Stop scanning"
+            else -> "Run Scan"
+        }
     }
 
     private fun createContent() {
@@ -91,7 +121,8 @@ class ScanView(private val project: Project) : JPanel() {
 
         button.addMouseListener(object : MouseAdapter() {
             override fun mouseClicked(e: MouseEvent) {
-                //if (!clickcable) return
+                if (!scannerInstalled) return
+
                 if (button.text == "Run Scan") {
                     // scan
                     project.getService(ScanService::class.java).scan(project)
@@ -103,6 +134,7 @@ class ScanView(private val project: Project) : JPanel() {
 
         content = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
+            alignmentX = Component.LEFT_ALIGNMENT
             border = JBUI.Borders.empty(5, 20, 10, 5)
             isVisible = false
         }
@@ -131,6 +163,7 @@ class ScanView(private val project: Project) : JPanel() {
         header.icon = if (content.isVisible) Icons.CHEVRON_DOWN_ICON else Icons.CHEVRON_RIGHT_ICON
 
         revalidate()
+        maximumSize = Dimension(Int.MAX_VALUE, preferredSize.height)
         repaint()
     }
 

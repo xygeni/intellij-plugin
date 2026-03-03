@@ -1,9 +1,9 @@
 package com.github.xygeni.intellij.render
 
+import com.github.xygeni.intellij.model.report.sast.SastXygeniIssue
 import com.github.xygeni.intellij.render.XygeniConstants.EXPLANATION_KEY
 import com.github.xygeni.intellij.render.XygeniConstants.FOUND_BY_KEY
 import com.github.xygeni.intellij.render.XygeniConstants.LOCATION_KEY
-import com.github.xygeni.intellij.model.report.sast.SastXygeniIssue
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 
@@ -14,6 +14,7 @@ import kotlinx.html.stream.createHTML
  * @version : 22/10/25 (Carmendelope)
  **/
 class SastIssueRenderer : BaseHtmlIssueRenderer<SastXygeniIssue>() {
+
     override fun renderCustomHeader(issue: SastXygeniIssue): String {
         return createHTML().p {
             unsafe {
@@ -30,7 +31,6 @@ class SastIssueRenderer : BaseHtmlIssueRenderer<SastXygeniIssue>() {
     }
 
     override fun renderCustomIssueDetails(issue: SastXygeniIssue): String {
-        val tags = renderTags(issue.tags)
         return createHTML().div {
             table {
                 tbody {

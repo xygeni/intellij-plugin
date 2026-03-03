@@ -9,7 +9,6 @@ package com.github.xygeni.intellij.toolWindow
 import com.github.xygeni.intellij.services.ConsoleService
 import com.intellij.execution.impl.ConsoleViewImpl
 import com.intellij.execution.ui.ConsoleView
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory

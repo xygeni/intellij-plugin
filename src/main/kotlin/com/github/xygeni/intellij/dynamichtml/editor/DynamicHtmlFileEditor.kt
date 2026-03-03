@@ -25,7 +25,6 @@ class DynamicHtmlFileEditor(
 
     fun loadHtml(html: String) = browserContext.loadHtml(html)
     fun renderData(json: String) = browserContext.renderData(json)
-    fun sendActionToKotlin(action: String, data: String) = browserContext.sendActionToKotlin(action, data)
 
     override fun getComponent(): JComponent = browserContext.browserComponent
     override fun getPreferredFocusedComponent(): JComponent? = browserContext.browserComponent

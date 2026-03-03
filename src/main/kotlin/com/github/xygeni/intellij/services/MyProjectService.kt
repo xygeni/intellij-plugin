@@ -1,9 +1,9 @@
 package com.github.xygeni.intellij.services
 
+import com.github.xygeni.intellij.MyBundle
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
-import com.github.xygeni.intellij.MyBundle
 
 @Service(Service.Level.PROJECT)
 class MyProjectService(project: Project) {

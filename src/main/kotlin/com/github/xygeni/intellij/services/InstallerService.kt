@@ -1,11 +1,14 @@
 package com.github.xygeni.intellij.services
 
 import com.github.xygeni.intellij.events.CONNECTION_STATE_TOPIC
+import com.github.xygeni.intellij.events.INSTALLER_STATE_TOPIC
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.model.PluginContext
 import com.github.xygeni.intellij.notifications.NotificationService
+import com.github.xygeni.intellij.settings.XygeniSettings
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
+import com.intellij.openapi.components.service
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
@@ -30,7 +33,7 @@ import javax.swing.SwingUtilities
 @Service(Service.Level.APP)
 class InstallerService : ProcessExecutorService() {
 
-    private val pluginContext = PluginContext() //manager.pluginContext
+    private val pluginContext = service<PluginContext>() 
     private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
@@ -39,7 +42,7 @@ class InstallerService : ProcessExecutorService() {
 
     private fun uninstallIfNeeded(project: Project? = null) {
         Logger.log("Removing previous installation: ${this.pluginContext.installDir.absolutePath}...", project)
-        this.deleteSafe(this.pluginContext.installDir.absolutePath)
+        this.deleteRecursively(this.pluginContext.installDir.absolutePath)
     }
 
     private fun checkUrlAccessible(url: String, project: Project? = null, callback: (Boolean) -> Unit) {
@@ -129,14 +132,16 @@ class InstallerService : ProcessExecutorService() {
         }
     }
 
-    private fun download(url: String, project: Project? = null): File? {
-        val client = OkHttpClient()
-        val fileName = url.substringAfterLast('/')
-
+    private fun downloadFile(url: String,  fileName: String, token: String = "", project: Project? = null): File? {
         return try {
 
             val request = Request.Builder()
                 .url(url)
+                .apply {
+                    if (!token.isNullOrBlank()) {
+                        addHeader("Authorization", "Bearer $token")
+                    }
+                }
                 .get()
                 .build()
 
@@ -155,7 +160,7 @@ class InstallerService : ProcessExecutorService() {
                 val tempFile = File(tempDir, fileName)
 
                 // delete the previous script
-                this.deleteSafe(tempFile.absolutePath)
+                this.deleteRecursively(tempFile.absolutePath)
 
                 Logger.log("Downloading from:  $url to: $tempFile", project)
 
@@ -173,8 +178,8 @@ class InstallerService : ProcessExecutorService() {
         }
     }
 
-    // deleteSafe removes the path
-    private fun deleteSafe(path: String): Boolean {
+    // deleteRecursively removes the path
+    private fun deleteRecursively(path: String): Boolean {
         val file = File(path)
         return if (file.exists()) {
             file.deleteRecursively()
@@ -222,12 +227,13 @@ class InstallerService : ProcessExecutorService() {
         Logger.log("==================================", project)
         Logger.log("== Running MCP installation ==", project)
         Logger.log("==================================", project)
-        val jarFile = File(this.pluginContext.mcpJarFile)
-        jarFile.parentFile.mkdirs()
-        val f =
-            download(this@InstallerService.pluginContext.mcpUrl + "", project)
-        Logger.log("moving mcp to ${jarFile.absolutePath}", project)
-        f?.copyTo(jarFile, true)
+        val settings = XygeniSettings.getInstance()
+        val f = downloadFile( settings.getMcpDownloadUrl(),
+            this@InstallerService.pluginContext.mcpJarFileName,
+            settings.apiToken ?: "",
+            project)
+        Logger.log("moving mcp to ${this.pluginContext.mcpJarFile}", project)
+        f?.copyTo(this.pluginContext.mcpJarFile, true)
         Logger.log("Xygeni MCP installed successfully!", project)
     }
 
@@ -235,7 +241,13 @@ class InstallerService : ProcessExecutorService() {
         Logger.log("==================================", project)
         Logger.log("== Running scanner installation ==", project)
         Logger.log("==================================", project)
-        val f = download(this@InstallerService.pluginContext.scriptUrl + "xygeni_scanner.zip", project)
+
+        // val f = download(this@InstallerService.pluginContext.scriptUrl + "xygeni_scanner.zip", project)
+        val settings = XygeniSettings.getInstance()
+        val f = downloadFile( settings.getScannerDownloadUrl(),
+            this@InstallerService.pluginContext.scannerZipFileName,
+            settings.apiToken ?: "",
+            project)
         if (f != null) {
             unzip(
                 f.toPath(),
@@ -247,6 +259,48 @@ class InstallerService : ProcessExecutorService() {
             commandFile.setExecutable(true)
             Logger.log("Xygeni scanner installed successfully!", project)
         }
+    }
+
+    // isInstalled checks if the xygeni command already exists
+    fun isInstalled(mcp: Boolean = false): Boolean {
+        if (!mcp) return File(this.pluginContext.xygeniCommand).exists()
+        return this.pluginContext.mcpJarFile.exists()
+    }
+
+    fun publishInstallerState(project: Project?) {
+        if (project == null) return
+        val installed = isInstalled()
+        ApplicationManager.getApplication().invokeLater {
+            ApplicationManager.getApplication().messageBus
+                .syncPublisher( INSTALLER_STATE_TOPIC)
+                .installerStateChanged(project, installed)
+        }
+    }
+
+    // install checks the xygeni command and install if it does not exist
+    fun install(project: Project?) {
+        var steps = mutableListOf<Step>()
+        if (!isInstalled()) {
+            steps.add(Step("Installing scanner", this::installScannerFn,))
+        } else {
+            Logger.log(">> Xygeni installed", project)
+            publishInstallerState(project)
+        }
+        if (!isInstalled(mcp = true)) {
+            steps.add(Step("Installing mcp", this::installMCPFn))
+        } else {
+            Logger.log(">> Xygeni MCP installed", project)
+        }
+        if (steps.isNotEmpty()) {
+            executeInBackground(project, steps)
+        }
+    }
+
+    // installOrUpdate forces a new installation removing the previous one
+    fun installOrUpdate(project: Project?) {
+        uninstallIfNeeded(project)
+        publishInstallerState(project)
+        install(project)
     }
 
     private fun executeInBackground(
@@ -272,47 +326,20 @@ class InstallerService : ProcessExecutorService() {
                     }
                 }
                 
-                Logger.log("Xygeni plugin installed", project)
+                Logger.log("Xygeni plugin installed on ${PluginContext().installDir}", project)
                 
                 if (installedComponents.isNotEmpty()) {
                     NotificationService.notifyInfo(
                         "Xygeni installation completed: ${installedComponents.joinToString(", ")}",
                         project
                     )
+                    // Notify state change if scanner was installed
+                    if (installedComponents.any { it.contains("scanner", ignoreCase = true) }) {
+                        publishInstallerState(project)
+                    }
                 }
             }
         })
-    }
-
-    // isInstalled checks if the xygeni command already exists
-    private fun isInstalled(mcp: Boolean = false): Boolean {
-        if (!mcp) return File(this.pluginContext.xygeniCommand).exists()
-        // else (MCP)
-        return File(this.pluginContext.mcpJarFile).exists()
-    }
-
-    // install checks the xygeni command and install if it does not exist
-    fun install(project: Project?) {
-        var steps = mutableListOf<Step>()
-        if (!isInstalled()) {
-            steps.add(Step("Installing scanner", this::installScannerFn,))
-        } else {
-            Logger.log(">> Xygeni installed", project)
-        }
-        if (!isInstalled(mcp = true)) {
-            steps.add(Step("Installing mcp", this::installMCPFn))
-        } else {
-            Logger.log(">> Xygeni MCP installed", project)
-        }
-        if (steps.isNotEmpty()) {
-            executeInBackground(project, steps)
-        }
-    }
-
-    // installOrUpdate forces a new installation removing the previous one
-    fun installOrUpdate(project: Project?) {
-        uninstallIfNeeded(project)
-        install(project)
     }
 
 }

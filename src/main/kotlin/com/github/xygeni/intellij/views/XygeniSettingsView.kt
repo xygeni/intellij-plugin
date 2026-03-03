@@ -7,24 +7,43 @@ package com.github.xygeni.intellij.views
  * @version : 8/10/25 (Carmendelope)
  **/
 
-import com.github.xygeni.intellij.events.*
+import com.github.xygeni.intellij.events.CONNECTION_STATE_TOPIC
+import com.github.xygeni.intellij.events.ConnectionStateListener
+import com.github.xygeni.intellij.events.SETTINGS_CHANGED_TOPIC
+import com.github.xygeni.intellij.events.SettingsChangeListener
+import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.services.InstallerService
 import com.github.xygeni.intellij.settings.XygeniSettings
 import com.github.xygeni.intellij.settings.XygeniSettingsConfigurable
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.project.Project
+import com.intellij.openapi.application.runReadAction
 import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
+import com.intellij.openapi.project.Project
+import com.intellij.ui.JBColor
+import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBTextField
+import com.intellij.util.ui.JBUI
 import icons.Icons
-import java.awt.*
+import java.awt.Component
+import java.awt.Cursor
+import java.awt.Dimension
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
-import javax.swing.*
-import javax.swing.border.EmptyBorder
+import javax.swing.Box
+import javax.swing.BoxLayout
+import javax.swing.JLabel
+import javax.swing.JPanel
 import javax.swing.border.MatteBorder
+
+data class ApiSettingsSnapshot(
+    val apiUrl: String,
+    val tokenLen: Int,
+    val autoScan: Boolean
+)
+
 
 class XygeniSettingsView(private val project: Project) : JPanel() {
 
@@ -33,32 +52,38 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
     private lateinit var urlTextField: JBTextField
     private lateinit var tokenTextField: JBTextField
     private lateinit var statusLabel: JLabel
+    private lateinit var autoScanCheck : JBCheckBox
+    
+    // Track last checked values to avoid redundant validations
+    private var lastCheckedUrl: String? = null
+    private var lastCheckedToken: String? = null
 
     init {
         layout = BoxLayout(this, BoxLayout.Y_AXIS)
-        border = MatteBorder(0, 0, 1, 0, Color.LIGHT_GRAY)
+        alignmentX = Component.LEFT_ALIGNMENT
+        border = MatteBorder(0, 0, 1, 0, JBColor.GRAY)
     }
 
     fun initialize() {
         createHeader()
         createContent()
         add(header)
-        add(Box.createVerticalStrut(4))
+        add(Box.createVerticalStrut(4).apply { setAlignmentX(0f) })
         add(content)
 
-        loadSettingsAsync(true)
+        loadSettingsAsync(false)
 
         project.messageBus.connect()
             .subscribe(SETTINGS_CHANGED_TOPIC, object : SettingsChangeListener {
                 override fun settingsChanged() {
-                    loadSettingsAsync()
+                    loadSettingsAsync(reinstall =  true)
                 }
             })
 
         project.messageBus.connect()
             .subscribe(CONNECTION_STATE_TOPIC, object : ConnectionStateListener {
-                override fun connectionStateChanged(projectFromService: Project?, urlOk: Boolean, tokenOk: Boolean) {
-                    if (projectFromService != this@XygeniSettingsView.project) return
+                override fun connectionStateChanged(project: Project?, urlOk: Boolean, tokenOk: Boolean) {
+                    if (project != this@XygeniSettingsView.project) return
 
                     ApplicationManager.getApplication().invokeLater {
                         statusLabel.text = when {
@@ -87,12 +112,14 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
                 toggleContentVisibility()
             }
         })
+        header.alignmentX = Component.LEFT_ALIGNMENT
     }
 
     private fun createContent() {
         content = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
-            border = EmptyBorder(5, 20, 10, 5)
+            alignmentX = Component.LEFT_ALIGNMENT
+            border = JBUI.Borders.empty(5, 20, 10, 5)
             isVisible = false
         }
 
@@ -106,7 +133,7 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
             addMouseListener(object : MouseAdapter() {
                 override fun mouseClicked(e: MouseEvent?) {
                     statusLabel.text = "⏳ Checking connection status..."
-                    triggerConnectionCheck()
+                    triggerConnectionCheck(force = true)
                 }
             })
         }
@@ -122,6 +149,12 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
             })
         }
 
+        autoScanCheck = JBCheckBox("Scan project on save")//.apply { isEnabled = false }
+        autoScanCheck.addActionListener {
+            val selected = autoScanCheck.isSelected
+            XygeniSettings.getInstance().autoScan = selected
+        }
+
         val formPanel = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             alignmentX = Component.LEFT_ALIGNMENT
@@ -133,29 +166,50 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
             add(Box.createVerticalStrut(2))
             add(tokenTextField)
             add(Box.createVerticalStrut(8))
+            add(autoScanCheck)
+            add(Box.createVerticalStrut(8))
             add(statusLabel)
         }
 
         content.add(formPanel)
     }
 
-    private fun triggerConnectionCheck() {
+    private fun triggerConnectionCheck(reinstall: Boolean = false, force: Boolean = false) {
         val settings = XygeniSettings.getInstance()
         val apiUrl = settings.apiUrl
         val token = settings.apiToken ?: ""
+
+        // Check if values actually changed
+        val urlChanged = apiUrl != lastCheckedUrl
+        val tokenChanged = token != lastCheckedToken
+
+        // Only check if forced or if URL/token have changed
+        if (!force && !urlChanged && !tokenChanged) {
+            Logger.log("Skipping connection check - URL and token unchanged", project)
+            return
+        }
+
+        // Update tracked values
+        lastCheckedUrl = apiUrl
+        lastCheckedToken = token
 
         // Llamamos al servicio global para validar
         val installer = ApplicationManager.getApplication().getService(InstallerService::class.java)
         installer.validateConnection(apiUrl, token, project) { urlOk, tokenOk ->
             // Publicamos el resultado al MessageBus global
             installer.publishConnectionState(project, urlOk, tokenOk)
+            // Only reinstall if URL/token changed AND reinstall was requested AND validation passed
+            if (reinstall && (urlChanged || tokenChanged) && urlOk && tokenOk) {
+                Logger.log("Reinstalling scanner due to URL/token change", project)
+                installer.installOrUpdate(project)
+            }
         }
     }
 
     private fun createField(): JBTextField = JBTextField().apply {
         isEditable = false
         isFocusable = false
-        alignmentX = Component.LEFT_ALIGNMENT
+        alignmentX = LEFT_ALIGNMENT
         maximumSize = Dimension(Int.MAX_VALUE, preferredSize.height)
         cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
     }
@@ -165,26 +219,42 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
         header.icon = if (content.isVisible) Icons.CHEVRON_DOWN_ICON else Icons.CHEVRON_RIGHT_ICON
 
         revalidate()
+        maximumSize = Dimension(Int.MAX_VALUE, preferredSize.height)
         repaint()
     }
 
-    private fun loadSettingsAsync(check: Boolean = true) {
+    private fun loadSettingsAsync(check: Boolean = true, reinstall: Boolean = false) {
         ProgressManager.getInstance().run(object :
             Task.Backgroundable(project, "Loading Xygeni Settings", false) {
+
             override fun run(indicator: ProgressIndicator) {
                 val settings = XygeniSettings.getInstance()
-                val (apiUrl, tokenLen) = ApplicationManager.getApplication()
-                    .runReadAction<Pair<String, Int>> {
-                        settings.apiUrl to settings.apiToken.length
+
+                val snapshot: ApiSettingsSnapshot =
+                    runReadAction {
+                        ApiSettingsSnapshot(
+                            apiUrl = settings.apiUrl,
+                            tokenLen = settings.apiToken.length,
+                            autoScan = settings.autoScan
+                        )
                     }
 
-                ApplicationManager.getApplication().invokeLater ({
+                val (apiUrl, tokenLen, autoScan) = snapshot
+
+                ApplicationManager.getApplication().invokeLater({
                     urlTextField.text = apiUrl
-                    tokenTextField.text ="•".repeat(tokenLen)
+                    tokenTextField.text = "•".repeat(tokenLen)
+                    autoScanCheck.isSelected = autoScan
+                    
+                    // Initialize tracking values on first load to avoid unnecessary checks
+                    if (lastCheckedUrl == null && lastCheckedToken == null) {
+                        lastCheckedUrl = apiUrl
+                        lastCheckedToken = settings.apiToken
+                    }
                 }, project.disposed)
 
                 if (check) {
-                    triggerConnectionCheck()
+                    triggerConnectionCheck(reinstall)
                 }
             }
         })

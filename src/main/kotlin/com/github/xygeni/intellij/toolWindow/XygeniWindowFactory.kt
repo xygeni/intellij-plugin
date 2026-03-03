@@ -1,11 +1,9 @@
 package com.github.xygeni.intellij.toolWindow
 
-import com.github.xygeni.intellij.services.InstallerService
 import com.github.xygeni.intellij.views.HelpBlockView
 import com.github.xygeni.intellij.views.ScanView
 import com.github.xygeni.intellij.views.XygeniSettingsView
 import com.github.xygeni.intellij.views.report.*
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
@@ -51,14 +49,26 @@ class XygeniWindowFactory : ToolWindowFactory {
         val iacView = IacScanView(project)
         menuPanel.add(iacView)
 
+        val malwareView = MalwareScanView(project)
+        menuPanel.add(malwareView)
+
         // ----------------- help panel -----------------
         val help = HelpBlockView()
         help.createUI(false)
         menuPanel.add(help)
 
+        // Add vertical glue to push everything up
+        menuPanel.add(javax.swing.Box.createVerticalGlue())
+
         // ----------------- ToolWindow -----------------
+        val scrollPane = com.intellij.ui.components.JBScrollPane(menuPanel).apply {
+            border = null
+            horizontalScrollBarPolicy = javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
+            verticalScrollBarPolicy = javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED
+        }
+
         val contentManager = toolWindow.contentManager
-        val content = contentManager.factory.createContent(menuPanel, "", false)
+        val content = contentManager.factory.createContent(scrollPane, "", false)
         contentManager.addContent(content)
 
     }

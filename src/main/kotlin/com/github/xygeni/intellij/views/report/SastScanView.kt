@@ -1,12 +1,10 @@
 package com.github.xygeni.intellij.views.report
 
 import com.github.xygeni.intellij.model.report.sast.SastXygeniIssue
-import com.github.xygeni.intellij.render.BaseHtmlIssueRenderer
 import com.github.xygeni.intellij.render.SastIssueRenderer
 import com.github.xygeni.intellij.services.report.SastService
 import com.intellij.openapi.project.Project
 import icons.Icons
-import javax.swing.tree.DefaultMutableTreeNode
 
 /**
  * SastScanView

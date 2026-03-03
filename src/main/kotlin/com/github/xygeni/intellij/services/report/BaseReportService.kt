@@ -7,6 +7,7 @@ import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.model.PluginContext
 import com.github.xygeni.intellij.model.report.BaseXygeniIssue
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import java.io.File
 
@@ -22,7 +23,7 @@ abstract class BaseReportService<T : BaseXygeniIssue>(
     val reportType: String
 ) {
 
-    private val pluginContext = PluginContext()
+    private val pluginContext = service<PluginContext>()
     private val _issues = mutableListOf<T>()
     val issues: List<T> get() = _issues
 
@@ -30,16 +31,16 @@ abstract class BaseReportService<T : BaseXygeniIssue>(
         project.messageBus.connect()
             .subscribe(SCAN_STATE_TOPIC, object : ScanStateListener {
                 override fun scanStateChanged(project: Project?, status: Int) {
-                    //if (project != this@BaseReportService.project || status == 2 /*Running*/) return
                     if (project != this@BaseReportService.project) return
                     if (status == 2) return cleanIssuesAndReturn()
-                    read()
+                    reloadIssuesFromFile()
                 }
             })
     }
 
     private fun cleanIssuesAndReturn(){
-        this._issues.clear()
+        //this._issues.clear()
+
         ApplicationManager.getApplication().messageBus
             .syncPublisher(READ_TOPIC)
             .readCompleted(project, this@BaseReportService.reportType)
@@ -48,7 +49,11 @@ abstract class BaseReportService<T : BaseXygeniIssue>(
 
     protected abstract fun processReport(jsonString: String): List<T>
 
-    fun read() {
+    fun reloadIssuesFromFile() {
+        // removing the issue tree
+        this._issues.clear()
+
+        // reading the scan report
         val scanResultDir = this.pluginContext.ensureScanResultDirExists(project)
         val secretFile = File(
             scanResultDir,

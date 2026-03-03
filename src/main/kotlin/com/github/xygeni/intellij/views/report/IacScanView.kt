@@ -5,7 +5,6 @@ import com.github.xygeni.intellij.render.IacIssueRenderer
 import com.github.xygeni.intellij.services.report.IacService
 import com.intellij.openapi.project.Project
 import icons.Icons
-import javax.swing.tree.DefaultMutableTreeNode
 
 /**
  * IacScanView

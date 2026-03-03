@@ -6,7 +6,8 @@ import kotlinx.serialization.Serializable
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Locale
+import java.util.*
+
 /**
  * ScaReport
  *
@@ -129,7 +130,7 @@ fun formatIsoDateToUtc(isoDate: String?): String {
 }
 
 fun ScaRaw.toIssue(toolName: String?, branch: String?): List<ScaXygeniIssue> {
-    val loc = paths?.locations?.get(0) ?: null
+    val loc = paths?.locations?.get(0)
     return vulnerabilities
         ?.map { vuln ->
             ScaXygeniIssue(
@@ -142,7 +143,7 @@ fun ScaRaw.toIssue(toolName: String?, branch: String?): List<ScaXygeniIssue> {
                 category = "Vulnerability",
                 categoryName = "SCA",
                 file = loc?.filepath ?: paths?.dependencyPaths?.first() ?: "",
-                explanation = vuln.description ?: "Vulnerability " + vuln.cve,
+                explanation = vuln.description ?: ("Vulnerability " + vuln.cve),
                 tags = (tags ?: emptyList()) + listOfNotNull(remediable?.remediableLevel),
                 url = vuln.source?.url ?: "",
                 beginLine = loc?.beginLine ?: 0,

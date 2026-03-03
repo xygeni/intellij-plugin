@@ -6,8 +6,6 @@ package com.github.xygeni.intellij.settings
  * @author : Carmendelope
  * @version : 7/10/25 (Carmendelope)
  **/
-import com.github.xygeni.intellij.logger.Logger
-import com.github.xygeni.intellij.model.report.server.RemediationData
 import com.intellij.credentialStore.CredentialAttributes
 import com.intellij.credentialStore.generateServiceName
 import com.intellij.ide.passwordSafe.PasswordSafe
@@ -25,7 +23,8 @@ import com.intellij.openapi.components.Storage
 class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
 
     data class State(
-        var apiUrl: String = ""
+        var apiUrl: String = "",
+        var autoScan: Boolean = false
     )
 
     private var state = State()
@@ -37,7 +36,7 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
 
     init {
         if (state.apiUrl.isBlank()) {
-            state.apiUrl = "https://api.xygeni.io/deps-doctor-service"
+            state.apiUrl = "https://api.xygeni.io"
         }
     }
 
@@ -46,7 +45,7 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
 
         fun getInstance(): XygeniSettings =
             ApplicationManager.getApplication().getService(XygeniSettings::class.java)
-        
+
         /**
          * Creates CredentialAttributes for storing API token securely.
          * Note: Plugin verifier may report false positive deprecated warnings due to 
@@ -63,6 +62,12 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
         get() = state.apiUrl
         set(value) {
             state.apiUrl = value
+        }
+
+    var autoScan: Boolean
+        get() = state.autoScan
+        set(value) {
+            state.autoScan = value
         }
 
     // --------------------
@@ -88,5 +93,19 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
         "XYGENI_TOKEN" to apiToken,
         "XYGENI_URL" to apiUrl
     )
+
+
+    fun getScannerDownloadUrl(): String {
+        return if (apiUrl.contains("api.xygeni.io")) {
+            "https://get.xygeni.io/latest/scanner/xygeni_scanner.zip"
+        } else {
+            "${apiUrl}/scan/releases/"
+        }
+    }
+
+    fun getMcpDownloadUrl(): String {
+        return "https://get.xygeni.io/latest/mcp-server/xygeni-mcp-server.jar"
+    }
+
 
 }

@@ -16,15 +16,18 @@ object XygeniConstants {
 
     const val ISSUE_DETAILS_TAB = "ISSUE DETAILS"
     const val CODE_SNIPPET_TAB = "CODE SNIPPET"
+    const val CODE_FLOW_TAB = "CODE FLOW"
     const val FIX_IT_TAB = "FIX IT"
 
     const val ISSUE_DETAILS_TAB_ID = "tab-1"
     const val CODE_SNIPPET_TAB_ID = "tab-2"
     const val FIX_IT_TAB_ID = "tab-3"
+    const val CODE_FLOW_TAB_ID = "tab-4"
 
     const val ISSUE_DETAILS_CONTENT_ID = "tab-content-1"
     const val CODE_SNIPPET_CONTENT_ID = "tab-content-2"
     const val FIX_IT_CONTENT_ID = "tab-content-3"
+    const val CODE_FLOW_CONTENT_ID = "tab-content-4"
 
     const val EXPLANATION_KEY = "Explanation"
     const val LOCATION_KEY = "Location"

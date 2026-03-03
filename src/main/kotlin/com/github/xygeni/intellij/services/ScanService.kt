@@ -2,15 +2,11 @@ package com.github.xygeni.intellij.services
 
 import com.github.xygeni.intellij.events.SCAN_STATE_TOPIC
 import com.github.xygeni.intellij.logger.Logger
-import com.github.xygeni.intellij.model.PluginConfig
 import com.github.xygeni.intellij.model.PluginContext
 import com.github.xygeni.intellij.settings.XygeniSettings
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
-import com.intellij.openapi.progress.ProgressIndicator
-import com.intellij.openapi.progress.ProgressManager
-import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 
 /**
@@ -23,14 +19,13 @@ import com.intellij.openapi.project.Project
 @Service(Service.Level.PROJECT)
 class ScanService : ProcessExecutorService() {
 
-    private val pluginContext = PluginContext() // manager.pluginContext
+    private val pluginContext = service<PluginContext>() 
     private var scanning = false
 
     var processHandle: MyProcessHandle? = null
 
     private val baseArgs: Map<String, String> = mapOf(
         "scan" to "",
-        "--run" to "deps,secrets,misconf,iac,suspectdeps,sast",
         "-f" to "json",
         "-d" to ".",
         "-o" to this.pluginContext.xygeniReportSuffix,
@@ -38,13 +33,22 @@ class ScanService : ProcessExecutorService() {
         "--include-vulnerabilities" to ""
     )
 
-    private fun buildArgs(changingValue: String): Map<String, String> {
-        return baseArgs.toMutableMap().apply {
-            this["-d"] = changingValue
+    private fun buildArgs(changingValue: String, incremental: Boolean = false): Map<String, String> {
+        return if (!incremental) {
+            baseArgs.toMutableMap().apply {
+                this["--run"] = "deps,secrets,misconf,iac,suspectdeps,sast,malware"
+                this["-d"] = changingValue
+            }
+        }else{
+            baseArgs.toMutableMap().apply {
+                this["-d"] = changingValue
+                this["--run"] = "secrets,iac,sast,malware"
+                this["--incremental"] = ""
+            }
         }
     }
 
-    fun scan(project: Project) {
+    fun scan(project: Project, incremental: Boolean = false) {
         if (scanning) {
             Logger.error("❌ Scanning is already running")
             return
@@ -61,7 +65,7 @@ class ScanService : ProcessExecutorService() {
         try {
             processHandle = executeProcess(
                 pluginContext.xygeniCommand,
-                this@ScanService.buildArgs(path),
+                this@ScanService.buildArgs(path, incremental),
                 XygeniSettings.getInstance().toEnv(),
                 scanResultDir,
                 project,

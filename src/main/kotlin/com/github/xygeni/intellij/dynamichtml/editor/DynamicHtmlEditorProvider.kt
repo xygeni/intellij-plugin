@@ -7,13 +7,13 @@ package com.github.xygeni.intellij.dynamichtml.editor
  * @version : 14/11/25 (Carmendelope)
  **/
 import com.github.xygeni.intellij.dynamichtml.browser.EditorBrowserContext
-import com.intellij.openapi.fileEditor.FileEditorProvider
 import com.intellij.openapi.fileEditor.FileEditor
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.FileEditorPolicy
+import com.intellij.openapi.fileEditor.FileEditorProvider
 import com.intellij.openapi.project.DumbAware
-import com.intellij.openapi.util.Key
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.Key
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.LightVirtualFile
 
