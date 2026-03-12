@@ -30,21 +30,20 @@ jobs:
             runIde: ./gradlew runIdeForUiTests &
 
     steps:
+      # https://github.com/marketplace/actions/checkout
+      - name: Checkout the repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      # Check out the current repository
-      - name: Fetch Sources
-        uses: actions/checkout@v4
-
-      # Set up the Java environment for the next steps
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      # https://github.com/marketplace/actions/setup-java-jdk
+      - name: Set up Java
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
         with:
           distribution: zulu
           java-version: 21
 
       # Setup Gradle
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@017a9effdb900e5b5b2fddfb590a105619dca3c3 # v4.4.2
         with:
           cache-read-only: true
 
@@ -53,8 +52,9 @@ jobs:
         run: ${{ matrix.runIde }}
 
       # Wait for IDEA to be started
+      # https://github.com/marketplace/actions/url-health-check
       - name: Health Check
-        uses: jtalk/url-health-check-action@v4
+        uses: jtalk/url-health-check-action@b716ccb6645355dd9fcce8002ce460e5474f7f00 # v4
         with:
           url: http://127.0.0.1:8082
           max-attempts: 15
