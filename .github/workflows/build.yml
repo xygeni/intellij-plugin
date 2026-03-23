@@ -31,28 +31,20 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     steps:
+      # https://github.com/marketplace/actions/checkout
+      - name: Checkout the repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      # Free GitHub Actions Environment Disk Space
-      - name: Maximize Build Space
-        uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          tool-cache: false
-          large-packages: false
-
-      # Check out the current repository
-      - name: Fetch Sources
-        uses: actions/checkout@v4
-
-      # Set up the Java environment for the next steps
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      # https://github.com/marketplace/actions/setup-java-jdk
+      - name: Set up Java
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
         with:
           distribution: zulu
           java-version: 21
 
       # Setup Gradle
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@017a9effdb900e5b5b2fddfb590a105619dca3c3 # v4.4.2
 
       # Build plugin
       - name: Build plugin
@@ -70,8 +62,9 @@ jobs:
           echo "filename=${FILENAME:0:-4}" >> $GITHUB_OUTPUT
 
       # Store an already-built plugin as an artifact for downloading
+      # https://github.com/marketplace/actions/upload-a-build-artifact
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v7.0.0
         with:
           name: ${{ steps.artifact.outputs.filename }}
           path: ./build/distributions/content/*/*
@@ -82,28 +75,21 @@ jobs:
     needs: [ build ]
     runs-on: ubuntu-latest
     steps:
-
-      # Free GitHub Actions Environment Disk Space
-      - name: Maximize Build Space
-        uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          tool-cache: false
-          large-packages: false
-
-      # Check out the current repository
-      - name: Fetch Sources
-        uses: actions/checkout@v4
+      # https://github.com/marketplace/actions/checkout
+      - name: Checkout the repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       # Set up the Java environment for the next steps
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      # https://github.com/marketplace/actions/setup-java-jdk
+      - name: Set up Java
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
         with:
           distribution: zulu
           java-version: 21
 
       # Setup Gradle
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@017a9effdb900e5b5b2fddfb590a105619dca3c3 # v4.4.2
         with:
           cache-read-only: true
 
@@ -112,57 +98,21 @@ jobs:
         run: ./gradlew check
 
       # Collect Tests Result of failed tests
+        # https://github.com/marketplace/actions/upload-a-build-artifact
       - name: Collect Tests Result
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v7.0.0
         with:
           name: tests-result
           path: ${{ github.workspace }}/build/reports/tests
 
-      # Upload the Kover report to CodeCov
+      # Upload the Coverage report to CodeCov
+      # https://github.com/marketplace/actions/codecov
       - name: Upload Code Coverage Report
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
         with:
           files: ${{ github.workspace }}/build/reports/kover/report.xml
           token: ${{ secrets.CODECOV_TOKEN }}
-
-  # Run Qodana inspections and provide a report
-#  inspectCode:
-#    name: Inspect code
-#    needs: [ build ]
-#    runs-on: ubuntu-latest
-#    permissions:
-#      contents: write
-#      checks: write
-#      pull-requests: write
-#    steps:
-#
-#      # Free GitHub Actions Environment Disk Space
-#      - name: Maximize Build Space
-#        uses: jlumbroso/free-disk-space@v1.3.1
-#        with:
-#          tool-cache: false
-#          large-packages: false
-#
-#      # Check out the current repository
-#      - name: Fetch Sources
-#        uses: actions/checkout@v4
-#        with:
-#          ref: ${{ github.event.pull_request.head.sha }}  # to check out the actual pull request commit, not the merge commit
-#          fetch-depth: 0  # a full history is required for pull request analysis
-#
-#      # Set up the Java environment for the next steps
-#      - name: Setup Java
-#        uses: actions/setup-java@v4
-#        with:
-#          distribution: zulu
-#          java-version: 21
-#
-#      # Run Qodana inspections
-#      - name: Qodana - Code Inspection
-#        uses: JetBrains/qodana-action@v2025.1.1
-#        with:
-#          cache-default-branch-only: true
 
   # Run plugin structure verification along with IntelliJ Plugin Verifier
   verify:
@@ -170,28 +120,20 @@ jobs:
     needs: [ build ]
     runs-on: ubuntu-latest
     steps:
+      # https://github.com/marketplace/actions/checkout
+      - name: Checkout the repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      # Free GitHub Actions Environment Disk Space
-      - name: Maximize Build Space
-        uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          tool-cache: false
-          large-packages: false
-
-      # Check out the current repository
-      - name: Fetch Sources
-        uses: actions/checkout@v4
-
-      # Set up the Java environment for the next steps
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      # https://github.com/marketplace/actions/setup-java-jdk
+      - name: Set up Java
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
         with:
           distribution: zulu
           java-version: 21
 
       # Setup Gradle
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@017a9effdb900e5b5b2fddfb590a105619dca3c3 # v4.4.2
         with:
           cache-read-only: true
 
@@ -202,7 +144,7 @@ jobs:
       # Collect Plugin Verifier Result
       - name: Collect Plugin Verifier Result
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v7.0.0
         with:
           name: pluginVerifier-result
           path: ${{ github.workspace }}/build/reports/pluginVerifier
@@ -218,10 +160,9 @@ jobs:
     permissions:
       contents: write
     steps:
-
-      # Check out the current repository
-      - name: Fetch Sources
-        uses: actions/checkout@v4
+      # https://github.com/marketplace/actions/checkout
+      - name: Checkout the repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       # Remove old release drafts by using the curl request for the available releases with a draft flag
       - name: Remove Old Release Drafts
