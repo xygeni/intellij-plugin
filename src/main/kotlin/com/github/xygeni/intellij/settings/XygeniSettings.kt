@@ -24,7 +24,8 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
 
     data class State(
         var apiUrl: String = "",
-        var autoScan: Boolean = false
+        var autoScan: Boolean = false,
+        var incrementalScan: Boolean = false
     )
 
     private var state = State()
@@ -68,6 +69,12 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
         get() = state.autoScan
         set(value) {
             state.autoScan = value
+        }
+
+    var incrementalScan: Boolean
+        get() = state.incrementalScan
+        set(value) {
+            state.incrementalScan = value
         }
 
     // --------------------

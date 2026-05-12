@@ -25,6 +25,7 @@ class XygeniSettingsConfigurable(private val project: Project) : Configurable {
     private lateinit var apiUrlField: JBTextField
     private lateinit var tokenField: JBPasswordField
     private lateinit var autoScanField : JCheckBox
+    private lateinit var incrementalScanField : JCheckBox
     private var mainPanel: JPanel? = null
 
     override fun getDisplayName(): String = "Xygeni Settings"
@@ -34,11 +35,13 @@ class XygeniSettingsConfigurable(private val project: Project) : Configurable {
         apiUrlField = JBTextField()
         tokenField = JBPasswordField()
         autoScanField = JCheckBox("Scan project on save")
+        incrementalScanField = JCheckBox("Incremental scan (scan only changed files)")
 
         val form = FormBuilder.createFormBuilder()
             .addLabeledComponent(JBLabel("Xygeni API URL:"), apiUrlField, 1, false)
             .addLabeledComponent(JBLabel("Access token:"), tokenField, 1, false)
             .addComponent(autoScanField)
+            .addComponent(incrementalScanField)
             .addComponentFillVertically(JPanel(), 0)
             .panel
         mainPanel = form
@@ -50,7 +53,8 @@ class XygeniSettingsConfigurable(private val project: Project) : Configurable {
         val settings = XygeniSettings.getInstance()
         return apiUrlField.text != settings.apiUrl ||
                 String(tokenField.password) != (settings.apiToken ?: "") ||
-                autoScanField.isSelected != settings.autoScan
+                autoScanField.isSelected != settings.autoScan ||
+                incrementalScanField.isSelected != settings.incrementalScan
     }
 
     override fun apply() {
@@ -58,6 +62,7 @@ class XygeniSettingsConfigurable(private val project: Project) : Configurable {
         settings.apiUrl = apiUrlField.text.trim()
         settings.apiToken = String(tokenField.password).trim()
         settings.autoScan = autoScanField.isSelected
+        settings.incrementalScan = incrementalScanField.isSelected
         Logger.log("Xygeni settings updated", project)
         this.project.messageBus.syncPublisher(SETTINGS_CHANGED_TOPIC).settingsChanged()
     }
@@ -67,6 +72,7 @@ class XygeniSettingsConfigurable(private val project: Project) : Configurable {
         apiUrlField.text = settings.apiUrl
         tokenField.text = settings.apiToken ?: ""
         autoScanField.isSelected = settings.autoScan
+        incrementalScanField.isSelected = settings.incrementalScan
     }
 
     override fun disposeUIResources() {

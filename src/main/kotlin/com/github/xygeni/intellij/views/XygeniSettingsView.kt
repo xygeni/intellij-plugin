@@ -41,7 +41,8 @@ import javax.swing.border.MatteBorder
 data class ApiSettingsSnapshot(
     val apiUrl: String,
     val tokenLen: Int,
-    val autoScan: Boolean
+    val autoScan: Boolean,
+    val incrementalScan: Boolean
 )
 
 
@@ -53,6 +54,7 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
     private lateinit var tokenTextField: JBTextField
     private lateinit var statusLabel: JLabel
     private lateinit var autoScanCheck : JBCheckBox
+    private lateinit var incrementalScanCheck : JBCheckBox
     
     // Track last checked values to avoid redundant validations
     private var lastCheckedUrl: String? = null
@@ -155,6 +157,11 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
             XygeniSettings.getInstance().autoScan = selected
         }
 
+        incrementalScanCheck = JBCheckBox("Incremental scan (scan only changed files)")
+        incrementalScanCheck.addActionListener {
+            XygeniSettings.getInstance().incrementalScan = incrementalScanCheck.isSelected
+        }
+
         val formPanel = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             alignmentX = Component.LEFT_ALIGNMENT
@@ -167,6 +174,8 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
             add(tokenTextField)
             add(Box.createVerticalStrut(8))
             add(autoScanCheck)
+            add(Box.createVerticalStrut(4))
+            add(incrementalScanCheck)
             add(Box.createVerticalStrut(8))
             add(statusLabel)
         }
@@ -235,20 +244,20 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
                         ApiSettingsSnapshot(
                             apiUrl = settings.apiUrl,
                             tokenLen = settings.apiToken.length,
-                            autoScan = settings.autoScan
+                            autoScan = settings.autoScan,
+                            incrementalScan = settings.incrementalScan
                         )
                     }
 
-                val (apiUrl, tokenLen, autoScan) = snapshot
-
                 ApplicationManager.getApplication().invokeLater({
-                    urlTextField.text = apiUrl
-                    tokenTextField.text = "•".repeat(tokenLen)
-                    autoScanCheck.isSelected = autoScan
+                    urlTextField.text = snapshot.apiUrl
+                    tokenTextField.text = "•".repeat(snapshot.tokenLen)
+                    autoScanCheck.isSelected = snapshot.autoScan
+                    incrementalScanCheck.isSelected = snapshot.incrementalScan
                     
                     // Initialize tracking values on first load to avoid unnecessary checks
                     if (lastCheckedUrl == null && lastCheckedToken == null) {
-                        lastCheckedUrl = apiUrl
+                        lastCheckedUrl = snapshot.apiUrl
                         lastCheckedToken = settings.apiToken
                     }
                 }, project.disposed)

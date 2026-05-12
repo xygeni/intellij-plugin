@@ -29,7 +29,8 @@ class SaveListener :  FileDocumentManagerListener{
         val project = ProjectManager.getInstance().openProjects
             .firstOrNull { proj -> FileEditorManager.getInstance(proj).isFileOpen(vf) } ?: return;
 
-        project.getService(ScanService::class.java).scan(project, true)
+        project.getService(ScanService::class.java)
+            .scan(project, XygeniSettings.getInstance().incrementalScan)
 
     }
 }

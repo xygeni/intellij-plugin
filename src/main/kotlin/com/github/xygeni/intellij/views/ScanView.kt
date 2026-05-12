@@ -4,6 +4,7 @@ import com.github.xygeni.intellij.events.*
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.services.InstallerService
 import com.github.xygeni.intellij.services.ScanService
+import com.github.xygeni.intellij.settings.XygeniSettings
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.ui.JBColor
@@ -125,7 +126,8 @@ class ScanView(private val project: Project) : JPanel() {
 
                 if (button.text == "Run Scan") {
                     // scan
-                    project.getService(ScanService::class.java).scan(project)
+                    project.getService(ScanService::class.java)
+                        .scan(project, XygeniSettings.getInstance().incrementalScan)
                 }else{
                     project.getService(ScanService::class.java).stop(project)
                 }

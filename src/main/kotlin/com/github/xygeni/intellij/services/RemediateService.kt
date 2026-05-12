@@ -144,7 +144,8 @@ class RemediateService : ProcessExecutorService() {
 
             // if auto scan -> scan again
             if (XygeniSettings.getInstance().autoScan) {
-                project.getService(ScanService::class.java).scan(project, true)
+                project.getService(ScanService::class.java)
+                    .scan(project, XygeniSettings.getInstance().incrementalScan)
             }
 
         }
@@ -190,7 +191,7 @@ class RemediateService : ProcessExecutorService() {
             // 🔁 auto scan
             if (XygeniSettings.getInstance().autoScan) {
                 project.getService(ScanService::class.java)
-                    .scan(project, true)
+                    .scan(project, XygeniSettings.getInstance().incrementalScan)
             }
 
         } catch (e: Exception) {
