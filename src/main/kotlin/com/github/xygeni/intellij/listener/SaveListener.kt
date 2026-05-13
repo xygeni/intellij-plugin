@@ -7,6 +7,7 @@ package com.github.xygeni.intellij.listener
  * @version : 27/1/26 (Carmendelope)
  **/
 
+import com.github.xygeni.intellij.services.LicenseService
 import com.github.xygeni.intellij.services.ScanService
 import com.github.xygeni.intellij.settings.XygeniSettings
 import com.intellij.openapi.components.Service
@@ -23,14 +24,14 @@ class SaveListener :  FileDocumentManagerListener{
     override fun beforeDocumentSaving(document: Document) {
 
         if (! XygeniSettings.getInstance().autoScan) return
+        if (! LicenseService.getInstance().isLicenseValid()) return
 
         val vf = FileDocumentManager.getInstance().getFile(document) ?: return;
 
         val project = ProjectManager.getInstance().openProjects
             .firstOrNull { proj -> FileEditorManager.getInstance(proj).isFileOpen(vf) } ?: return;
 
-        project.getService(ScanService::class.java)
-            .scan(project, XygeniSettings.getInstance().incrementalScan)
+        project.getService(ScanService::class.java).scan(project, incremental = true)
 
     }
 }

@@ -2,6 +2,7 @@ package com.github.xygeni.intellij.activity
 
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.services.InstallerService
+import com.github.xygeni.intellij.services.LicenseService
 import com.github.xygeni.intellij.settings.XygeniSettings
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
@@ -25,9 +26,12 @@ class XygeniStartup : ProjectActivity {
             // install xygeni
             installer.install(project)
             // check connection
-            installer.validateConnection(settings.apiUrl, settings.apiToken, project, {
-                urlOk, tokenOk -> installer.publishConnectionState(project, urlOk, tokenOk)
-            })
+            installer.validateConnection(settings.apiUrl, settings.apiToken, project) { urlOk, tokenOk ->
+                installer.publishConnectionState(project, urlOk, tokenOk)
+                if (urlOk && tokenOk) {
+                    LicenseService.getInstance().register(project)
+                }
+            }
         }
 
         preloadJcef(project)
