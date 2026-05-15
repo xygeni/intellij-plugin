@@ -1,11 +1,14 @@
 package com.github.xygeni.intellij.services
 
+import com.github.xygeni.intellij.MyBundle
 import com.github.xygeni.intellij.events.CONNECTION_STATE_TOPIC
 import com.github.xygeni.intellij.events.INSTALLER_STATE_TOPIC
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.model.PluginContext
 import com.github.xygeni.intellij.notifications.NotificationService
 import com.github.xygeni.intellij.settings.XygeniSettings
+import com.github.xygeni.intellij.views.McpSetupView
+import com.intellij.notification.NotificationAction
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
@@ -329,9 +332,15 @@ class InstallerService : ProcessExecutorService() {
                 Logger.log("Xygeni plugin installed on ${PluginContext().installDir}", project)
                 
                 if (installedComponents.isNotEmpty()) {
+                    val openMcpSetup = project?.let { p ->
+                        NotificationAction.createSimple(MyBundle.message("mcp.setup.notification.openLink")) {
+                            McpSetupView.show(p)
+                        }
+                    }
                     NotificationService.notifyInfo(
                         "Xygeni installation completed: ${installedComponents.joinToString(", ")}",
-                        project
+                        project,
+                        openMcpSetup
                     )
                     // Notify state change if scanner was installed
                     if (installedComponents.any { it.contains("scanner", ignoreCase = true) }) {

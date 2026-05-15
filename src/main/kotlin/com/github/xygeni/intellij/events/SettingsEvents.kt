@@ -64,4 +64,15 @@ interface InstallerStateListener {
     fun installerStateChanged(project: Project?, installed: Boolean)
 }
 
+// ------------------- //
+// -- License state -- //
+// ------------------- //
+val LICENSE_STATE_TOPIC = Topic.create(
+    "Xygeni License State",
+    LicenseStateListener::class.java
+)
+interface LicenseStateListener {
+    fun licenseStateChanged(project: Project?, valid: Boolean)
+}
+
 
