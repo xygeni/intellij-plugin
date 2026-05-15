@@ -16,7 +16,18 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      issues: write          # needed for trstringer/manual-approval
     steps:
+      # https://github.com/marketplace/actions/manual-workflow-approval
+      # Approvers: xygeni/security or xygeni/release-engineering
+      - name: Require manual approval for JetBrains Marketplace publish
+        uses: trstringer/manual-approval@74d99dff7380e3e4b122d4ededcbca2b6ce59367 # v1.12.0
+        with:
+          secret: ${{ github.TOKEN }}
+          approvers: ${{ vars.APPROVAL_PROD_MEMBERS }}
+          minimum-approvals: 1
+          timeout-minutes: 5
+
       # https://github.com/marketplace/actions/checkout
       - name: Checkout the repo
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
