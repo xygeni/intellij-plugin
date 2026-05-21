@@ -78,6 +78,9 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
     var apiToken: String
         get() {
             cachedToken?.let { return it }
+            if (ApplicationManager.getApplication().isHeadlessEnvironment) {
+                return ""
+            }
             val attributes = createCredentialAttributes()
             val token = PasswordSafe.instance.getPassword(attributes) ?: ""
             cachedToken = token
