@@ -9,6 +9,9 @@ All notable changes to this project will be documented in this file.
 ### Added
 - Xygeni IDE license validation: the plugin now registers your IDE seat against your Xygeni license on startup and enable free licences.
 
+### Fixed
+- AI Explanation no longer fails with "Unmatched arguments" on Windows: the issue JSON is now passed to the scanner through a file (`--issue-json-file`) instead of inline on the command line, so embedded quotes in the code snippet don't break argument parsing (#410).
+
 ## [1.5.0] - 2026-05-21
 ### Added
 - New MCP setup view to connect the Xygeni MCP server straight from the plugin, without leaving the IDE.

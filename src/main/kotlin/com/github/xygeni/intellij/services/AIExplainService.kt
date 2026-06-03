@@ -26,10 +26,14 @@ class AIExplainService : ProcessExecutorService(){
         "ai-explain" to ""
     )
 
-    private fun buildArgs(issueJson: String, filePath: String): Map<String, String> {
+    private fun buildArgs(issueJsonFile: String, filePath: String): Map<String, String> {
         return baseArgs.toMutableMap().apply {
             put ("-f", filePath)
-            put("--issue-json",issueJson)
+            // Pass the issue JSON through a file instead of --issue-json inline. The JSON contains
+            // double quotes (e.g. the offending code snippet), which break command-line quoting when
+            // the scanner is launched via `powershell.exe -File xygeni.ps1` on Windows, splitting the
+            // argument and aborting with "Unmatched arguments" (see issue #410 / #400).
+            put("--issue-json-file", issueJsonFile)
         }
     }
 
@@ -41,14 +45,18 @@ class AIExplainService : ProcessExecutorService(){
             .apply { mkdirs() }
         val fileName = "${tempDir.absolutePath}/${UUID.randomUUID()}"
 
+        // Write the issue JSON to a temp file so it never travels on the command line.
+        val issueJsonFile = File("$fileName.issue.json").apply { writeText(data) }
+
         executeProcess(
             path=pluginContext.xygeniCommand,
-            args = buildArgs(data, fileName),
+            args = buildArgs(issueJsonFile.absolutePath, fileName),
             workingDir = pluginContext.installDir,
             envs = XygeniSettings.getInstance().toEnv(),
             project = project,
             onComplete = { success ->
                 if (success) { showMarkdownPreviewAsync(project, fileName) }
+                issueJsonFile.delete()
                 onComplete(success)
             }
 
