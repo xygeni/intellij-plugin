@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 
 
 
+## [1.6.0]
+### Added
+- Xygeni IDE license validation: the plugin now registers your IDE seat against your Xygeni license on startup and enable free licences.
+
 ## [1.5.0] - 2026-05-21
 ### Added
 - New MCP setup view to connect the Xygeni MCP server straight from the plugin, without leaving the IDE.

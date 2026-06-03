@@ -23,8 +23,9 @@ class PluginContext {
     val mcpJarFile: File
 
     init {
-        // install dir
-        installDir = File(this.initInstallationDir(), PluginInfo.name + "/" + PluginInfo.version)
+        // install dir — use the stable plugin id (no spaces) rather than the display name,
+        // which is now "Xygeni Security" and would put a space in the scanner path used for shell-out
+        installDir = File(this.initInstallationDir(), PluginInfo.id + "/" + PluginInfo.version)
         ensureTargetExists(installDir)
 
         // mcp data (install dir, file)
