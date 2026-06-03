@@ -127,7 +127,17 @@ class InstallerService : ProcessExecutorService() {
         }
     }
 
+    // Last known connection state (url/token are global, so a single cached value is enough).
+    // Views read this on initialize() to avoid missing the startup CONNECTION_STATE_TOPIC event,
+    // which is published before the (lazily created) tool window has subscribed. Null = unknown.
+    @Volatile
+    private var connectionState: Pair<Boolean, Boolean>? = null
+
+    /** Last validated (urlOk, tokenOk), or null if no validation has run yet. */
+    fun getConnectionState(): Pair<Boolean, Boolean>? = connectionState
+
     fun publishConnectionState(project: Project, urlOk: Boolean, tokenOk: Boolean) {
+        connectionState = urlOk to tokenOk
         ApplicationManager.getApplication().invokeLater {
             ApplicationManager.getApplication().messageBus
                 .syncPublisher(CONNECTION_STATE_TOPIC)

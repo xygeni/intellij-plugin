@@ -54,6 +54,10 @@ class ScanView(private val project: Project) : JPanel() {
         licenseValid = LicenseService.getInstance().isLicenseValid()
         updateButtonState()
 
+        // Apply the cached connection state so SCAN shows/expands correctly even if the startup
+        // validation was published before this (lazily created) view subscribed to the topic.
+        installer.getConnectionState()?.let { (urlOk, tokenOk) -> applyConnectionState(urlOk, tokenOk) }
+
         project.messageBus.connect()
             .subscribe(LICENSE_STATE_TOPIC, object : LicenseStateListener {
                 override fun licenseStateChanged(project: Project?, valid: Boolean) {
@@ -75,11 +79,7 @@ class ScanView(private val project: Project) : JPanel() {
                 override fun connectionStateChanged(project: Project?, urlOk: Boolean, tokenOk: Boolean) {
                     Logger.log("Connection state changed to $urlOk, $tokenOk")
                     if (project != this@ScanView.project) return
-                    isVisible = when {
-                        !urlOk -> false
-                        !tokenOk -> false
-                        else -> true
-                    }
+                    applyConnectionState(urlOk, tokenOk)
                 }
             })
 
@@ -91,6 +91,17 @@ class ScanView(private val project: Project) : JPanel() {
                     updateButtonState(status)
                 }
             })
+    }
+
+    /** Shows SCAN and expands it (revealing Run Scan) when the connection is valid; hides it otherwise. */
+    private fun applyConnectionState(urlOk: Boolean, tokenOk: Boolean) {
+        com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
+            val valid = urlOk && tokenOk
+            isVisible = valid
+            if (valid && !content.isVisible) {
+                toggleContentVisibility()
+            }
+        }
     }
 
     private fun updateButtonState(scanStatus: Int? = null) {
@@ -144,6 +155,10 @@ class ScanView(private val project: Project) : JPanel() {
                 if (!scannerInstalled || !licenseValid) return
 
                 if (button.text == "Run Scan") {
+                    // Surface the Xygeni Console so the user sees the scan output. Only on manual
+                    // scans — the incremental scan-on-save must not keep stealing the bottom panel.
+                    com.intellij.openapi.wm.ToolWindowManager.getInstance(project)
+                        .getToolWindow("Xygeni console")?.activate(null)
                     // full project scan
                     project.getService(ScanService::class.java).scan(project, incremental = false)
                 }else{

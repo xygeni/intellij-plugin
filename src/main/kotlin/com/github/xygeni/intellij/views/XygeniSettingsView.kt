@@ -74,6 +74,11 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
 
         loadSettingsAsync(false)
 
+        // Apply the cached connection state so the panel reflects the startup validation even if it
+        // was published before this (lazily created) view subscribed to CONNECTION_STATE_TOPIC.
+        ApplicationManager.getApplication().getService(InstallerService::class.java)
+            .getConnectionState()?.let { (urlOk, tokenOk) -> applyConnectionState(urlOk, tokenOk) }
+
         project.messageBus.connect()
             .subscribe(SETTINGS_CHANGED_TOPIC, object : SettingsChangeListener {
                 override fun settingsChanged() {
@@ -85,19 +90,27 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
             .subscribe(CONNECTION_STATE_TOPIC, object : ConnectionStateListener {
                 override fun connectionStateChanged(project: Project?, urlOk: Boolean, tokenOk: Boolean) {
                     if (project != this@XygeniSettingsView.project) return
-
-                    ApplicationManager.getApplication().invokeLater {
-                        statusLabel.text = when {
-                            !urlOk -> "❌ Invalid URL"
-                            !tokenOk -> "❌ Invalid token"
-                            else -> "✅ Valid Connection and Token"
-                        }
-                        if ((!urlOk || !tokenOk) && !content.isVisible) {
-                            toggleContentVisibility()
-                        }
-                    }
+                    applyConnectionState(urlOk, tokenOk)
                 }
             })
+    }
+
+    /** Updates the status label and collapses CONFIGURATION when valid / expands it when invalid. */
+    private fun applyConnectionState(urlOk: Boolean, tokenOk: Boolean) {
+        ApplicationManager.getApplication().invokeLater {
+            val valid = urlOk && tokenOk
+            statusLabel.text = when {
+                !urlOk -> "❌ Invalid URL"
+                !tokenOk -> "❌ Invalid token"
+                else -> "✅ Valid Connection and Token"
+            }
+            // Invalid → reveal the form so the user can fix it; valid → collapse it to surface SCAN.
+            if (!valid && !content.isVisible) {
+                toggleContentVisibility()
+            } else if (valid && content.isVisible) {
+                toggleContentVisibility()
+            }
+        }
     }
 
     private fun createHeader() {
