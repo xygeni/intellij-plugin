@@ -54,20 +54,26 @@ class LicenseService : Disposable {
      * Updates [isLicenseValid] with the response.
      */
     fun register(project: Project? = null) {
-        val settings = XygeniSettings.getInstance()
-        val apiUrl = settings.apiUrl
-        val token = settings.apiToken
-        if (apiUrl.isBlank() || token.isBlank()) {
-            Logger.log("License check skipped — missing API URL or token", project)
-            updateState(project, false)
-            return
-        }
+        // Network + PasswordSafe access must run off the EDT. Callers reach this method through
+        // validateConnection callbacks that are dispatched on the EDT via invokeLater, so dispatch
+        // the actual work to a pooled thread; otherwise the synchronous POST is an illegal slow
+        // operation on the EDT and aborts before the license state is updated.
+        ApplicationManager.getApplication().executeOnPooledThread {
+            val settings = XygeniSettings.getInstance()
+            val apiUrl = settings.apiUrl
+            val token = settings.apiToken
+            if (apiUrl.isBlank() || token.isBlank()) {
+                Logger.log("License check skipped — missing API URL or token", project)
+                updateState(project, false)
+                return@executeOnPooledThread
+            }
 
-        val fingerprint = loadOrCreateFingerprint()
-        val body = json.encodeToString(fingerprint)
-        val ok = post("$apiUrl/internal/license/ideaccess", body, token, project)
-        updateState(project, ok)
-        Logger.log(if (ok) "✅ Xygeni IDE License registered" else "❌ Xygeni IDE License denied", project)
+            val fingerprint = loadOrCreateFingerprint()
+            val body = json.encodeToString(fingerprint)
+            val ok = post("$apiUrl/internal/license/ideaccess", body, token, project)
+            updateState(project, ok)
+            Logger.log(if (ok) "✅ Xygeni IDE License registered" else "❌ Xygeni IDE License denied", project)
+        }
     }
 
     private fun updateState(project: Project?, ok: Boolean) {

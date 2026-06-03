@@ -13,6 +13,7 @@ import com.github.xygeni.intellij.events.SETTINGS_CHANGED_TOPIC
 import com.github.xygeni.intellij.events.SettingsChangeListener
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.services.InstallerService
+import com.github.xygeni.intellij.services.LicenseService
 import com.github.xygeni.intellij.settings.XygeniSettings
 import com.github.xygeni.intellij.settings.XygeniSettingsConfigurable
 import com.intellij.openapi.application.ApplicationManager
@@ -198,6 +199,12 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
         installer.validateConnection(apiUrl, token, project) { urlOk, tokenOk ->
             // Publicamos el resultado al MessageBus global
             installer.publishConnectionState(project, urlOk, tokenOk)
+            // Registramos la licencia IDE en cuanto la conexión es válida, igual que en el arranque,
+            // para que el botón Run Scan se habilite sin reiniciar al configurar el token. register()
+            // ya despacha su trabajo de red fuera del EDT.
+            if (urlOk && tokenOk) {
+                LicenseService.getInstance().register(project)
+            }
             // Only reinstall if URL/token changed AND reinstall was requested AND validation passed
             if (reinstall && (urlChanged || tokenChanged) && urlOk && tokenOk) {
                 Logger.log("Reinstalling scanner due to URL/token change", project)
