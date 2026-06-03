@@ -8,6 +8,7 @@ import com.intellij.execution.process.ProcessListener
 import com.intellij.execution.process.ProcessOutputTypes
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.util.Key
 import com.intellij.util.io.BaseOutputReader
 import java.io.File
@@ -125,14 +126,26 @@ abstract class ProcessExecutorService {
                     .withEnvironment(envs ?: emptyMap())
                     .withRedirectErrorStream(false)
 
-                // Manage PATH and JAVA_HOME
+                // Resolve JAVA_HOME: project SDK → system env → parent (console) env → IDE's own JDK
                 val parentEnv = commandLine.parentEnvironment
-                System.getenv("JAVA_HOME")?.let { commandLine.withEnvironment("JAVA_HOME", it) }
-                
-                System.getenv("PATH")?.let { systemPath ->
-                    val currentPath = commandLine.environment["PATH"] ?: ""
-                    val updatedPath = if (currentPath.isEmpty()) systemPath else "$systemPath${File.pathSeparator}$currentPath"
-                    commandLine.withEnvironment("PATH", updatedPath)
+                val projectSdkHome = project?.let {
+                    ProjectRootManager.getInstance(it).projectSdk?.homePath
+                }
+                val javaHome = projectSdkHome
+                    ?: System.getenv("JAVA_HOME")
+                    ?: parentEnv["JAVA_HOME"]
+                    ?: System.getProperty("java.home")
+                javaHome?.let { commandLine.withEnvironment("JAVA_HOME", it) }
+
+                // Merge PATH from system env and parent (console) env
+                val systemPath = System.getenv("PATH") ?: ""
+                val parentPath = parentEnv["PATH"] ?: ""
+                val currentPath = commandLine.environment["PATH"] ?: ""
+                val mergedPath = listOf(systemPath, parentPath, currentPath)
+                    .filter { it.isNotEmpty() }
+                    .joinToString(File.pathSeparator)
+                if (mergedPath.isNotEmpty()) {
+                    commandLine.withEnvironment("PATH", mergedPath)
                 }
 
                 Logger.log("Command environment: JAVA_HOME=${commandLine.environment["JAVA_HOME"]}, PATH=${commandLine.environment["PATH"]}", project)

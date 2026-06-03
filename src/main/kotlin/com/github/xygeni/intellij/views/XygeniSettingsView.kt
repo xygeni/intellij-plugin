@@ -239,16 +239,14 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
                         )
                     }
 
-                val (apiUrl, tokenLen, autoScan) = snapshot
-
                 ApplicationManager.getApplication().invokeLater({
-                    urlTextField.text = apiUrl
-                    tokenTextField.text = "•".repeat(tokenLen)
-                    autoScanCheck.isSelected = autoScan
+                    urlTextField.text = snapshot.apiUrl
+                    tokenTextField.text = "•".repeat(snapshot.tokenLen)
+                    autoScanCheck.isSelected = snapshot.autoScan
                     
                     // Initialize tracking values on first load to avoid unnecessary checks
                     if (lastCheckedUrl == null && lastCheckedToken == null) {
-                        lastCheckedUrl = apiUrl
+                        lastCheckedUrl = snapshot.apiUrl
                         lastCheckedToken = settings.apiToken
                     }
                 }, project.disposed)
