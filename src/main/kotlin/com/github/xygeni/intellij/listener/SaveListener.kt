@@ -25,6 +25,8 @@ class SaveListener :  FileDocumentManagerListener{
 
         if (! XygeniSettings.getInstance().autoScan) return
         if (! LicenseService.getInstance().isLicenseValid()) return
+        // Auto Scan on Save runs `xygeni scan --incremental`, which the Free edition rejects.
+        if (LicenseService.getInstance().isFreeLicense()) return
 
         val vf = FileDocumentManager.getInstance().getFile(document) ?: return;
 

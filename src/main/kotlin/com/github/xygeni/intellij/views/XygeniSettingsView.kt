@@ -9,6 +9,8 @@ package com.github.xygeni.intellij.views
 
 import com.github.xygeni.intellij.events.CONNECTION_STATE_TOPIC
 import com.github.xygeni.intellij.events.ConnectionStateListener
+import com.github.xygeni.intellij.events.LICENSE_STATE_TOPIC
+import com.github.xygeni.intellij.events.LicenseStateListener
 import com.github.xygeni.intellij.events.SETTINGS_CHANGED_TOPIC
 import com.github.xygeni.intellij.events.SettingsChangeListener
 import com.github.xygeni.intellij.logger.Logger
@@ -16,6 +18,7 @@ import com.github.xygeni.intellij.services.InstallerService
 import com.github.xygeni.intellij.services.LicenseService
 import com.github.xygeni.intellij.settings.XygeniSettings
 import com.github.xygeni.intellij.settings.XygeniSettingsConfigurable
+import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.runReadAction
 import com.intellij.openapi.options.ShowSettingsUtil
@@ -24,6 +27,7 @@ import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.ui.JBColor
+import com.intellij.ui.components.ActionLink
 import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBTextField
 import com.intellij.util.ui.JBUI
@@ -54,6 +58,7 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
     private lateinit var tokenTextField: JBTextField
     private lateinit var statusLabel: JLabel
     private lateinit var autoScanCheck : JBCheckBox
+    private lateinit var upgradeLink : ActionLink
     
     // Track last checked values to avoid redundant validations
     private var lastCheckedUrl: String? = null
@@ -91,6 +96,15 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
                 override fun connectionStateChanged(project: Project?, urlOk: Boolean, tokenOk: Boolean) {
                     if (project != this@XygeniSettingsView.project) return
                     applyConnectionState(urlOk, tokenOk)
+                }
+            })
+
+        // The license plan (Free vs paid) is resolved asynchronously after the seat is registered;
+        // refresh the Auto Scan gating once it lands.
+        ApplicationManager.getApplication().messageBus.connect()
+            .subscribe(LICENSE_STATE_TOPIC, object : LicenseStateListener {
+                override fun licenseStateChanged(project: Project?, valid: Boolean) {
+                    applyLicenseState()
                 }
             })
     }
@@ -163,10 +177,19 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
             })
         }
 
-        autoScanCheck = JBCheckBox("Scan project on save")//.apply { isEnabled = false }
+        autoScanCheck = JBCheckBox("Scan project on save")
         autoScanCheck.addActionListener {
             val selected = autoScanCheck.isSelected
             XygeniSettings.getInstance().autoScan = selected
+        }
+
+        // Auto Scan on Save uses `--incremental`, rejected by the Free edition. On a Free license the
+        // checkbox is disabled and this link opens the pricing page so the user can upgrade.
+        upgradeLink = ActionLink("Disabled on Free plan. Upgrade your plan") {
+            BrowserUtil.browse(LicenseService.PRICING_URL)
+        }.apply {
+            alignmentX = LEFT_ALIGNMENT
+            isVisible = false
         }
 
         val formPanel = JPanel().apply {
@@ -181,11 +204,23 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
             add(tokenTextField)
             add(Box.createVerticalStrut(8))
             add(autoScanCheck)
+            add(upgradeLink)
             add(Box.createVerticalStrut(8))
             add(statusLabel)
         }
 
         content.add(formPanel)
+
+        applyLicenseState()
+    }
+
+    /** Disables Auto Scan on Save and reveals the upgrade link when the installed license is Free. */
+    private fun applyLicenseState() {
+        ApplicationManager.getApplication().invokeLater {
+            val free = LicenseService.getInstance().isFreeLicense()
+            autoScanCheck.isEnabled = !free
+            upgradeLink.isVisible = free
+        }
     }
 
     private fun triggerConnectionCheck(reinstall: Boolean = false, force: Boolean = false) {

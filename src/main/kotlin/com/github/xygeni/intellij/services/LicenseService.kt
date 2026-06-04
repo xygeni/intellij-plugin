@@ -43,11 +43,26 @@ class LicenseService : Disposable {
         val fingerprint: String
     )
 
+    @Serializable
+    private data class LicenseStatePlan(val licenseType: String? = null)
+
+    @Serializable
+    private data class LicenseState(val dataLicensePlan: LicenseStatePlan? = null)
+
     private val client = OkHttpClient()
-    private val json = Json { prettyPrint = false; encodeDefaults = true }
+    private val json = Json { prettyPrint = false; encodeDefaults = true; ignoreUnknownKeys = true }
     private val valid = AtomicBoolean(false)
+    private val free = AtomicBoolean(false)
 
     fun isLicenseValid(): Boolean = valid.get()
+
+    /**
+     * True when the installed license is a Free edition. Auto Scan on Save relies on
+     * `xygeni scan --incremental`, which the Free edition of the scanner CLI rejects, so the
+     * feature must be disabled for Free licenses. Resolved from `GET /license/state` after the
+     * IDE seat is registered; defaults to `false` ("unknown — assume non-Free") until resolved.
+     */
+    fun isFreeLicense(): Boolean = free.get()
 
     /**
      * Builds (or loads) the machine fingerprint and registers the IDE seat.
@@ -71,6 +86,10 @@ class LicenseService : Disposable {
             val fingerprint = loadOrCreateFingerprint()
             val body = json.encodeToString(fingerprint)
             val ok = post("$apiUrl/internal/license/ideaccess", body, token, project)
+            // Resolve the license plan only when the seat is valid; otherwise assume non-Free so
+            // the gating UI does not flip to "Free" on a transient failure. Done before
+            // updateState() publishes the topic so subscribers can read isFreeLicense() right away.
+            free.set(if (ok) fetchIsFreeLicense(apiUrl, token, project) else false)
             updateState(project, ok)
             Logger.log(if (ok) "✅ Xygeni IDE License registered" else "❌ Xygeni IDE License denied", project)
         }
@@ -127,6 +146,33 @@ class LicenseService : Disposable {
         }
     }
 
+    /**
+     * Fetches the license plan from `GET /license/state` and reports whether it is a Free edition.
+     * Never throws: any error resolves to `false` ("unknown — assume non-Free").
+     */
+    private fun fetchIsFreeLicense(apiUrl: String, token: String, project: Project?): Boolean {
+        return try {
+            val builder = Request.Builder()
+                .url("$apiUrl/license/state")
+                .get()
+            if (token.isNotBlank()) {
+                builder.addHeader("Authorization", "Bearer $token")
+            }
+            client.newCall(builder.build()).execute().use { response ->
+                if (response.code != 200) {
+                    Logger.log("License state endpoint responded ${response.code}", project)
+                    return false
+                }
+                val payload = response.body?.string() ?: return false
+                val state = json.decodeFromString<LicenseState>(payload)
+                state.dataLicensePlan?.licenseType?.equals(FREE_LICENSE_TYPE, ignoreCase = true) == true
+            }
+        } catch (e: Exception) {
+            Logger.warn("License state call failed: ${e.message}")
+            false
+        }
+    }
+
     private fun loadOrCreateFingerprint(): MachineFingerprint {
         val file = fingerprintFile()
         if (file.exists()) {
@@ -174,6 +220,11 @@ class LicenseService : Disposable {
         File(System.getProperty("user.home"), ".xygeni/fingerprint.dat")
 
     companion object {
+        private const val FREE_LICENSE_TYPE = "free"
+
+        /** Xygeni pricing page opened by the "Upgrade" action when on a Free license. */
+        const val PRICING_URL = "https://xygeni.io/pricing/"
+
         fun getInstance(): LicenseService =
             ApplicationManager.getApplication().getService(LicenseService::class.java)
     }
