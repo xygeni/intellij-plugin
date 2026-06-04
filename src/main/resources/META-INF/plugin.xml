@@ -62,6 +62,14 @@
                     text="Install"
                     icon="Icons.INSTALL_ICON">
             </action>
+            <separator/>
+
+            <action id="Xygeni.OpenMcpSetup"
+                    class="com.github.xygeni.intellij.actions.OpenMcpSetupAction"
+                    text="MCP Server Setup"
+                    icon="Icons.XYGENI_ICON"
+                    description="Open the Xygeni MCP server setup guide">
+            </action>
         </group>
     </actions>
     <applicationListeners>

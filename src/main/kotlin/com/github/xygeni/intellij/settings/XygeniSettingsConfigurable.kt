@@ -9,8 +9,11 @@ package com.github.xygeni.intellij.settings
 
 import com.github.xygeni.intellij.events.SETTINGS_CHANGED_TOPIC
 import com.github.xygeni.intellij.logger.Logger
+import com.github.xygeni.intellij.services.LicenseService
+import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.project.Project
+import com.intellij.ui.components.ActionLink
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBPasswordField
 import com.intellij.ui.components.JBTextField
@@ -35,10 +38,19 @@ class XygeniSettingsConfigurable(private val project: Project) : Configurable {
         tokenField = JBPasswordField()
         autoScanField = JCheckBox("Scan project on save")
 
+        // Auto Scan on Save uses `--incremental`, rejected by the Free edition. On a Free license the
+        // checkbox is disabled and an upgrade link to the pricing page is shown instead.
+        val isFree = LicenseService.getInstance().isFreeLicense()
+        autoScanField.isEnabled = !isFree
+        val upgradeLink = ActionLink("Disabled on Free plan. Upgrade your plan") {
+            BrowserUtil.browse(LicenseService.PRICING_URL)
+        }.apply { isVisible = isFree }
+
         val form = FormBuilder.createFormBuilder()
             .addLabeledComponent(JBLabel("Xygeni API URL:"), apiUrlField, 1, false)
             .addLabeledComponent(JBLabel("Access token:"), tokenField, 1, false)
             .addComponent(autoScanField)
+            .addComponent(upgradeLink)
             .addComponentFillVertically(JPanel(), 0)
             .panel
         mainPanel = form
