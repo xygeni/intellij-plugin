@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 
 
 
-## [1.6.0]
+## [1.6.0] - 2026-06-04
 ### Added
 - Xygeni IDE license validation: the plugin now registers your IDE seat against your Xygeni license on startup and enable free licences.
 - Issue lists now show the line number next to each finding (e.g. `LoginValidator.java:52`), and each analysis section header shows its issue count (e.g. `SAST (3)`) so totals are visible even when the section is collapsed.
