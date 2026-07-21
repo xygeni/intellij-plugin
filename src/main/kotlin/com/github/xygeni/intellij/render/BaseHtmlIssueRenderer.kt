@@ -37,17 +37,20 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
     companion object {
         const val RENDER_DATA_JS = """
                   window.renderData = function(data) {
-                    if (typeof data === 'string') data = JSON.parse(data);
+                    try {
+                      if (typeof data === 'string') data = data.trim() ? JSON.parse(data) : {};
+                    } catch (e) { data = {}; }
+                    if (!data || typeof data !== 'object') data = {};
                     const docEl = document.getElementById('xy-detector-doc');
                     if (docEl) {
-                      docEl.innerHTML = data.descriptionDoc || '';
+                      docEl.innerHTML = data.descriptionDoc || 'No documentation available.';
                     }
                     const linkEl = document.getElementById('xy-detector-link');
                     if (linkEl) {
                       linkEl.href = data.linkDocumentation || '#';
                       linkEl.hidden = !data.linkDocumentation;
                     }
-                  };                                                
+                  };
                   window.domReady = true;
                   """
 
