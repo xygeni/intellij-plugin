@@ -10,10 +10,9 @@ import kotlinx.serialization.json.*
  * QualityReport — parsing of `quality.<report-suffix>.json`.
  *
  * Code Quality reuses the SAST scanner infra (QualityScanConfigLoader ->
- * SastScanConfig), so the JSON shape parallels SAST (top-level `vulnerabilities`).
- * The exact top-level key is still UNCONFIRMED, so [parseQualityReport] reads it
- * defensively (`vulnerabilities ?? qualityIssues ?? issues ?? findings`).
- * Confirm against a real `quality.*.json` and tighten.
+ * SastScanConfig), so the JSON shape parallels SAST: findings live under the
+ * top-level `vulnerabilities` key (CONFIRMED against a real `quality.*.json`).
+ * [parseQualityReport] keeps one narrow fallback (`qualityIssues`) for forward-compat.
  **/
 @Serializable
 data class QualityReport(
@@ -56,8 +55,8 @@ fun parseQualityReport(jsonString: String): QualityReport {
         ?.jsonPrimitive
         ?.contentOrNull
 
-    // Defensive: the quality report's array key is still unconfirmed.
-    val array = (root["vulnerabilities"] ?: root["qualityIssues"] ?: root["issues"] ?: root["findings"])
+    // Confirmed key `vulnerabilities` (see QualityReportParseTest); narrow fallback only.
+    val array = (root["vulnerabilities"] ?: root["qualityIssues"])
         ?.jsonArray
         ?: JsonArray(emptyList())
 
@@ -94,7 +93,9 @@ fun RawQuality.toIssue(toolName: String?, currentBranch: String?): QualityXygeni
         tags = tags ?: emptyList(),
         branch = currentBranch ?: "",
         language = language ?: "",
-        qualityCategory = category ?: "",
+        // Real reports carry the quality dimension in `kind` (e.g. "reliability");
+        // `category` is only present in older/other shapes → fall back to it.
+        qualityCategory = category ?: kind ?: "",
         type = (type ?: kind) ?: "",
         vulnerabilityRaw = raw
     )
