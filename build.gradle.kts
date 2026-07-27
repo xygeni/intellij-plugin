@@ -59,7 +59,14 @@ dependencies {
 
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
-        create(providers.gradleProperty("platformType"), providers.gradleProperty("platformVersion"))
+        // Dev-run against a LOCAL IDE install (no download) when `-PlocalIdePath=...`
+        // is passed (used by the Hub "Run" button); otherwise download platformType/Version.
+        val localIdePath = providers.gradleProperty("localIdePath").orNull
+        if (!localIdePath.isNullOrBlank()) {
+            local(localIdePath)
+        } else {
+            create(providers.gradleProperty("platformType"), providers.gradleProperty("platformVersion"))
+        }
 
         // Plugin Dependencies. Uses `platformBundledPlugins` property from the gradle.properties file for bundled IntelliJ Platform plugins.
         bundledPlugins(providers.gradleProperty("platformBundledPlugins").map { it.split(',') })
@@ -160,6 +167,12 @@ tasks {
 
     runIde {
         dependsOn(patchPluginXml)
+        // Auto-open a project in the sandbox IDE when `-PrunIdeProject=/path` is passed
+        // (Hub "Run" button opens the test fixture). Passing the path as a program
+        // argument makes the IDE open that project on launch.
+        providers.gradleProperty("runIdeProject").orNull?.takeIf { it.isNotBlank() }?.let { proj ->
+            args = listOf(proj)
+        }
     }
 
 }

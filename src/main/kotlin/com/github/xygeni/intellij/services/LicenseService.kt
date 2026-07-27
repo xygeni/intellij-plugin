@@ -24,7 +24,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  * `/internal/license/ideaccess` endpoint, mirroring the VS Code flow:
  *
  *  - On startup (after token is validated) POSTs the machine fingerprint
- *    to `/internal/license/ideaccess`. HTTP 200 means the seat is valid.
+ *    to `/internal/license/ideaccess`. A 200 whose body is `true` means the
+ *    seat is granted; a `false` body (also 200) denies it.
  *  - On plugin/app shutdown POSTs to `/internal/license/ideaccess/uninstall`
  *    to release the seat.
  *
@@ -117,7 +118,7 @@ class LicenseService : Disposable {
         try {
             val body = file.readText()
             val ok = post("$apiUrl/internal/license/ideaccess/uninstall", body, settings.apiToken, null)
-            Logger.log(if (ok) "✅ Xygeni IDE License released" else "⚠️ Xygeni IDE License release returned non-200")
+            Logger.log(if (ok) "✅ Xygeni IDE License released" else "⚠️ Xygeni IDE License release not confirmed")
         } catch (e: Exception) {
             Logger.warn("Failed to release Xygeni IDE License: ${e.message}")
         } finally {
@@ -137,8 +138,14 @@ class LicenseService : Disposable {
             client.newCall(builder.build()).execute().use { response ->
                 if (!response.isSuccessful) {
                     Logger.log("License endpoint ${url.substringAfter("/internal/")} responded ${response.code}", project)
+                    false
+                } else {
+                    // The endpoint returns a JSON boolean: `true` grants the IDE seat, `false`
+                    // denies it (e.g. no seats available). A 200 status alone does NOT mean the
+                    // seat is valid, so the response body must be read.
+                    val payload = response.body?.string()?.trim()
+                    payload.equals("true", ignoreCase = true)
                 }
-                response.code == 200
             }
         } catch (e: Exception) {
             Logger.warn("License call to $url failed: ${e.message}")
