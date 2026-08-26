@@ -1,0 +1,6 @@
+<!-- Loaded only when the JCEF module/plugin is present (see plugin.xml). No JCEF-specific
+     extensions are registered here: the optional dependency exists solely to wire
+     com.intellij.ui.jcef.* into the plugin class loader on 2026.2+ (build 262), where JCEF
+     is a separate bundled plugin (xygeni-product-backlog#1688). -->
+<idea-plugin>
+</idea-plugin>

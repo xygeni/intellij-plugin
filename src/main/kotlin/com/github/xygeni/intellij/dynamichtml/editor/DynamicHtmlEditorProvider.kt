@@ -7,6 +7,7 @@ package com.github.xygeni.intellij.dynamichtml.editor
  * @version : 14/11/25 (Carmendelope)
  **/
 import com.github.xygeni.intellij.dynamichtml.browser.EditorBrowserContext
+import com.github.xygeni.intellij.dynamichtml.browser.JcefSupport
 import com.intellij.openapi.fileEditor.FileEditor
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.FileEditorPolicy
@@ -23,7 +24,11 @@ class DynamicHtmlEditorProvider : FileEditorProvider, DumbAware {
         private val CONTEXT_KEY = Key.create<EditorBrowserContext>("xygeni.browser.context")
     }
 
-    override fun accept(project: Project, file: VirtualFile): Boolean = file.name.endsWith(".dynamic.html")
+    // JcefSupport gate (#1688): EditorBrowserContext is JCEF-backed, so without JCEF this
+    // provider must not accept the file at all — the platform then falls back to a regular
+    // editor instead of crashing on a NoClassDefFoundError while building ours.
+    override fun accept(project: Project, file: VirtualFile): Boolean =
+        file.name.endsWith(".dynamic.html") && JcefSupport.isAvailable
 
     override fun createEditor(project: Project, file: VirtualFile): FileEditor {
         val context = file.getUserData(CONTEXT_KEY) ?: EditorBrowserContext(project).also {

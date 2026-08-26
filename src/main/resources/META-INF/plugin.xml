@@ -6,6 +6,14 @@
     <vendor>xygeni</vendor>
 
     <depends>com.intellij.modules.platform</depends>
+    <!-- JCEF: part of the core platform up to 2026.1, extracted to a separate bundled plugin
+         (id: com.intellij.modules.jcef) in 2026.2 / build 262 (xygeni-product-backlog#1688).
+         Declared OPTIONAL because the id does not exist on 242 (verified against the 2024.2
+         distribution), where the JCEF classes still live in the core class loader. When the id
+         resolves (262+), the JCEF plugin becomes a parent of our class loader so
+         com.intellij.ui.jcef.* is visible again. Every usage is additionally guarded by
+         JcefSupport.isAvailable for IDEs genuinely without JCEF. -->
+    <depends optional="true" config-file="xygeni-jcef.xml">com.intellij.modules.jcef</depends>
 
 
     <resource-bundle>messages.MyBundle</resource-bundle>
