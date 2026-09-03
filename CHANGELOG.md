@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 
 
 
+## [1.6.2] - 2026-09-03
+### Added
+- API Security scan: API flaws are listed in a new "API Security" section, with endpoint, module, service, OWASP API Top 10 and CWE details (xygeni/xygeni-product-backlog#1691).
+- AI Security scan: AI findings are listed in a new "AI Security" section, with the AI asset kind, the standards they map to (OWASP LLM / ASI Top 10) and their red-team vectors (xygeni/xygeni-product-backlog#1692).
+### Fixed
+- Startup no longer fails on IDEs without the JCEF module (`NoClassDefFoundError: com.intellij.ui.jcef.JBCefApp`): the embedded browser is detected safely and the AI explanation preview degrades to a notification (xygeni/xygeni-product-backlog#1688).
+- Marketplace verifier no longer flags the deprecated `CredentialAttributes` constructor (xygeni/xygeni-product-backlog#1688).
+
+## [1.6.1] - 2026-07-27
+### Added
+- Code Quality scan: quality findings are listed in a new "Code Quality" section, with AI auto-fix support (xygeni/xygeni-product-backlog#56).
+
 ## [1.6.0] - 2026-06-04
 ### Added
 - Xygeni IDE license validation: the plugin now registers your IDE seat against your Xygeni license on startup and enable free licences.
