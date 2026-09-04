@@ -1,5 +1,6 @@
 package com.github.xygeni.intellij.activity
 
+import com.github.xygeni.intellij.dynamichtml.browser.JcefSupport
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.services.InstallerService
 import com.github.xygeni.intellij.services.LicenseService
@@ -7,7 +8,6 @@ import com.github.xygeni.intellij.settings.XygeniSettings
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity
-import com.intellij.ui.jcef.JBCefApp
 import com.intellij.ui.jcef.JBCefBrowser
 
 /**
@@ -34,11 +34,19 @@ class XygeniStartup : ProjectActivity {
             }
         }
 
-        preloadJcef(project)
+        try {
+            preloadJcef(project)
+        } catch (throwable: Throwable) {
+            // JCEF must never break the startup activity (#1688): on IDEs where the
+            // JCEF classes are missing, the preload is skipped and the plugin keeps working.
+            Logger.warn("JCEF preload skipped: ${throwable.message}")
+        }
     }
 
     private fun preloadJcef(project: Project) {
-        if (!JBCefApp.isSupported()) return
+        // Crash-safe gate (#1688): JcefSupport resolves JBCefApp inside a try, so a missing
+        // JCEF module reads as "not available" instead of throwing NoClassDefFoundError here.
+        if (!JcefSupport.isAvailable) return
 
         val start = System.currentTimeMillis()
         Logger.log("JCEF preload: starting...", project)

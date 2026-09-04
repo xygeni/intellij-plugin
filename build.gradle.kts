@@ -1,4 +1,5 @@
 import org.jetbrains.changelog.Changelog
+import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.changelog.markdownToHTML
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
@@ -115,6 +116,10 @@ intellijPlatform {
 
         ideaVersion {
             sinceBuild = providers.gradleProperty("pluginSinceBuild")
+            // Wire untilBuild so the gradle.properties value actually reaches the descriptor —
+            // it was never applied before, leaving the plugin unbounded and verified by the
+            // Marketplace against builds (262 EAP) that CI never exercised (#1688).
+            untilBuild = providers.gradleProperty("pluginUntilBuild")
         }
     }
 
@@ -135,6 +140,15 @@ intellijPlatform {
     pluginVerification {
         ides {
             recommended()
+            // recommended() only picks RELEASED versions, so the 2026.2 EAP (build 262) the
+            // plugin declares in pluginUntilBuild was never verified locally/CI — which is how
+            // the JCEF regression reached the Marketplace verification stage (#1688). Pin the
+            // exact EAP build from the Marketplace report; EAPs resolve only with
+            // useInstaller = false. Bump (or drop) it when 2026.2 goes stable and
+            // recommended() starts covering it.
+            // EAP builds live in the intellij-repository/snapshots Maven repo with an
+            // -EAP-SNAPSHOT suffix and resolve only with useInstaller = false.
+            ide(IntelliJPlatformType.IntellijIdeaCommunity, "262.10315.19-EAP-SNAPSHOT", useInstaller = false)
         }
     }
 }
