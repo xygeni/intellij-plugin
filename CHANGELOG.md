@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 
 
 
-## [1.6.2] - 2026-09-03
+## [1.6.2] - 2026-09-09
 ### Added
 - API Security scan: API flaws are listed in a new "API Security" section, with endpoint, module, service, OWASP API Top 10 and CWE details (xygeni/xygeni-product-backlog#1691).
 - AI Security scan: AI findings are listed in a new "AI Security" section, with the AI asset kind, the standards they map to (OWASP LLM / ASI Top 10) and their red-team vectors (xygeni/xygeni-product-backlog#1692).
