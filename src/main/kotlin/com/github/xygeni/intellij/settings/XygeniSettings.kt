@@ -48,13 +48,17 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
 
         /**
          * Creates CredentialAttributes for storing API token securely.
-         * Note: Plugin verifier may report false positive deprecated warnings due to 
-         * Kotlin-generated synthetic constructors with DefaultConstructorMarker.
-         * These warnings are suppressed in build.gradle.kts.
+         * All five constructor arguments are passed explicitly (platform defaults: no
+         * requestor, not memory-only, cache denied items) so Kotlin binds the current
+         * primary constructor instead of the deprecated 4-arg one through its synthetic
+         * default-args bridge, which the Marketplace verifier flags (#1688).
          */
         private fun createCredentialAttributes() = CredentialAttributes(
             generateServiceName("Xygeni", TOKEN_KEY),
-            null
+            null,
+            null,
+            false,
+            true
         )
     }
 
@@ -78,6 +82,9 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
     var apiToken: String
         get() {
             cachedToken?.let { return it }
+            if (ApplicationManager.getApplication().isHeadlessEnvironment) {
+                return ""
+            }
             val attributes = createCredentialAttributes()
             val token = PasswordSafe.instance.getPassword(attributes) ?: ""
             cachedToken = token

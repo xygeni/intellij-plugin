@@ -1,4 +1,5 @@
 import org.jetbrains.changelog.Changelog
+import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.changelog.markdownToHTML
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
@@ -59,7 +60,14 @@ dependencies {
 
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
-        create(providers.gradleProperty("platformType"), providers.gradleProperty("platformVersion"))
+        // Dev-run against a LOCAL IDE install (no download) when `-PlocalIdePath=...`
+        // is passed (used by the Hub "Run" button); otherwise download platformType/Version.
+        val localIdePath = providers.gradleProperty("localIdePath").orNull
+        if (!localIdePath.isNullOrBlank()) {
+            local(localIdePath)
+        } else {
+            create(providers.gradleProperty("platformType"), providers.gradleProperty("platformVersion"))
+        }
 
         // Plugin Dependencies. Uses `platformBundledPlugins` property from the gradle.properties file for bundled IntelliJ Platform plugins.
         bundledPlugins(providers.gradleProperty("platformBundledPlugins").map { it.split(',') })
@@ -108,6 +116,10 @@ intellijPlatform {
 
         ideaVersion {
             sinceBuild = providers.gradleProperty("pluginSinceBuild")
+            // Wire untilBuild so the gradle.properties value actually reaches the descriptor —
+            // it was never applied before, leaving the plugin unbounded and verified by the
+            // Marketplace against builds (262 EAP) that CI never exercised (#1688).
+            untilBuild = providers.gradleProperty("pluginUntilBuild")
         }
     }
 
@@ -128,6 +140,15 @@ intellijPlatform {
     pluginVerification {
         ides {
             recommended()
+            // recommended() only picks RELEASED versions, so the 2026.2 EAP (build 262) the
+            // plugin declares in pluginUntilBuild was never verified locally/CI — which is how
+            // the JCEF regression reached the Marketplace verification stage (#1688). Pin the
+            // exact EAP build from the Marketplace report; EAPs resolve only with
+            // useInstaller = false. Bump (or drop) it when 2026.2 goes stable and
+            // recommended() starts covering it.
+            // EAP builds live in the intellij-repository/snapshots Maven repo with an
+            // -EAP-SNAPSHOT suffix and resolve only with useInstaller = false.
+            ide(IntelliJPlatformType.IntellijIdeaCommunity, "262.10315.19-EAP-SNAPSHOT", useInstaller = false)
         }
     }
 }
@@ -160,6 +181,12 @@ tasks {
 
     runIde {
         dependsOn(patchPluginXml)
+        // Auto-open a project in the sandbox IDE when `-PrunIdeProject=/path` is passed
+        // (Hub "Run" button opens the test fixture). Passing the path as a program
+        // argument makes the IDE open that project on launch.
+        providers.gradleProperty("runIdeProject").orNull?.takeIf { it.isNotBlank() }?.let { proj ->
+            args = listOf(proj)
+        }
     }
 
 }

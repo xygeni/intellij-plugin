@@ -8,6 +8,7 @@ package com.github.xygeni.intellij.dynamichtml.browser
  **/
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.services.AIExplainService
+import com.github.xygeni.intellij.services.LicenseService
 import com.github.xygeni.intellij.services.RemediateService
 import com.intellij.openapi.project.Project
 import com.intellij.ui.jcef.JBCefBrowser
@@ -155,6 +156,19 @@ class EditorBrowserContext(private val project: Project) {
                         .save(project, payload ?: "")
                 }
                 "explain"->{
+                    if (!LicenseService.getInstance().isLicenseValid()) {
+                        Logger.log("AI Explain skipped — IDE seat not licensed", project)
+                        SwingUtilities.invokeLater {
+                            browserWrapper.browser.cefBrowser.executeJavaScript(
+                                """
+                                    const btn = document.getElementById('how-to-fix');
+                                    if (btn) btn.innerText='❌ License required';
+                                """.trimIndent(),
+                                browserWrapper.browser.cefBrowser.url, 0
+                            )
+                        }
+                        return
+                    }
                     project.getService(AIExplainService::class.java)
                         .explain(project, payload ?: "") { success ->
                             SwingUtilities.invokeLater {

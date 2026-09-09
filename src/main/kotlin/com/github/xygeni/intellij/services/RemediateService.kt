@@ -143,8 +143,8 @@ class RemediateService : ProcessExecutorService() {
             }
 
             // if auto scan -> scan again
-            if (XygeniSettings.getInstance().autoScan) {
-                project.getService(ScanService::class.java).scan(project, true)
+            if (XygeniSettings.getInstance().autoScan && LicenseService.getInstance().isLicenseValid()) {
+                project.getService(ScanService::class.java).scan(project, incremental = true)
             }
 
         }
@@ -188,9 +188,8 @@ class RemediateService : ProcessExecutorService() {
             Logger.log("✅ Saved", project)
 
             // 🔁 auto scan
-            if (XygeniSettings.getInstance().autoScan) {
-                project.getService(ScanService::class.java)
-                    .scan(project, true)
+            if (XygeniSettings.getInstance().autoScan && LicenseService.getInstance().isLicenseValid()) {
+                project.getService(ScanService::class.java).scan(project, incremental = true)
             }
 
         } catch (e: Exception) {

@@ -119,12 +119,19 @@ abstract class BaseView<T : BaseXygeniIssue>(
 
         setupRenderer()
         subscribeToMessage()
-        
+        updateHeaderCount()
+
         // Initial size limit
         maximumSize = Dimension(Int.MAX_VALUE, preferredSize.height)
     }
 
     protected abstract val renderer: BaseHtmlIssueRenderer<T>
+
+    /** Shows the issue count in the header (e.g. "SAST (3)") so it's visible even when collapsed. */
+    private fun updateHeaderCount() {
+        val count = getItems().size
+        header.text = if (count > 0) "$title ($count)" else title
+    }
 
     private fun toggleTreeVisibility() {
         treeScrollPane.isVisible = !treeScrollPane.isVisible
@@ -444,6 +451,8 @@ abstract class BaseView<T : BaseXygeniIssue>(
             override fun readCompleted(project: Project?, reportType: String?) {
                 if (project != this@BaseView.project || reportType != service.reportType) return
                 SwingUtilities.invokeLater {
+                    // Always refresh the header count; repopulate the tree only if expanded.
+                    updateHeaderCount()
                     if (treeScrollPane.isVisible) populateIssueTree()
                 }
             }
@@ -458,9 +467,12 @@ abstract class BaseView<T : BaseXygeniIssue>(
 
     // buildNode builds a node for each issue
     protected open fun buildNode(item: T): DefaultMutableTreeNode {
+        // Append the line number when the issue is anchored to one (e.g. SAST/Secrets); types
+        // without a line (e.g. SCA dependencies, beginLine == 0) keep just the file name.
+        val location = if (item.beginLine > 0) "${item.file}:${item.beginLine}" else item.file
         return DefaultMutableTreeNode(
             NodeData(
-                text = "(${item.type}) - ${item.file}",
+                text = "(${item.type}) - $location",
                 icon = item.getIcon(),
                 tooltip = getToolTipExplanation(item),
                 onClick = {

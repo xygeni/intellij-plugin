@@ -3,6 +3,7 @@ package com.github.xygeni.intellij.views
 import com.github.xygeni.intellij.events.*
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.services.InstallerService
+import com.github.xygeni.intellij.services.LicenseService
 import com.github.xygeni.intellij.services.ScanService
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
@@ -33,6 +34,7 @@ class ScanView(private val project: Project) : JPanel() {
     private lateinit var content: JPanel
     private lateinit var button: JLabel
     private var scannerInstalled = false
+    private var licenseValid = false
 
     init {
         layout = BoxLayout(this, BoxLayout.Y_AXIS)
@@ -49,7 +51,20 @@ class ScanView(private val project: Project) : JPanel() {
 
         val installer = project.service<InstallerService>()
         scannerInstalled = installer.isInstalled()
+        licenseValid = LicenseService.getInstance().isLicenseValid()
         updateButtonState()
+
+        // Apply the cached connection state so SCAN shows/expands correctly even if the startup
+        // validation was published before this (lazily created) view subscribed to the topic.
+        installer.getConnectionState()?.let { (urlOk, tokenOk) -> applyConnectionState(urlOk, tokenOk) }
+
+        project.messageBus.connect()
+            .subscribe(LICENSE_STATE_TOPIC, object : LicenseStateListener {
+                override fun licenseStateChanged(project: Project?, valid: Boolean) {
+                    licenseValid = valid
+                    updateButtonState()
+                }
+            })
 
         project.messageBus.connect().subscribe(INSTALLER_STATE_TOPIC, object : InstallerStateListener {
             override fun installerStateChanged(project: Project?, installed: Boolean) {
@@ -64,11 +79,7 @@ class ScanView(private val project: Project) : JPanel() {
                 override fun connectionStateChanged(project: Project?, urlOk: Boolean, tokenOk: Boolean) {
                     Logger.log("Connection state changed to $urlOk, $tokenOk")
                     if (project != this@ScanView.project) return
-                    isVisible = when {
-                        !urlOk -> false
-                        !tokenOk -> false
-                        else -> true
-                    }
+                    applyConnectionState(urlOk, tokenOk)
                 }
             })
 
@@ -82,16 +93,36 @@ class ScanView(private val project: Project) : JPanel() {
             })
     }
 
+    /** Shows SCAN and expands it (revealing Run Scan) when the connection is valid; hides it otherwise. */
+    private fun applyConnectionState(urlOk: Boolean, tokenOk: Boolean) {
+        com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
+            val valid = urlOk && tokenOk
+            isVisible = valid
+            if (valid && !content.isVisible) {
+                toggleContentVisibility()
+            }
+        }
+    }
+
     private fun updateButtonState(scanStatus: Int? = null) {
         val status = scanStatus ?: 0 // Default to not running if not provided
 
-        button.isEnabled = scannerInstalled
-        button.cursor = if (scannerInstalled) Cursor.getPredefinedCursor(Cursor.HAND_CURSOR) else Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR)
+        val clickable = scannerInstalled && licenseValid
+        button.isEnabled = clickable
+        button.cursor = if (clickable) Cursor.getPredefinedCursor(Cursor.HAND_CURSOR) else Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR)
 
         if (!scannerInstalled) {
             button.icon = Icons.RUN_ICON // Or a disabled version if available
             button.text = "Run Scan (Required Install)"
             button.toolTipText = "Please install Xygeni scanner first (Tools -> Xygeni -> Install)"
+            button.foreground = JBColor.GRAY
+            return
+        }
+
+        if (!licenseValid) {
+            button.icon = Icons.RUN_ICON
+            button.text = "Run Scan (License Required)"
+            button.toolTipText = "Xygeni IDE seat is not registered. Check your token and try again."
             button.foreground = JBColor.GRAY
             return
         }
@@ -121,11 +152,15 @@ class ScanView(private val project: Project) : JPanel() {
 
         button.addMouseListener(object : MouseAdapter() {
             override fun mouseClicked(e: MouseEvent) {
-                if (!scannerInstalled) return
+                if (!scannerInstalled || !licenseValid) return
 
                 if (button.text == "Run Scan") {
-                    // scan
-                    project.getService(ScanService::class.java).scan(project)
+                    // Surface the Xygeni Console so the user sees the scan output. Only on manual
+                    // scans — the incremental scan-on-save must not keep stealing the bottom panel.
+                    com.intellij.openapi.wm.ToolWindowManager.getInstance(project)
+                        .getToolWindow("Xygeni console")?.activate(null)
+                    // full project scan
+                    project.getService(ScanService::class.java).scan(project, incremental = false)
                 }else{
                     project.getService(ScanService::class.java).stop(project)
                 }
