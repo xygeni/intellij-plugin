@@ -36,7 +36,7 @@ class ScanService : ProcessExecutorService() {
     private fun buildArgs(changingValue: String, incremental: Boolean = false): Map<String, String> {
         return if (!incremental) {
             baseArgs.toMutableMap().apply {
-                this["--run"] = "deps,secrets,misconf,iac,suspectdeps,sast,malware,quality"
+                this["--run"] = "deps,secrets,misconf,iac,suspectdeps,sast,malware,quality,apisec,ai"
                 this["-d"] = changingValue
             }
         }else{

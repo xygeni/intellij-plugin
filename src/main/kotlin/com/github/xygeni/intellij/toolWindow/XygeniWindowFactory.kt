@@ -55,6 +55,12 @@ class XygeniWindowFactory : ToolWindowFactory {
         val qualityView = QualityScanView(project)
         menuPanel.add(qualityView)
 
+        val apisecView = ApisecScanView(project)
+        menuPanel.add(apisecView)
+
+        val aiView = AiScanView(project)
+        menuPanel.add(aiView)
+
         // ----------------- help panel -----------------
         val help = HelpBlockView()
         help.createUI(false)
