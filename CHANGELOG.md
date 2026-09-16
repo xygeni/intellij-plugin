@@ -12,6 +12,8 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - Startup no longer fails on IDEs without the JCEF module (`NoClassDefFoundError: com.intellij.ui.jcef.JBCefApp`): the embedded browser is detected safely and the AI explanation preview degrades to a notification (xygeni/xygeni-product-backlog#1688).
 - Marketplace verifier no longer flags the deprecated `CredentialAttributes` constructor (xygeni/xygeni-product-backlog#1688).
+- Scanner and MCP downloads now trust the certificates accepted in the IDE (Settings > Tools > Server Certificates) and honor the IDE HTTP proxy settings, so installation works behind intercepting proxies such as Zscaler where the JBR has no `mscapi` module (xygeni/tech-support#375).
+- A failed scanner or MCP download is now reported as an installation error instead of logging "installed successfully" (xygeni/tech-support#375).
 
 ## [1.6.1] - 2026-07-27
 ### Added

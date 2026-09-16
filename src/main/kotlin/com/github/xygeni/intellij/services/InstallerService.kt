@@ -22,7 +22,6 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
-import java.util.concurrent.TimeUnit
 import java.util.zip.ZipInputStream
 import javax.swing.SwingUtilities
 
@@ -37,10 +36,7 @@ import javax.swing.SwingUtilities
 class InstallerService : ProcessExecutorService() {
 
     private val pluginContext = service<PluginContext>() 
-    private val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .build()
+    private val client: OkHttpClient = XygeniHttpClient.create(connectTimeoutSeconds = 15, readTimeoutSeconds = 30)
 
 
     private fun uninstallIfNeeded(project: Project? = null) {
@@ -245,8 +241,11 @@ class InstallerService : ProcessExecutorService() {
             this@InstallerService.pluginContext.mcpJarFileName,
             settings.apiToken ?: "",
             project)
+        if (f == null) {
+            throw IllegalStateException("could not download ${settings.getMcpDownloadUrl()}")
+        }
         Logger.log("moving mcp to ${this.pluginContext.mcpJarFile}", project)
-        f?.copyTo(this.pluginContext.mcpJarFile, true)
+        f.copyTo(this.pluginContext.mcpJarFile, true)
         Logger.log("Xygeni MCP installed successfully!", project)
     }
 
@@ -261,17 +260,18 @@ class InstallerService : ProcessExecutorService() {
             this@InstallerService.pluginContext.scannerZipFileName,
             settings.apiToken ?: "",
             project)
-        if (f != null) {
-            unzip(
-                f.toPath(),
-                Paths.get(this@InstallerService.pluginContext.installDir.absolutePath),
-                project
-            )
-            // + x to xygeni command
-            val commandFile = File(this@InstallerService.pluginContext.xygeniCommand)
-            commandFile.setExecutable(true)
-            Logger.log("Xygeni scanner installed successfully!", project)
+        if (f == null) {
+            throw IllegalStateException("could not download ${settings.getScannerDownloadUrl()}")
         }
+        unzip(
+            f.toPath(),
+            Paths.get(this@InstallerService.pluginContext.installDir.absolutePath),
+            project
+        )
+        // + x to xygeni command
+        val commandFile = File(this@InstallerService.pluginContext.xygeniCommand)
+        commandFile.setExecutable(true)
+        Logger.log("Xygeni scanner installed successfully!", project)
     }
 
     // isInstalled checks if the xygeni command already exists
