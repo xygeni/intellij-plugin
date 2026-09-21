@@ -22,6 +22,11 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.nio.file.FileVisitResult
+import java.nio.file.LinkOption
+import java.nio.file.SimpleFileVisitor
+import java.nio.file.attribute.BasicFileAttributes
+import java.io.IOException
 import java.util.zip.ZipInputStream
 import javax.swing.SwingUtilities
 
@@ -187,14 +192,24 @@ class InstallerService : ProcessExecutorService() {
         }
     }
 
-    // deleteRecursively removes the path
+    // deleteRecursively removes the path WITHOUT following symlinks: the Hub wires the scanner
+    // folder as a link to a folder outside the install dir, and `File.deleteRecursively()`
+    // wiped that target (#1976). Links are removed as links; the walk never descends into them.
     private fun deleteRecursively(path: String): Boolean {
-        val file = File(path)
-        return if (file.exists()) {
-            file.deleteRecursively()
-        } else {
-            false
-        }
+        val target = Paths.get(path)
+        if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) return false
+        if (Files.isSymbolicLink(target)) return Files.deleteIfExists(target)
+        Files.walkFileTree(target, object : SimpleFileVisitor<Path>() {
+            override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
+                Files.deleteIfExists(file)
+                return FileVisitResult.CONTINUE
+            }
+            override fun postVisitDirectory(dir: Path, failure: IOException?): FileVisitResult {
+                Files.deleteIfExists(dir)
+                return FileVisitResult.CONTINUE
+            }
+        })
+        return true
     }
 
     // unzip decompress a file in destDir
@@ -309,11 +324,19 @@ class InstallerService : ProcessExecutorService() {
         }
     }
 
-    // installOrUpdate forces a new installation removing the previous one
+    // installOrUpdate forces a new installation removing the previous one. The removal runs as
+    // the first step of the SAME background task: it deletes ~250 jars and used to run on the EDT
+    // from the Install action, the Settings save and the "Retry installation" notification.
     fun installOrUpdate(project: Project?) {
-        uninstallIfNeeded(project)
-        publishInstallerState(project)
-        install(project)
+        val steps = listOf(
+            Step("Removing previous installation") { targetProject ->
+                uninstallIfNeeded(targetProject)
+                publishInstallerState(targetProject)
+            },
+            Step("Installing scanner", this::installScannerFn),
+            Step("Installing mcp", this::installMCPFn),
+        )
+        executeInBackground(project, steps)
     }
 
     private fun executeInBackground(
@@ -324,22 +347,38 @@ class InstallerService : ProcessExecutorService() {
             override fun run(indicator: ProgressIndicator) {
                 indicator.isIndeterminate = true
                 val installedComponents = mutableListOf<String>()
+                val failedComponents = mutableListOf<String>()
                 
                 for (step in steps) {
+                    val installsComponent = step.message.startsWith("Installing ")
+                    val component = if (installsComponent) step.message.replace("Installing ", "") else "previous installation cleanup"
                     try {
                         indicator.text = step.message
                         step.fn(project)
-                        installedComponents.add(step.message.replace("Installing ", ""))
+                        if (installsComponent) installedComponents.add(component)
                     } catch (e: Exception) {
+                        failedComponents.add(component)
                         Logger.error("error in installing process ", e, project)
+                        // Nothing re-triggers the download once the user fixes the cause (e.g. trusts
+                        // the corporate CA in Settings > Tools > Server Certificates), so offer it here (#1976).
+                        val failureText = if (installsComponent) "Failed to install $component" else "Could not remove the previous installation"
                         NotificationService.notifyError(
-                            "Failed to install ${step.message.replace("Installing ", "")}: ${e.message}",
-                            project
+                            "$failureText: ${e.message}",
+                            project,
+                            NotificationAction.createSimple("Retry installation") { installOrUpdate(project) }
                         )
                     }
                 }
                 
-                Logger.log("Xygeni plugin installed on ${PluginContext().installDir}", project)
+                if (failedComponents.isEmpty()) {
+                    Logger.log("Xygeni plugin installed on ${PluginContext().installDir}", project)
+                } else {
+                    Logger.error(
+                        "Xygeni installation incomplete — failed: ${failedComponents.joinToString(", ")}. " +
+                            "Fix the cause and retry from Tools > Xygeni > Install.",
+                        project
+                    )
+                }
                 
                 if (installedComponents.isNotEmpty()) {
                     val openMcpSetup = project?.let { p ->

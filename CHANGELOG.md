@@ -10,10 +10,16 @@ All notable changes to this project will be documented in this file.
 - API Security scan: API flaws are listed in a new "API Security" section, with endpoint, module, service, OWASP API Top 10 and CWE details (xygeni/xygeni-product-backlog#1691).
 - AI Security scan: AI findings are listed in a new "AI Security" section, with the AI asset kind, the standards they map to (OWASP LLM / ASI Top 10) and their red-team vectors (xygeni/xygeni-product-backlog#1692).
 ### Fixed
-- Startup no longer fails on IDEs without the JCEF module (`NoClassDefFoundError: com.intellij.ui.jcef.JBCefApp`): the embedded browser is detected safely and the AI explanation preview degrades to a notification (xygeni/xygeni-product-backlog#1688).
+- Startup no longer fails on IDEs without the JCEF module (`NoClassDefFoundError: com.intellij.ui.jcef.JBCefApp`): the embedded browser is detected safely before any JCEF class is touched (xygeni/xygeni-product-backlog#1688).
 - Marketplace verifier no longer flags the deprecated `CredentialAttributes` constructor (xygeni/xygeni-product-backlog#1688).
 - Scanner and MCP downloads now trust the certificates accepted in the IDE (Settings > Tools > Server Certificates) and honor the IDE HTTP proxy settings, so installation works behind intercepting proxies such as Zscaler where the JBR has no `mscapi` module (xygeni/tech-support#375).
 - A failed scanner or MCP download is now reported as an installation error instead of logging "installed successfully" (xygeni/tech-support#375).
+- A scan that finishes with findings (scanner exit code above 127, e.g. 134) is reported as successful instead of "finished with errors" (xygeni/xygeni-product-backlog#1976).
+- A trailing slash in the API URL no longer breaks the scanner download and the IDE licence check: the URL is normalised when saved (xygeni/xygeni-product-backlog#1976).
+- On IDEs without JCEF (e.g. Android Studio) the issue detail, its code flow graph and path, the AI explanation and the remediation actions are rendered with native Swing views instead of opening as raw HTML (xygeni/xygeni-product-backlog#1976).
+- Installation failures now offer a "Retry installation" action, the console no longer claims the plugin was installed when any step failed, and uninstalling never follows a symlinked scanner folder (xygeni/xygeni-product-backlog#1976).
+- Scan types the licence excludes (e.g. API Security) show "Not licensed" in their section instead of an empty node (xygeni/xygeni-product-backlog#1976).
+- Missing report files before the first scan are no longer logged to the Xygeni console (xygeni/xygeni-product-backlog#1976).
 
 ## [1.6.1] - 2026-07-27
 ### Added

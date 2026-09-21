@@ -84,6 +84,8 @@ abstract class ProcessExecutorService {
      * @param path Path to exe file
      * @param args process arguments
      * @param onComplete Callback with true when the process exits successfully, false if it failed.
+     * @param onOutputLine Optional observer for every stdout/stderr line, besides console logging.
+     * @param isSuccessExitCode Decides which exit codes count as success (default: only 0).
      */
     fun executeProcess(
         path: String,
@@ -91,7 +93,9 @@ abstract class ProcessExecutorService {
         envs: Map<String, String>?,
         workingDir: File? = null,
         project: Project? = null,
-        onComplete: (success: Boolean) -> Unit
+        onComplete: (success: Boolean) -> Unit,
+        onOutputLine: ((line: String) -> Unit)? = null,
+        isSuccessExitCode: (exitCode: Int) -> Boolean = { it == 0 }
     ): MyProcessHandle?  {
         val processHandle = MyProcessHandle()
 
@@ -169,17 +173,18 @@ abstract class ProcessExecutorService {
                                 ProcessOutputTypes.STDERR -> Logger.error(text, project)
                                 else -> Logger.log(text, project)
                             }
+                            onOutputLine?.invoke(text)
                         }
                     }
 
                     override fun processTerminated(event: ProcessEvent) {
                         val exitCode = event.exitCode
-                        success = exitCode == 0
+                        success = isSuccessExitCode(exitCode)
 
-                        if (success) {
-                            Logger.log("✅ Process finished successfully", project)
-                        } else {
-                            Logger.error("❌ Process finished with errors (exitCode=$exitCode)", project)
+                        when {
+                            exitCode == 0 -> Logger.log("✅ Process finished successfully", project)
+                            success -> Logger.log("✅ Process finished successfully (exitCode=$exitCode)", project)
+                            else -> Logger.error("❌ Process finished with errors (exitCode=$exitCode)", project)
                         }
 
                         // Notificamos en el hilo de la UI

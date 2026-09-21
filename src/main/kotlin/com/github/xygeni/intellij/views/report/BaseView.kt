@@ -8,14 +8,16 @@ package com.github.xygeni.intellij.views.report
  **/
 
 
-import com.github.xygeni.intellij.dynamichtml.editor.DynamicHtmlFileEditor
+import com.github.xygeni.intellij.dynamichtml.editor.HtmlDetailEditor
 import com.github.xygeni.intellij.events.READ_TOPIC
 import com.github.xygeni.intellij.events.ReadListener
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.model.report.BaseXygeniIssue
 import com.github.xygeni.intellij.render.BaseHtmlIssueRenderer
+import com.github.xygeni.intellij.services.ScanService
 import com.github.xygeni.intellij.services.report.BaseReportService
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.components.service
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.markup.EffectType
 import com.intellij.openapi.editor.markup.HighlighterLayer
@@ -149,7 +151,12 @@ abstract class BaseView<T : BaseXygeniIssue>(
         val items = getItems()
         root.removeAllChildren()
 
-        val summaryText = if (items.isEmpty()) "0 issues found" else "${items.size} issues found"
+        val summaryText = when {
+            project.service<ScanService>().isUnlicensed(service.reportType) ->
+                "Not licensed — contact your Xygeni administrator"
+            items.isEmpty() -> "0 issues found"
+            else -> "${items.size} issues found"
+        }
         val summaryNode = DefaultMutableTreeNode(NodeData(summaryText, summaryIcon))
         root.add(summaryNode)
 
@@ -247,30 +254,30 @@ abstract class BaseView<T : BaseXygeniIssue>(
                     try {
                         val managerEx = FileEditorManagerEx.getInstanceEx(project)
                         
-                        // Find main window: The one that is NOT containing DynamicHtmlFileEditor
+                        // Find main window: The one that is NOT containing HtmlDetailEditor
                         val openFiles = managerEx.openFiles
                         var mainWindow = managerEx.windows.find { window ->
-                            !openFiles.any { f -> 
-                                window.getComposite(f)?.allEditors?.any { it is DynamicHtmlFileEditor } == true 
+                            !openFiles.any { openFile ->
+                                window.getComposite(openFile)?.allEditors?.any { it is HtmlDetailEditor } == true 
                             }
                         }
                         
-                        // If no window without DynamicHtmlFileEditor exists, check if there's any DynamicHtmlFileEditor open
+                        // If no window without HtmlDetailEditor exists, check if there's any HtmlDetailEditor open
                         if (mainWindow == null) {
                             val hasDynamicHtmlEditor = managerEx.windows.any { window ->
-                                openFiles.any { f ->
-                                    window.getComposite(f)?.allEditors?.any { it is DynamicHtmlFileEditor } == true
+                                openFiles.any { openFile ->
+                                    window.getComposite(openFile)?.allEditors?.any { it is HtmlDetailEditor } == true
                                 }
                             }
                             
-                            // If there's a DynamicHtmlFileEditor but no separate window for source files, create a split
+                            // If there's a HtmlDetailEditor but no separate window for source files, create a split
                             if (hasDynamicHtmlEditor && managerEx.windows.isNotEmpty()) {
                                 val windowWithHtml = managerEx.windows.first()
                                 val oldWindows = managerEx.windows.toSet()
                                 managerEx.createSplitter(SwingConstants.VERTICAL, windowWithHtml)
                                 mainWindow = managerEx.windows.firstOrNull { it !in oldWindows }
                             } else {
-                                // No DynamicHtmlFileEditor open, use current window
+                                // No HtmlDetailEditor open, use current window
                                 mainWindow = managerEx.currentWindow
                             }
                         }
@@ -386,6 +393,8 @@ abstract class BaseView<T : BaseXygeniIssue>(
         )
     }
 
+    // The detail file is served by the JCEF editor or, on IDEs without JCEF (e.g. Android Studio),
+    // by the Swing one; both are driven through HtmlDetailEditor (#1976).
     protected open fun openDynamicHtmlInSplit(project: Project, item: T) {
         val fileEditorManager = FileEditorManager.getInstance(project)
         val managerEx = FileEditorManagerEx.getInstanceEx(project)
@@ -403,7 +412,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
                     // Abrimos o buscamos la ventana
                     val openFiles = fileEditorManager.openFiles
                     var targetWindow = managerEx.windows.find { window ->
-                        openFiles.any { f -> window.getComposite(f)?.allEditors?.any { it is DynamicHtmlFileEditor } == true }
+                        openFiles.any { openFile -> window.getComposite(openFile)?.allEditors?.any { it is HtmlDetailEditor } == true }
                     }
                     if (targetWindow == null && managerEx.windows.size > 1) {
                         val current = managerEx.currentWindow
@@ -418,7 +427,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
                     if (targetWindow != null) {
                         managerEx.openFile(file, targetWindow)
                         val editor = fileEditorManager.getEditors(file)
-                            .filterIsInstance<DynamicHtmlFileEditor>()
+                            .filterIsInstance<HtmlDetailEditor>()
                             .firstOrNull()
                         editor?.loadHtml(htmlContent)
                         data?.let { editor?.renderData(it) }
@@ -426,7 +435,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
                         // fallback
                         fileEditorManager.openFile(file, true)
                         val editor = fileEditorManager.getEditors(file)
-                            .filterIsInstance<DynamicHtmlFileEditor>()
+                            .filterIsInstance<HtmlDetailEditor>()
                             .firstOrNull()
                         editor?.loadHtml(htmlContent)
                         data?.let { editor?.renderData(it) }
@@ -434,9 +443,9 @@ abstract class BaseView<T : BaseXygeniIssue>(
 
                     // Cerrar editores viejos, opcional
                     fileEditorManager.allEditors
-                        .filterIsInstance<DynamicHtmlFileEditor>()
-                        .forEach { e ->
-                            if (e.file != file) e.file?.let { f -> fileEditorManager.closeFile(f) }
+                        .filter { openEditor -> openEditor is HtmlDetailEditor }
+                        .forEach { openEditor ->
+                            if (openEditor.file != file) openEditor.file?.let { staleFile -> fileEditorManager.closeFile(staleFile) }
                         }
                 }
             } catch (e: Exception) {
@@ -488,7 +497,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
         // Close existing dynamic HTML editors properly
         ApplicationManager.getApplication().invokeLater {
             fileEditorManager.allEditors
-                .filterIsInstance<DynamicHtmlFileEditor>()
+                .filterIsInstance<HtmlDetailEditor>()
                 .forEach { editor ->
                     editor.file?.let { file -> 
                         fileEditorManager.closeFile(file)
@@ -510,7 +519,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
 
                     fileEditorManager.openFile(file, true)
                     val editor = fileEditorManager.getEditors(file)
-                        .filterIsInstance<DynamicHtmlFileEditor>()
+                        .filterIsInstance<HtmlDetailEditor>()
                         .firstOrNull() ?: return@invokeLater
 
                     // Cargar HTML y renderData

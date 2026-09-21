@@ -31,7 +31,8 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
 
     override fun getState(): State = state
     override fun loadState(state: State) {
-        this.state = state
+        // Re-normalise values persisted by older versions (#1976).
+        this.state = state.copy(apiUrl = normalizeApiUrl(state.apiUrl))
     }
 
     init {
@@ -45,6 +46,10 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
 
         fun getInstance(): XygeniSettings =
             ApplicationManager.getApplication().getService(XygeniSettings::class.java)
+
+        /** The API URL is concatenated as `"$apiUrl/scan/releases/"` etc.; a pasted trailing slash
+         *  produced `//scan/releases/`, which the backend answers with 401 (#1976). */
+        fun normalizeApiUrl(raw: String): String = raw.trim().trimEnd('/')
 
         /**
          * Creates CredentialAttributes for storing API token securely.
@@ -65,7 +70,7 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
     var apiUrl: String
         get() = state.apiUrl
         set(value) {
-            state.apiUrl = value
+            state.apiUrl = normalizeApiUrl(value)
         }
 
     var autoScan: Boolean
