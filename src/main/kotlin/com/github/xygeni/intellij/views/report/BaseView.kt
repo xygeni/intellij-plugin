@@ -481,11 +481,13 @@ abstract class BaseView<T : BaseXygeniIssue>(
         val location = if (item.beginLine > 0) "${item.file}:${item.beginLine}" else item.file
         return DefaultMutableTreeNode(
             NodeData(
-                text = "(${item.type}) - $location",
+                text = if (location.isBlank()) "(${item.type})" else "(${item.type}) - $location",
                 icon = item.getIcon(),
                 tooltip = getToolTipExplanation(item),
                 onClick = {
-                    openFileAndHtmlInSplit(project, item.file, item)
+                    // A service-scoped finding has no file: show the detail without opening an editor.
+                    if (item.file.isBlank()) openDynamicHtmlInSplit(project, item)
+                    else openFileAndHtmlInSplit(project, item.file, item)
                 }
             ))
     }

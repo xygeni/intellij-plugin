@@ -19,7 +19,7 @@ class ApisecService(project: Project) : BaseReportService<ApisecXygeniIssue>(
         val toolName = report.metadata.reportProperties["tool.name"]
         val branch = report.currentBranch
         return report.flaws.map { raw ->
-            raw.toIssue(toolName, branch)
+            raw.toIssue(toolName, branch, report.locations)
         }
     }
 }

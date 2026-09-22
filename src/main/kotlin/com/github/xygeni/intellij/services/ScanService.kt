@@ -29,6 +29,11 @@ class ScanService : ProcessExecutorService() {
     private val _unlicensedScanTypes: MutableSet<String> = ConcurrentHashMap.newKeySet()
     private val notLicensedLine = Regex("(\\w+) feature is not licensed")
 
+    /** Scan types of the run in progress / just finished (the `--run` list). The report views
+     *  reload only these: an incremental run must not wipe apisec/ai/deps findings it never re-scanned. */
+    var lastRunScanTypes: Set<String> = emptySet()
+        private set
+
     var processHandle: MyProcessHandle? = null
 
     private val baseArgs: Map<String, String> = mapOf(
@@ -63,17 +68,19 @@ class ScanService : ProcessExecutorService() {
             return
         }
 
-        scanning = true
-
         val path = project.basePath ?: // TODO: ver qué hacer aquí
         return
+        scanning = true
 
         val scanArgs = this@ScanService.buildArgs(path, incremental)
+        lastRunScanTypes = scanArgs["--run"].orEmpty().split(',').filter { it.isNotBlank() }.toSet()
         // Only the scan types that run now can refresh their licence status: the incremental
         // scan skips apisec/ai, so clearing everything would turn "Not licensed" into "0 issues".
-        _unlicensedScanTypes.removeAll(scanArgs["--run"].orEmpty().split(',').toSet())
+        _unlicensedScanTypes.removeAll(lastRunScanTypes)
 
         val scanResultDir = this.pluginContext.cleanScanResultDir(project)
+        // Whole second: a file system with 1s mtime granularity must not date a fresh report before the start.
+        val scanStartedAt = System.currentTimeMillis() / 1000 * 1000
         publishScanUpdate(project, 2) // running
 
         try {
@@ -84,6 +91,9 @@ class ScanService : ProcessExecutorService() {
                 workingDir = scanResultDir,
                 project = project,
                 onComplete = { success ->
+                    if (_unlicensedScanTypes.isNotEmpty()) {
+                        Logger.log("Not licensed for this account and skipped: ${_unlicensedScanTypes.sorted().joinToString(", ")}", project)
+                    }
                     if (success) {
                         publishScanUpdate(project, 1) // Finished
                     } else {
@@ -92,17 +102,41 @@ class ScanService : ProcessExecutorService() {
                     scanning = false
                 },
                 onOutputLine = { line ->
-                    notLicensedLine.find(line)?.groupValues?.get(1)?.let { _unlicensedScanTypes.add(it.lowercase()) }
+                    unlicensedScanTypeIn(line)?.let { _unlicensedScanTypes.add(it) }
                 },
-                // Scanner convention, shared with the Eclipse / VS Code plugins: 0 = clean scan,
-                // > 127 = scan completed with findings above threshold (134). 127 = licence error.
-                isSuccessExitCode = { exitCode -> exitCode == 0 || exitCode > 127 }
+                // Scanner convention, shared with the other plugins: 0 = clean scan, > 127 = completed
+                // with findings (134). 127 = some scan types not licensed: still a completed scan when
+                // the licensed ones wrote their report in this run; with no fresh report the licence
+                // itself is missing or expired and the scan failed.
+                isSuccessExitCode = { exitCode ->
+                    exitCode == 0 || exitCode > 127 || (exitCode == 127 && hasReportWrittenSince(scanResultDir, scanStartedAt))
+                }
             )
         } catch (e: Exception) {
             Logger.error("error in scanning process ", e)
             publishScanUpdate(project, 0) // Finished with errors
+            scanning = false
         }
     }
+
+    /**
+     * The `--run` scan type a CLI output line refuses for licensing, or null. `isScanAllowed` logs the
+     * ScanType name ("apisec feature is not licensed"); AI is gated by its subscription feature instead
+     * ("aiSecurity feature is not licensed" / "AI Security scan is not enabled by the active license"),
+     * and Quality is bundled into SAST with a sentence of its own (SastCommand / AiSecurityCommand).
+     */
+    private fun unlicensedScanTypeIn(line: String): String? {
+        notLicensedLine.find(line)?.groupValues?.get(1)?.let { refused ->
+            return if (refused == "aiSecurity") "ai" else refused.lowercase()
+        }
+        if (line.contains("AI Security scan is not enabled by the active license")) return "ai"
+        if (line.contains("Code Quality is not allowed by the current license")) return "quality"
+        return null
+    }
+
+    private fun hasReportWrittenSince(reportDir: java.io.File, startedAtMillis: Long): Boolean =
+        reportDir.listFiles { file -> file.name.endsWith(pluginContext.xygeniReportSuffix) }
+            ?.any { report -> report.lastModified() >= startedAtMillis } == true
 
     fun stop(project : Project){
         val running = processHandle?.isRunning() ?: false
@@ -113,8 +147,16 @@ class ScanService : ProcessExecutorService() {
     }
 
     fun publishScanUpdate(project: Project, status: Int) {
-        ApplicationManager.getApplication().invokeLater {
-            ApplicationManager.getApplication().messageBus
+        // Deliver synchronously when already on the EDT: a save queued right behind a finished
+        // full scan must see `scanning = false` only AFTER the views consumed this event with the
+        // full run's `lastRunScanTypes`, or its incremental run would overwrite them first.
+        val application = ApplicationManager.getApplication()
+        if (application.isDispatchThread) {
+            application.messageBus.syncPublisher(SCAN_STATE_TOPIC).scanStateChanged(project, status)
+            return
+        }
+        application.invokeLater {
+            application.messageBus
                 .syncPublisher(SCAN_STATE_TOPIC)
                 .scanStateChanged(project, status)
         }
