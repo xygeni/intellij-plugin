@@ -3,6 +3,7 @@ package com.github.xygeni.intellij.dynamichtml.editor
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.services.RemediateService
 import com.intellij.openapi.project.Project
+import com.intellij.util.ui.JBUI
 import java.awt.FlowLayout
 import javax.swing.JButton
 import javax.swing.JPanel
@@ -16,12 +17,14 @@ import javax.swing.SwingUtilities
 class RemediationActionsPanel(
     private val project: Project,
     private val remediationJson: String,
-) : JPanel(FlowLayout(FlowLayout.LEFT, 6, 4)) {
+) : JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)) {
 
     private val remediateButton = JButton("Remediate with Xygeni Agent")
     private val saveButton = JButton("Save").apply { isVisible = false }
 
     init {
+        isOpaque = false
+        border = JBUI.Borders.emptyTop(4)
         add(remediateButton)
         add(saveButton)
         remediateButton.addActionListener { remediate() }

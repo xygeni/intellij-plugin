@@ -4,6 +4,7 @@ import com.github.xygeni.intellij.views.HelpBlockView
 import com.github.xygeni.intellij.views.ScanView
 import com.github.xygeni.intellij.views.XygeniSettingsView
 import com.github.xygeni.intellij.views.report.*
+import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
@@ -79,6 +80,9 @@ class XygeniWindowFactory : ToolWindowFactory {
         val contentManager = toolWindow.contentManager
         val content = contentManager.factory.createContent(scrollPane, "", false)
         contentManager.addContent(content)
+
+        // Gear in the tool window header: the Xygeni settings (connection, auto scan, scanner options).
+        ActionManager.getInstance().getAction("Xygeni.OpenSettings")?.let { toolWindow.setTitleActions(listOf(it)) }
 
     }
 }

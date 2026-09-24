@@ -60,22 +60,23 @@ class SwingHtmlAdapterTest {
     }
 
     @Test
-    fun `replaces the tab strip with one heading per pane and keeps the content`() {
-        val html = htmlOf(SwingHtmlAdapter.toSegments(detailHtml, null))
-        assertTrue(html.contains("<h2>ISSUE DETAILS</h2><div id=\"tab-content-1\">"))
-        assertTrue(html.contains("<h2>CODE SNIPPET</h2><div id=\"tab-content-2\">"))
-        assertTrue(html.contains("<h2>CODE FLOW</h2><div id=\"tab-content-4\">"))
-        assertTrue(html.contains("<h2>FIX IT</h2><div id=\"tab-content-3\">"))
-        assertTrue(html.contains("sql_injection"))
-        assertTrue(html.contains("db.run(q)"))
-        assertTrue(html.contains("Fix text"))
+    fun `groups the panes into tabs in the browser tab strip order and keeps the content`() {
+        val page = SwingHtmlAdapter.toPage(detailHtml, null)
+        assertEquals(listOf("ISSUE DETAILS", "CODE SNIPPET", "CODE FLOW", "FIX IT"), page.tabs.map { tab -> tab.title })
+        assertTrue(htmlOf(page.header).contains("Xygeni SAST Issue"))
+        assertFalse(htmlOf(page.header).contains("sql_injection"))
+        assertTrue(htmlOf(page.tabs[0].segments).contains("sql_injection"))
+        assertTrue(htmlOf(page.tabs[1].segments).contains("db.run(q)"))
+        assertTrue(htmlOf(page.tabs[3].segments).contains("Fix text"))
+        assertFalse(htmlOf(page.tabs.flatMap { tab -> tab.segments }).contains("<!--XY:TAB:"))
     }
 
     @Test
-    fun `segments come out in page order with the code flow and fix actions as native components`() {
-        val segments = SwingHtmlAdapter.toSegments(detailHtml, null)
-        val kinds = segments.map { segment -> segment::class.simpleName }
-        assertEquals(listOf("Html", "CodeFlow", "Html", "FixActions", "Html"), kinds)
+    fun `the code flow and fix actions stay native components inside their own tab`() {
+        val tabs = SwingHtmlAdapter.toPage(detailHtml, null).tabs.associateBy { tab -> tab.title }
+        assertEquals(1, tabs.getValue("CODE FLOW").segments.filterIsInstance<DetailSegment.CodeFlow>().size)
+        assertEquals(1, tabs.getValue("FIX IT").segments.filterIsInstance<DetailSegment.FixActions>().size)
+        assertTrue(tabs.getValue("ISSUE DETAILS").segments.all { segment -> segment is DetailSegment.Html })
     }
 
     @Test
@@ -121,11 +122,12 @@ class SwingHtmlAdapterTest {
     }
 
     @Test
-    fun `a detail without code flow or fix stays a single html segment`() {
+    fun `a detail without code flow or fix is one header and one html tab`() {
         val simple = "<html><body><h1>Xygeni SCA Issue</h1><div id=\"tab-content-1\"><p>x</p></div></body></html>"
-        val segments = SwingHtmlAdapter.toSegments(simple, null)
-        assertEquals(1, segments.size)
-        assertTrue(segments.single() is DetailSegment.Html)
+        val page = SwingHtmlAdapter.toPage(simple, null)
+        assertTrue(page.header.single() is DetailSegment.Html)
+        assertEquals("ISSUE DETAILS", page.tabs.single().title)
+        assertTrue(page.tabs.single().segments.single() is DetailSegment.Html)
     }
 
     @Test
@@ -135,5 +137,38 @@ class SwingHtmlAdapterTest {
         // Two levels → height covers 80 + 120 plus label room; single column → x around 150.
         assertTrue(graph.preferredSize.height >= 200 + 110)
         assertTrue(graph.preferredSize.width >= 150 + 170)
+    }
+
+    @Test
+    fun `keeps detail keys on one line and pads the severity chip`() {
+        val html = htmlOf(SwingHtmlAdapter.toSegments(
+            "<p><span class=\"xy-severity-chip xy-severity-high\">high</span>Tainted input</p>" +
+                "<table><tr><th>Red Team Vectors</th><td>PromptInjection</td></tr></table>",
+            null
+        ))
+        assertTrue(html.contains("<th nowrap align=\"left\" valign=\"top\">Red&nbsp;Team&nbsp;Vectors</th>"))
+        // Single class: the Swing stylesheet does not match multi-class attributes.
+        assertTrue(html.contains("<span class=\"xy-severity-high\">&nbsp;high&nbsp;</span>&nbsp;&nbsp;Tainted input"))
+    }
+
+    @Test
+    fun `the graph zooms within its limits and fitting never enlarges it past 1 to 1`() {
+        val codeFlow = SwingHtmlAdapter.toSegments(detailHtml, null).filterIsInstance<DetailSegment.CodeFlow>().single().data
+        val graph = CodeFlowGraphComponent(codeFlow)
+        val base = graph.preferredSize
+        graph.zoomBy(2.0)
+        assertEquals((base.width * 2).toDouble(), graph.preferredSize.width.toDouble(), 1.0)
+        repeat(20) { graph.zoomBy(2.0) }
+        assertEquals(CodeFlowGraphComponent.MAX_SCALE, graph.scale, 0.0)
+        graph.fitTo(10_000, 10_000)
+        assertEquals(1.0, graph.scale, 0.0)
+        graph.fitTo(base.width / 2, 10_000)
+        assertEquals(0.5, graph.scale, 0.01)
+    }
+
+    @Test
+    fun `marks the fix it title for the swing stylesheet`() {
+        val html = htmlOf(SwingHtmlAdapter.toSegments("<div><p>XYGENI AGENT - REMEDIATE ISSUE</p></div>", null))
+        assertTrue(html.contains("<p class=\"xy-fix-title\">XYGENI AGENT - REMEDIATE ISSUE</p>"))
     }
 }

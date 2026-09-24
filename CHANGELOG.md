@@ -11,6 +11,8 @@ All notable changes to this project will be documented in this file.
 - AI Security scan: AI findings are listed in a new "AI Security" section, with the AI asset kind, the standards they map to (OWASP LLM / ASI Top 10) and their red-team vectors (xygeni/xygeni-product-backlog#1692).
 - AI Security findings can be fixed with the Xygeni Agent (FIX IT tab, scanner `util rectify --ai`) (xygeni/xygeni-product-backlog#1692).
 - API Security findings are listed by flaw type, like the other categories; the full title is shown in the details (xygeni/xygeni-product-backlog#1691).
+- Scanner global options (xygeni/tech-support#378): "Skip SSL verification" (`--skip-ssl-verify`, for corporate proxies that inspect TLS traffic), "Skip scanner update" and "Verbose scanner output" checkboxes plus an "Additional global options" field in the Xygeni settings, placed before the scanner command. Skip SSL verification can be toggled from the CONFIGURATION panel, where the other options also show while they are on; a scanner call that fails on the SSL certificate offers to enable it.
+- Settings (gear) button in the Xygeni tool window header.
 ### Fixed
 - Startup no longer fails on IDEs without the JCEF module (`NoClassDefFoundError: com.intellij.ui.jcef.JBCefApp`): the embedded browser is detected safely before any JCEF class is touched (xygeni/xygeni-product-backlog#1688).
 - Marketplace verifier no longer flags the deprecated `CredentialAttributes` constructor (xygeni/xygeni-product-backlog#1688).
@@ -20,6 +22,9 @@ All notable changes to this project will be documented in this file.
 - A trailing slash in the API URL no longer breaks the scanner download and the IDE licence check: the URL is normalised when saved (xygeni/xygeni-product-backlog#1976).
 - On IDEs without JCEF (e.g. Android Studio) the issue detail, its code flow graph and path, the AI explanation and the remediation actions are rendered with native Swing views instead of opening as raw HTML (xygeni/xygeni-product-backlog#1976).
 - Installation failures now offer a "Retry installation" action, the console no longer claims the plugin was installed when any step failed, and uninstalling never follows a symlinked scanner folder (xygeni/xygeni-product-backlog#1976).
+- On IDEs without JCEF the code flow graph is no longer squashed on narrow tool windows and can be zoomed (zoom in / out / fit / actual size, Ctrl/Cmd + wheel) and panned by dragging; the FIX IT tab and the other tab panes get the same margins and spacing as in the browser view (xygeni/xygeni-product-backlog#1976).
+- On IDEs without JCEF the issue detail keeps its tabs (ISSUE DETAILS, CODE SNIPPET, CODE FLOW, FIX IT) instead of stacking every pane in one page (xygeni/xygeni-product-backlog#1976).
+- On IDEs without JCEF the issue detail keys no longer break mid-word ("Explanat/ion"), the severity chip is coloured and separated from the title, and numbered remediation steps stay inside their column (xygeni/xygeni-product-backlog#1976).
 - Scan types the licence excludes (e.g. API Security) show "Not licensed" in their section instead of an empty node (xygeni/xygeni-product-backlog#1976).
 - Missing report files before the first scan are no longer logged to the Xygeni console (xygeni/xygeni-product-backlog#1976).
 - The remediation advice of API Security and AI Security findings is rendered as markdown (numbered steps, code spans) instead of one run-on line (xygeni/xygeni-product-backlog#1691, xygeni/xygeni-product-backlog#1692).

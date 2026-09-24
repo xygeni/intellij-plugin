@@ -39,7 +39,14 @@ sealed interface DetailSegment {
     data class Html(val html: String) : DetailSegment
     data class CodeFlow(val data: CodeFlowData) : DetailSegment
     data class FixActions(val remediationJson: String) : DetailSegment
+    /** Where a tab pane starts; the segments up to the next one belong to that tab. */
+    data class TabStart(val title: String) : DetailSegment
 }
+
+data class DetailTab(val title: String, val segments: List<DetailSegment>)
+
+/** The detail split as the browser shows it: the header above the tab strip, then one entry per tab. */
+data class DetailPage(val header: List<DetailSegment>, val tabs: List<DetailTab>)
 
 /**
  * SwingHtmlAdapter — rewrites the detail HTML produced by the renderers (built for a real browser:
@@ -51,7 +58,12 @@ object SwingHtmlAdapter {
 
     private const val CODE_FLOW_MARKER = "<!--XY:CODE-FLOW-->"
     private const val FIX_ACTIONS_MARKER = "<!--XY:FIX-ACTIONS-->"
-    private val markerSplit = Regex("(?=$CODE_FLOW_MARKER)|(?<=$CODE_FLOW_MARKER)|(?=$FIX_ACTIONS_MARKER)|(?<=$FIX_ACTIONS_MARKER)")
+    private const val TAB_MARKER_PREFIX = "<!--XY:TAB:"
+    private val tabMarker = Regex("<!--XY:TAB:([^>]*)-->")
+    private val markerSplit = Regex(
+        "(?=$CODE_FLOW_MARKER)|(?<=$CODE_FLOW_MARKER)|(?=$FIX_ACTIONS_MARKER)|(?<=$FIX_ACTIONS_MARKER)" +
+            "|(?=$TAB_MARKER_PREFIX)|(?<=$TAB_MARKER_PREFIX[^>]{1,40}-->)"
+    )
 
     private val dotAll = RegexOption.DOT_MATCHES_ALL
     private val scriptBlock = Regex("<script[^>]*>.*?</script>", dotAll)
@@ -64,6 +76,8 @@ object SwingHtmlAdapter {
     private val tabLabel = Regex("<label[^>]*for=\"tab-\\d+\"[^>]*>.*?</label>", dotAll)
     private val detectorDoc = Regex("<span[^>]*id=\"${XygeniConstants.LOADING_SPAN_ID}\"[^>]*>.*?</span>", dotAll)
     private val detectorLink = Regex("<a[^>]*id=\"${XygeniConstants.LINK_TO_DOC_ID}\"[^>]*>.*?</a>", dotAll)
+    private val tableHeader = Regex("<th>(.*?)</th>", dotAll)
+    private val severityChip = Regex("<span class=\"xy-severity-chip (xy-severity-[a-z]+)\">([^<]*)</span>")
 
     private val codeFlowContainer =
         Regex("<div class=\"xy-code-flow-container\">.*?<div id=\"code-flow-container\"[^>]*>.*?</div>\\s*</div>", dotAll)
@@ -75,12 +89,12 @@ object SwingHtmlAdapter {
     private val flowPathsJs = Regex("const flowPaths = (.*?);\\s*\\n")
     private val vulnerabilityJson = Regex("<script type=\"application/json\" id=\"vuln-json\">(.*?)</script>", dotAll)
 
-    /** Tab content ids → the heading that replaces the tab strip, in the renderer's order. */
-    private val tabHeadings = mapOf(
+    /** Tab content ids → tab title, in the order the browser tab strip shows them. */
+    private val tabTitles = linkedMapOf(
         XygeniConstants.ISSUE_DETAILS_CONTENT_ID to XygeniConstants.ISSUE_DETAILS_TAB,
         XygeniConstants.CODE_SNIPPET_CONTENT_ID to XygeniConstants.CODE_SNIPPET_TAB,
-        XygeniConstants.FIX_IT_CONTENT_ID to XygeniConstants.FIX_IT_TAB,
         XygeniConstants.CODE_FLOW_CONTENT_ID to XygeniConstants.CODE_FLOW_TAB,
+        XygeniConstants.FIX_IT_CONTENT_ID to XygeniConstants.FIX_IT_TAB,
     )
 
     private val gson = Gson()
@@ -104,11 +118,25 @@ object SwingHtmlAdapter {
             .replace(hiddenInput, "")
             .replace(tabLabel, "")
 
-        // The tab strip is CSS-only (radio + label); without it every pane is visible, so give
-        // each pane the heading the tab used to carry.
-        tabHeadings.forEach { (contentId, heading) ->
-            out = out.replace("<div id=\"$contentId\">", "<h2>$heading</h2><div id=\"$contentId\">")
+        // The browser tab strip is CSS-only (radio + label), which the HTMLEditorKit cannot run: mark
+        // where each pane starts so the viewer draws its own strip and shows one pane at a time.
+        tabTitles.forEach { (contentId, title) ->
+            out = out.replace("<div id=\"$contentId\">", "$TAB_MARKER_PREFIX$title--><div id=\"$contentId\">")
         }
+
+        // The word-wrap view factory breaks inside words, so the table hands the key column its
+        // minimum width and splits "Explanation" into "Explanat/ion": keep each key on one line.
+        out = out.replace(tableHeader) { match ->
+            "<th nowrap align=\"left\" valign=\"top\">${match.groupValues[1].trim().replace(" ", "&nbsp;")}</th>"
+        }
+        // The browser chip is a padded pill with a right margin; CSS1 has neither, so pad it with spaces.
+        // The Swing stylesheet matches a single class name only, so keep just the severity one.
+        out = out.replace(severityChip) { match ->
+            "<span class=\"${match.groupValues[1]}\">&nbsp;${match.groupValues[2].trim()}&nbsp;</span>&nbsp;&nbsp;"
+        }
+
+        // The FIX IT title is a plain paragraph styled by the browser tab CSS; mark it for the Swing stylesheet.
+        out = out.replace("<p>${XygeniConstants.REMEDIATION_TEXT}</p>", "<p class=\"xy-fix-title\">${XygeniConstants.REMEDIATION_TEXT}</p>")
 
         // `window.renderData` used to fill the detector documentation; do it in place instead.
         val (description, link) = parseDetectorData(detectorDataJson)
@@ -120,12 +148,29 @@ object SwingHtmlAdapter {
         }
 
         return out.split(markerSplit).filter { piece -> piece.isNotBlank() }.map { piece ->
-            when (piece) {
-                CODE_FLOW_MARKER -> DetailSegment.CodeFlow(codeFlow!!)
-                FIX_ACTIONS_MARKER -> DetailSegment.FixActions(remediation!!)
+            val tab = tabMarker.matchEntire(piece)
+            when {
+                tab != null -> DetailSegment.TabStart(tab.groupValues[1])
+                piece == CODE_FLOW_MARKER -> DetailSegment.CodeFlow(codeFlow!!)
+                piece == FIX_ACTIONS_MARKER -> DetailSegment.FixActions(remediation!!)
                 else -> DetailSegment.Html(piece)
             }
         }
+    }
+
+    /** [toSegments] grouped into the header and the tabs, ordered like the browser tab strip. */
+    fun toPage(html: String, detectorDataJson: String?): DetailPage {
+        val header = mutableListOf<DetailSegment>()
+        val tabs = mutableListOf<DetailTab>()
+        toSegments(html, detectorDataJson).forEach { segment ->
+            when {
+                segment is DetailSegment.TabStart -> tabs.add(DetailTab(segment.title, emptyList()))
+                tabs.isEmpty() -> header.add(segment)
+                else -> tabs[tabs.lastIndex] = tabs.last().let { tab -> tab.copy(segments = tab.segments + segment) }
+            }
+        }
+        val order = tabTitles.values.toList()
+        return DetailPage(header, tabs.sortedBy { tab -> order.indexOf(tab.title) })
     }
 
     private fun extractCodeFlow(html: String): CodeFlowData? {

@@ -8,17 +8,23 @@ import java.awt.Dimension
 import java.awt.Graphics
 import java.awt.Graphics2D
 import java.awt.RenderingHints
+import java.awt.Point
+import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
+import java.awt.event.MouseWheelEvent
 import java.awt.geom.Ellipse2D
 import java.awt.geom.Path2D
 import java.awt.geom.QuadCurve2D
 import java.awt.geom.RoundRectangle2D
 import javax.swing.JComponent
+import javax.swing.JViewport
+import javax.swing.SwingUtilities
 
 /**
  * CodeFlowGraphComponent — Java2D port of the D3 diagram in BaseHtmlIssueRenderer (same layout:
  * x from the average path column, y from the step level; same node colours per role), used by the
- * Swing detail viewer on IDEs without JCEF (#1976).
+ * Swing detail viewer on IDEs without JCEF (#1976). Zoom mirrors d3.zoom: [zoomBy] / [fitTo] for the
+ * toolbar, Ctrl/Cmd + wheel, and dragging pans the enclosing viewport.
  **/
 class CodeFlowGraphComponent(private val data: CodeFlowData) : JComponent() {
 
@@ -30,6 +36,12 @@ class CodeFlowGraphComponent(private val data: CodeFlowData) : JComponent() {
     private val linkColor = Color(0x99, 0x99, 0x99)
 
     private val placed: Map<String, PlacedNode>
+    private val baseWidth: Double
+    private val baseHeight: Double
+
+    /** Current zoom factor; the component's preferred size follows it so the scroll pane can pan. */
+    var scale: Double = 1.0
+        private set
 
     init {
         val pathColumns = mutableMapOf<String, MutableList<Int>>()
@@ -52,15 +64,86 @@ class CodeFlowGraphComponent(private val data: CodeFlowData) : JComponent() {
 
         val maxX = placed.values.maxOfOrNull { placedNode -> placedNode.x } ?: 150.0
         val maxY = placed.values.maxOfOrNull { placedNode -> placedNode.y } ?: 80.0
-        preferredSize = Dimension((maxX + 170).toInt(), (maxY + 110).toInt())
-        cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
+        baseWidth = maxX + 170
+        baseHeight = maxY + 110
         toolTipText = ""
+        installMouseHandling()
+    }
+
+    override fun getPreferredSize(): Dimension = Dimension((baseWidth * scale).toInt(), (baseHeight * scale).toInt())
+
+    fun zoomBy(factor: Double) = setScale(scale * factor)
+
+    fun resetZoom() = setScale(1.0)
+
+    /** Largest zoom (never above 1:1) at which the whole graph fits in [width] x [height]. */
+    fun fitTo(width: Int, height: Int) {
+        if (width <= 0 || height <= 0) return
+        setScale(minOf(1.0, width / baseWidth, height / baseHeight))
+    }
+
+    private fun setScale(value: Double) {
+        scale = value.coerceIn(MIN_SCALE, MAX_SCALE)
+        revalidate()
+        // The enclosing scroll pane sizes itself from this component's height; let it grow or shrink too.
+        SwingUtilities.getAncestorOfClass(javax.swing.JScrollPane::class.java, this)?.let { pane ->
+            pane.revalidate()
+            pane.parent?.revalidate()
+        }
+        repaint()
+    }
+
+    /** Horizontal offset that centres the graph when the viewport is wider than it, as D3 does. */
+    private fun offsetX(): Double = maxOf(0.0, (width - baseWidth * scale) / 2)
+
+    private fun installMouseHandling() {
+        val handler = object : MouseAdapter() {
+            private var dragStart: Point? = null
+
+            override fun mousePressed(event: MouseEvent) {
+                dragStart = SwingUtilities.convertPoint(this@CodeFlowGraphComponent, event.point, parent)
+                cursor = Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR)
+            }
+
+            override fun mouseReleased(event: MouseEvent) {
+                dragStart = null
+                cursor = Cursor.getDefaultCursor()
+            }
+
+            override fun mouseDragged(event: MouseEvent) {
+                val viewport = parent as? JViewport ?: return
+                val start = dragStart ?: return
+                val now = SwingUtilities.convertPoint(this@CodeFlowGraphComponent, event.point, viewport)
+                val position = viewport.viewPosition
+                val maxX = maxOf(0, width - viewport.width)
+                val maxY = maxOf(0, height - viewport.height)
+                viewport.viewPosition = Point(
+                    (position.x + start.x - now.x).coerceIn(0, maxX),
+                    (position.y + start.y - now.y).coerceIn(0, maxY),
+                )
+                dragStart = now
+            }
+
+            override fun mouseWheelMoved(event: MouseWheelEvent) {
+                if (event.isControlDown || event.isMetaDown) {
+                    zoomBy(if (event.preciseWheelRotation < 0) ZOOM_STEP else 1 / ZOOM_STEP)
+                } else {
+                    // A wheel listener stops the event from reaching the scroll panes; hand it on.
+                    parent?.dispatchEvent(SwingUtilities.convertMouseEvent(this@CodeFlowGraphComponent, event, parent))
+                }
+            }
+        }
+        addMouseListener(handler)
+        addMouseMotionListener(handler)
+        addMouseWheelListener(handler)
     }
 
     override fun getToolTipText(event: MouseEvent): String? {
+        val graphX = (event.x - offsetX()) / scale
+        val graphY = event.y / scale
         val hit = placed.values.firstOrNull { placedNode ->
-            val dx = event.x - placedNode.x
-            val dy = event.y - placedNode.y
+            val dx = graphX - placedNode.x
+            val dy = graphY - placedNode.y
             dx * dx + dy * dy <= nodeRadius * nodeRadius
         } ?: return null
         val node = hit.node
@@ -77,12 +160,18 @@ class CodeFlowGraphComponent(private val data: CodeFlowData) : JComponent() {
 
     override fun paintComponent(graphics: Graphics) {
         super.paintComponent(graphics)
-        val canvas = graphics as Graphics2D
+        val canvas = graphics.create() as Graphics2D
         canvas.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
         canvas.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON)
+        canvas.translate(offsetX(), 0.0)
+        canvas.scale(scale, scale)
 
-        paintLinks(canvas)
-        paintNodes(canvas)
+        try {
+            paintLinks(canvas)
+            paintNodes(canvas)
+        } finally {
+            canvas.dispose()
+        }
     }
 
     private fun paintLinks(canvas: Graphics2D) {
@@ -158,4 +247,10 @@ class CodeFlowGraphComponent(private val data: CodeFlowData) : JComponent() {
 
     private fun escape(text: String): String =
         text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+    companion object {
+        const val MIN_SCALE = 0.3
+        const val MAX_SCALE = 3.0
+        const val ZOOM_STEP = 1.2
+    }
 }
