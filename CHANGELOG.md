@@ -12,7 +12,7 @@ All notable changes to this project will be documented in this file.
 - AI Security findings can be fixed with the Xygeni Agent (FIX IT tab, scanner `util rectify --ai`) (xygeni/xygeni-product-backlog#1692).
 - API Security findings are listed by flaw type, like the other categories; the full title is shown in the details (xygeni/xygeni-product-backlog#1691).
 - Scanner global options (xygeni/tech-support#378): "Skip SSL verification" (`--skip-ssl-verify`, for corporate proxies that inspect TLS traffic), "Skip scanner update" and "Verbose scanner output" checkboxes plus an "Additional global options" field in the Xygeni settings, placed before the scanner command. Skip SSL verification can be toggled from the CONFIGURATION panel, where the other options also show while they are on; a scanner call that fails on the SSL certificate offers to enable it.
-- Settings (gear) button in the Xygeni tool window header.
+- Settings (gear) button in the Xygeni tool window header (xygeni/tech-support#378).
 ### Fixed
 - Startup no longer fails on IDEs without the JCEF module (`NoClassDefFoundError: com.intellij.ui.jcef.JBCefApp`): the embedded browser is detected safely before any JCEF class is touched (xygeni/xygeni-product-backlog#1688).
 - Marketplace verifier no longer flags the deprecated `CredentialAttributes` constructor (xygeni/xygeni-product-backlog#1688).

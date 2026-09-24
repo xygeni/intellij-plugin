@@ -16,6 +16,7 @@ import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.text.StringUtil
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -348,6 +349,7 @@ class InstallerService : ProcessExecutorService() {
                 indicator.isIndeterminate = true
                 val installedComponents = mutableListOf<String>()
                 val failedComponents = mutableListOf<String>()
+                val failureMessages = mutableListOf<String>()
                 
                 for (step in steps) {
                     val installsComponent = step.message.startsWith("Installing ")
@@ -359,20 +361,22 @@ class InstallerService : ProcessExecutorService() {
                     } catch (e: Exception) {
                         failedComponents.add(component)
                         Logger.error("error in installing process ", e, project)
-                        // Nothing re-triggers the download once the user fixes the cause (e.g. trusts
-                        // the corporate CA in Settings > Tools > Server Certificates), so offer it here (#1976).
                         val failureText = if (installsComponent) "Failed to install $component" else "Could not remove the previous installation"
-                        NotificationService.notifyError(
-                            "$failureText: ${e.message}",
-                            project,
-                            NotificationAction.createSimple("Retry installation") { installOrUpdate(project) }
-                        )
+                        failureMessages.add(StringUtil.escapeXmlEntities("$failureText: ${e.message}"))
                     }
                 }
                 
                 if (failedComponents.isEmpty()) {
                     Logger.log("Xygeni plugin installed on ${PluginContext().installDir}", project)
                 } else {
+                    // One notification for the whole run, however many steps failed. Nothing re-triggers the
+                    // download once the user fixes the cause (e.g. trusts the corporate CA in Settings > Tools >
+                    // Server Certificates), so it offers the retry (#1976).
+                    NotificationService.notifyError(
+                        failureMessages.joinToString("<br>"),
+                        project,
+                        NotificationAction.createSimple("Retry installation") { installOrUpdate(project) }
+                    )
                     Logger.error(
                         "Xygeni installation incomplete — failed: ${failedComponents.joinToString(", ")}. " +
                             "Fix the cause and retry from Tools > Xygeni > Install.",

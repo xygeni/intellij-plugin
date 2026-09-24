@@ -84,7 +84,8 @@ class XygeniSettingsConfigurable(private val project: Project) : Configurable {
 
     override fun isModified(): Boolean {
         val settings = XygeniSettings.getInstance()
-        return apiUrlField.text != settings.apiUrl ||
+        // Compare as saved: the setter drops a trailing slash, which must not keep Apply enabled.
+        return XygeniSettings.normalizeApiUrl(apiUrlField.text) != settings.apiUrl ||
                 String(tokenField.password) != (settings.apiToken ?: "") ||
                 autoScanField.isSelected != settings.autoScan ||
                 skipSslVerifyField.isSelected != settings.skipSslVerify ||

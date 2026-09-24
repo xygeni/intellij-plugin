@@ -131,7 +131,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
 
     /** Shows the issue count in the header (e.g. "SAST (3)") so it's visible even when collapsed. */
     private fun updateHeaderCount() {
-        val count = getItems().size
+        val count = if (project.service<ScanService>().isUnlicensed(service.reportType)) 0 else getItems().size
         header.text = if (count > 0) "$title ($count)" else title
     }
 
@@ -148,12 +148,14 @@ abstract class BaseView<T : BaseXygeniIssue>(
     }
 
     protected fun populateIssueTree() {
-        val items = getItems()
+        // The scanner writes no report for a scan type the licence refuses, so the file on disk may be
+        // an old one: under "Not licensed" show no findings rather than stale ones.
+        val unlicensed = project.service<ScanService>().isUnlicensed(service.reportType)
+        val items = if (unlicensed) emptyList() else getItems()
         root.removeAllChildren()
 
         val summaryText = when {
-            project.service<ScanService>().isUnlicensed(service.reportType) ->
-                "Not licensed — contact your Xygeni administrator"
+            unlicensed -> "Not licensed — contact your Xygeni administrator"
             items.isEmpty() -> "0 issues found"
             else -> "${items.size} issues found"
         }
