@@ -2,6 +2,7 @@ package com.github.xygeni.intellij.model.report.ai
 
 import com.github.xygeni.intellij.model.report.BaseXygeniIssue
 import com.github.xygeni.intellij.model.report.CodeFlowIssue
+import com.github.xygeni.intellij.model.report.server.RemediationData
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 
@@ -11,8 +12,9 @@ import kotlinx.serialization.json.JsonObject
  * AI Security finding (OWASP LLM Top 10 / Agentic ASI plus red-team vectors). Single
  * location, no taint flow.
  *
- * Not auto-remediable: the scanner has no `util rectify --ai`, so [remediableLevel] stays
- * "NONE" and the Fix action never renders.
+ * Auto-remediable: the scanner's `util rectify --ai` (RectifyCommand.java, `runAiRectify`) takes
+ * the same `--file-path/--detector/--line` as SAST and quality, so [remediableLevel] is "AUTO"
+ * and [toRemediationData] maps to `--ai` (see [QualityXygeniIssue]).
  *
  * Ticket: xygeni/xygeni-product-backlog#1692.
  **/
@@ -35,7 +37,7 @@ data class AiXygeniIssue(
     override val explanation: String,
     override val tags: List<String> = emptyList(),
     override val kind: String = "ia_vulnerability",
-    override val remediableLevel: String = "NONE",
+    override val remediableLevel: String = "AUTO",
 
     // -- AI Security --
     val branch: String = "",
@@ -53,4 +55,16 @@ data class AiXygeniIssue(
     // JSON field
     override val vulnerabilityRaw: JsonObject? = null
 
-) : BaseXygeniIssue
+) : BaseXygeniIssue {
+
+    override fun toRemediationData(): RemediationData {
+        // kind = category ("ai") so RemediateService builds `--ai`, as quality maps to `--quality`.
+        return RemediationData(
+            kind = category,
+            detector = detector,
+            filePath = file,
+            dependency = null,
+            line = beginLine
+        )
+    }
+}

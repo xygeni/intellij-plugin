@@ -16,6 +16,7 @@ import com.github.xygeni.intellij.events.SettingsChangeListener
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.services.InstallerService
 import com.github.xygeni.intellij.services.LicenseService
+import com.github.xygeni.intellij.settings.SkipSslVerifySuggestion
 import com.github.xygeni.intellij.settings.XygeniSettings
 import com.github.xygeni.intellij.settings.XygeniSettingsConfigurable
 import com.intellij.ide.BrowserUtil
@@ -46,7 +47,10 @@ import javax.swing.border.MatteBorder
 data class ApiSettingsSnapshot(
     val apiUrl: String,
     val tokenLen: Int,
-    val autoScan: Boolean
+    val autoScan: Boolean,
+    val skipSslVerify: Boolean,
+    val skipUpdate: Boolean,
+    val verbose: Boolean
 )
 
 
@@ -59,6 +63,9 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
     private lateinit var statusLabel: JLabel
     private lateinit var autoScanCheck : JBCheckBox
     private lateinit var upgradeLink : ActionLink
+    private lateinit var skipSslVerifyCheck: JBCheckBox
+    private lateinit var skipUpdateCheck: JBCheckBox
+    private lateinit var verboseCheck: JBCheckBox
     
     // Track last checked values to avoid redundant validations
     private var lastCheckedUrl: String? = null
@@ -192,6 +199,26 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
             isVisible = false
         }
 
+        // Scanner global options (xygeni/tech-support#378). Skip SSL verification is always offered (the corporate
+        // TLS proxy case); the others show up only while they are on, so what changes the scanner is visible and one
+        // click away from being turned off. All of them are in the settings dialog.
+        skipSslVerifyCheck = JBCheckBox("Skip SSL verification").apply {
+            toolTipText = "Runs the scanner with --skip-ssl-verify, for corporate proxies that inspect TLS traffic"
+            addActionListener {
+                if (isSelected) {
+                    isSelected = SkipSslVerifySuggestion.confirmAndEnable(project)
+                } else {
+                    XygeniSettings.getInstance().skipSslVerify = false
+                }
+            }
+        }
+        skipUpdateCheck = enabledOnlyOptionCheck("Skip scanner update (--skip-update)") {
+            XygeniSettings.getInstance().skipUpdate = false
+        }
+        verboseCheck = enabledOnlyOptionCheck("Verbose scanner output (--verbose)") {
+            XygeniSettings.getInstance().verbose = false
+        }
+
         val formPanel = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             alignmentX = Component.LEFT_ALIGNMENT
@@ -205,6 +232,9 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
             add(Box.createVerticalStrut(8))
             add(autoScanCheck)
             add(upgradeLink)
+            add(skipSslVerifyCheck)
+            add(skipUpdateCheck)
+            add(verboseCheck)
             add(Box.createVerticalStrut(8))
             add(statusLabel)
         }
@@ -261,6 +291,18 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
         }
     }
 
+    /** A global option shown only while it is on: unchecking turns it off and hides it again. */
+    private fun enabledOnlyOptionCheck(text: String, turnOff: () -> Unit): JBCheckBox = JBCheckBox(text).apply {
+        isVisible = false
+        addActionListener {
+            if (!isSelected) {
+                turnOff()
+                isVisible = false
+                refreshLayout()
+            }
+        }
+    }
+
     private fun createField(): JBTextField = JBTextField().apply {
         isEditable = false
         isFocusable = false
@@ -272,7 +314,11 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
     private fun toggleContentVisibility() {
         content.isVisible = !content.isVisible
         header.icon = if (content.isVisible) Icons.CHEVRON_DOWN_ICON else Icons.CHEVRON_RIGHT_ICON
+        refreshLayout()
+    }
 
+    /** The panel is capped at its preferred height: recompute it whenever rows are shown or hidden. */
+    private fun refreshLayout() {
         revalidate()
         maximumSize = Dimension(Int.MAX_VALUE, preferredSize.height)
         repaint()
@@ -290,7 +336,10 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
                         ApiSettingsSnapshot(
                             apiUrl = settings.apiUrl,
                             tokenLen = settings.apiToken.length,
-                            autoScan = settings.autoScan
+                            autoScan = settings.autoScan,
+                            skipSslVerify = settings.skipSslVerify,
+                            skipUpdate = settings.skipUpdate,
+                            verbose = settings.verbose
                         )
                     }
 
@@ -298,6 +347,12 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
                     urlTextField.text = snapshot.apiUrl
                     tokenTextField.text = "•".repeat(snapshot.tokenLen)
                     autoScanCheck.isSelected = snapshot.autoScan
+                    skipSslVerifyCheck.isSelected = snapshot.skipSslVerify
+                    skipUpdateCheck.isSelected = snapshot.skipUpdate
+                    skipUpdateCheck.isVisible = snapshot.skipUpdate
+                    verboseCheck.isSelected = snapshot.verbose
+                    verboseCheck.isVisible = snapshot.verbose
+                    refreshLayout()
                     
                     // Initialize tracking values on first load to avoid unnecessary checks
                     if (lastCheckedUrl == null && lastCheckedToken == null) {

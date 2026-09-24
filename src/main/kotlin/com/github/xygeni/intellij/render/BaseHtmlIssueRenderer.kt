@@ -8,6 +8,8 @@ import icons.Icons
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 import kotlinx.serialization.json.Json
+import org.commonmark.parser.Parser
+import org.commonmark.renderer.html.HtmlRenderer
 import java.awt.Color
 
 /**
@@ -642,6 +644,20 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
         return createHTML().tr {
             th { +key }
             td { +value }
+        }
+    }
+
+    /**
+     * A detail row for scanner text written in markdown (remediation steps with numbered lists and
+     * code spans). Raw HTML inside it is escaped, so a `<` in a path or a generic shows as text.
+     */
+    protected fun renderDetailTableMarkdownLine(key: String?, value: String?): String {
+        if (key.isNullOrBlank() || value.isNullOrBlank()) return ""
+        val document = Parser.builder().build().parse(value)
+        val html = HtmlRenderer.builder().escapeHtml(true).build().render(document)
+        return createHTML().tr {
+            th { +key }
+            td { unsafe { +html } }
         }
     }
 

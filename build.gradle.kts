@@ -193,6 +193,21 @@ tasks {
 
 intellijPlatformTesting {
     runIde {
+        // Hub "Run (dev)" with target=androidstudio: still COMPILE against platformVersion, but
+        // LAUNCH the plugin inside a locally installed IDE (`-PrunLocalIdePath=/Applications/X.app`).
+        // `-PlocalIdePath` compiles against that IDE's jars instead, which fails on Android Studio
+        // 2026.1 (Kotlin 2.3 metadata vs the project's Kotlin 2.0 compiler) — xygeni-product-backlog#1976.
+        providers.gradleProperty("runLocalIdePath").orNull?.takeIf { it.isNotBlank() }?.let { idePath ->
+            register("runLocalIde") {
+                localPath.set(file(idePath))
+                task {
+                    providers.gradleProperty("runIdeProject").orNull?.takeIf { it.isNotBlank() }?.let { projectPath ->
+                        args = listOf(projectPath)
+                    }
+                }
+            }
+        }
+
         register("runIdeForUiTests") {
             task {
                 jvmArgumentProviders += CommandLineArgumentProvider {

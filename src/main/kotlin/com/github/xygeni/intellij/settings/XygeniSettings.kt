@@ -6,6 +6,7 @@ package com.github.xygeni.intellij.settings
  * @author : Carmendelope
  * @version : 7/10/25 (Carmendelope)
  **/
+import com.github.xygeni.intellij.services.ScannerGlobalOptions
 import com.intellij.credentialStore.CredentialAttributes
 import com.intellij.credentialStore.generateServiceName
 import com.intellij.ide.passwordSafe.PasswordSafe
@@ -24,14 +25,20 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
 
     data class State(
         var apiUrl: String = "",
-        var autoScan: Boolean = false
+        var autoScan: Boolean = false,
+        // Scanner global options (xygeni/tech-support#378)
+        var skipSslVerify: Boolean = false,
+        var skipUpdate: Boolean = false,
+        var verbose: Boolean = false,
+        var additionalGlobalOptions: String = ""
     )
 
     private var state = State()
 
     override fun getState(): State = state
     override fun loadState(state: State) {
-        this.state = state
+        // Re-normalise values persisted by older versions (#1976).
+        this.state = state.copy(apiUrl = normalizeApiUrl(state.apiUrl))
     }
 
     init {
@@ -45,6 +52,10 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
 
         fun getInstance(): XygeniSettings =
             ApplicationManager.getApplication().getService(XygeniSettings::class.java)
+
+        /** The API URL is concatenated as `"$apiUrl/scan/releases/"` etc.; a pasted trailing slash
+         *  produced `//scan/releases/`, which the backend answers with 401 (#1976). */
+        fun normalizeApiUrl(raw: String): String = raw.trim().trimEnd('/')
 
         /**
          * Creates CredentialAttributes for storing API token securely.
@@ -65,7 +76,7 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
     var apiUrl: String
         get() = state.apiUrl
         set(value) {
-            state.apiUrl = value
+            state.apiUrl = normalizeApiUrl(value)
         }
 
     var autoScan: Boolean
@@ -73,6 +84,40 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
         set(value) {
             state.autoScan = value
         }
+
+    var skipSslVerify: Boolean
+        get() = state.skipSslVerify
+        set(value) {
+            state.skipSslVerify = value
+        }
+
+    var skipUpdate: Boolean
+        get() = state.skipUpdate
+        set(value) {
+            state.skipUpdate = value
+        }
+
+    var verbose: Boolean
+        get() = state.verbose
+        set(value) {
+            state.verbose = value
+        }
+
+    var additionalGlobalOptions: String
+        get() = state.additionalGlobalOptions
+        set(value) {
+            state.additionalGlobalOptions = value.trim()
+        }
+
+    /** The options placed before the scanner command (`xygeni <options> scan ...`). */
+    fun scannerGlobalOptions(): List<String> {
+        val enabled = listOfNotNull(
+            ScannerGlobalOptions.SKIP_SSL_VERIFY.takeIf { skipSslVerify },
+            ScannerGlobalOptions.SKIP_UPDATE.takeIf { skipUpdate },
+            ScannerGlobalOptions.VERBOSE.takeIf { verbose }
+        )
+        return ScannerGlobalOptions.build(enabled, additionalGlobalOptions)
+    }
 
     // --------------------
     // Token (Password safe)
