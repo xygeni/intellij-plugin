@@ -39,6 +39,8 @@ data class ApisecXygeniIssue(
     override val remediableLevel: String = "NONE",
 
     // -- API Security --
+    /** Human-readable label of the flaw, e.g. "Endpoint reachable without authentication: GET /users". */
+    val title: String = "",
     val branch: String = "",
     /** HTTP method of the affected endpoint, when the flaw is endpoint-scoped. */
     val endpointMethod: String = "",

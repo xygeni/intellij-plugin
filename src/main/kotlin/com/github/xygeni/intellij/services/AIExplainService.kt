@@ -2,6 +2,7 @@ package com.github.xygeni.intellij.services
 
 import com.github.xygeni.intellij.dynamichtml.browser.JcefSupport
 import com.github.xygeni.intellij.dynamichtml.mddialog.MarkdownPreviewDialog
+import com.github.xygeni.intellij.dynamichtml.mddialog.SwingMarkdownPreviewDialog
 import com.github.xygeni.intellij.model.PluginContext
 import com.github.xygeni.intellij.notifications.NotificationService
 import com.github.xygeni.intellij.settings.XygeniSettings
@@ -66,18 +67,11 @@ class AIExplainService : ProcessExecutorService(){
     }
 
     fun showMarkdownPreviewAsync(project: Project, markdownFile: String, title: String = "Explanation") {
-        // MarkdownPreviewDialog is JCEF-backed (#1688): without JCEF, tell the user explicitly
-        // instead of throwing NoClassDefFoundError while opening the dialog.
-        if (!JcefSupport.isAvailable) {
-            NotificationService.notifyWarn(
-                "The embedded browser (JCEF) is not available in this IDE, so the explanation " +
-                    "preview cannot be shown. The explanation was saved to: $markdownFile",
-                project
-            )
-            return
-        }
+        // MarkdownPreviewDialog is JCEF-backed (#1688); without JCEF (Android Studio) the same
+        // markdown is shown through a Swing dialog instead (#1976).
         ApplicationManager.getApplication().invokeLater {
-            val dialog = MarkdownPreviewDialog(project, File(markdownFile), title)
+            val dialog = if (JcefSupport.isAvailable) MarkdownPreviewDialog(project, File(markdownFile), title)
+                         else SwingMarkdownPreviewDialog(project, File(markdownFile), title)
             dialog.setUndecorated(false)
             dialog.isResizable = true
             dialog.show()

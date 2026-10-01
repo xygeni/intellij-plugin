@@ -16,13 +16,18 @@ import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.text.StringUtil
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
-import java.util.concurrent.TimeUnit
+import java.nio.file.FileVisitResult
+import java.nio.file.LinkOption
+import java.nio.file.SimpleFileVisitor
+import java.nio.file.attribute.BasicFileAttributes
+import java.io.IOException
 import java.util.zip.ZipInputStream
 import javax.swing.SwingUtilities
 
@@ -37,10 +42,7 @@ import javax.swing.SwingUtilities
 class InstallerService : ProcessExecutorService() {
 
     private val pluginContext = service<PluginContext>() 
-    private val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .build()
+    private val client: OkHttpClient = XygeniHttpClient.create(connectTimeoutSeconds = 15, readTimeoutSeconds = 30)
 
 
     private fun uninstallIfNeeded(project: Project? = null) {
@@ -191,14 +193,24 @@ class InstallerService : ProcessExecutorService() {
         }
     }
 
-    // deleteRecursively removes the path
+    // deleteRecursively removes the path WITHOUT following symlinks: the Hub wires the scanner
+    // folder as a link to a folder outside the install dir, and `File.deleteRecursively()`
+    // wiped that target (#1976). Links are removed as links; the walk never descends into them.
     private fun deleteRecursively(path: String): Boolean {
-        val file = File(path)
-        return if (file.exists()) {
-            file.deleteRecursively()
-        } else {
-            false
-        }
+        val target = Paths.get(path)
+        if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) return false
+        if (Files.isSymbolicLink(target)) return Files.deleteIfExists(target)
+        Files.walkFileTree(target, object : SimpleFileVisitor<Path>() {
+            override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
+                Files.deleteIfExists(file)
+                return FileVisitResult.CONTINUE
+            }
+            override fun postVisitDirectory(dir: Path, failure: IOException?): FileVisitResult {
+                Files.deleteIfExists(dir)
+                return FileVisitResult.CONTINUE
+            }
+        })
+        return true
     }
 
     // unzip decompress a file in destDir
@@ -245,8 +257,11 @@ class InstallerService : ProcessExecutorService() {
             this@InstallerService.pluginContext.mcpJarFileName,
             settings.apiToken ?: "",
             project)
+        if (f == null) {
+            throw IllegalStateException("could not download ${settings.getMcpDownloadUrl()}")
+        }
         Logger.log("moving mcp to ${this.pluginContext.mcpJarFile}", project)
-        f?.copyTo(this.pluginContext.mcpJarFile, true)
+        f.copyTo(this.pluginContext.mcpJarFile, true)
         Logger.log("Xygeni MCP installed successfully!", project)
     }
 
@@ -261,17 +276,18 @@ class InstallerService : ProcessExecutorService() {
             this@InstallerService.pluginContext.scannerZipFileName,
             settings.apiToken ?: "",
             project)
-        if (f != null) {
-            unzip(
-                f.toPath(),
-                Paths.get(this@InstallerService.pluginContext.installDir.absolutePath),
-                project
-            )
-            // + x to xygeni command
-            val commandFile = File(this@InstallerService.pluginContext.xygeniCommand)
-            commandFile.setExecutable(true)
-            Logger.log("Xygeni scanner installed successfully!", project)
+        if (f == null) {
+            throw IllegalStateException("could not download ${settings.getScannerDownloadUrl()}")
         }
+        unzip(
+            f.toPath(),
+            Paths.get(this@InstallerService.pluginContext.installDir.absolutePath),
+            project
+        )
+        // + x to xygeni command
+        val commandFile = File(this@InstallerService.pluginContext.xygeniCommand)
+        commandFile.setExecutable(true)
+        Logger.log("Xygeni scanner installed successfully!", project)
     }
 
     // isInstalled checks if the xygeni command already exists
@@ -309,11 +325,19 @@ class InstallerService : ProcessExecutorService() {
         }
     }
 
-    // installOrUpdate forces a new installation removing the previous one
+    // installOrUpdate forces a new installation removing the previous one. The removal runs as
+    // the first step of the SAME background task: it deletes ~250 jars and used to run on the EDT
+    // from the Install action, the Settings save and the "Retry installation" notification.
     fun installOrUpdate(project: Project?) {
-        uninstallIfNeeded(project)
-        publishInstallerState(project)
-        install(project)
+        val steps = listOf(
+            Step("Removing previous installation") { targetProject ->
+                uninstallIfNeeded(targetProject)
+                publishInstallerState(targetProject)
+            },
+            Step("Installing scanner", this::installScannerFn),
+            Step("Installing mcp", this::installMCPFn),
+        )
+        executeInBackground(project, steps)
     }
 
     private fun executeInBackground(
@@ -324,22 +348,41 @@ class InstallerService : ProcessExecutorService() {
             override fun run(indicator: ProgressIndicator) {
                 indicator.isIndeterminate = true
                 val installedComponents = mutableListOf<String>()
+                val failedComponents = mutableListOf<String>()
+                val failureMessages = mutableListOf<String>()
                 
                 for (step in steps) {
+                    val installsComponent = step.message.startsWith("Installing ")
+                    val component = if (installsComponent) step.message.replace("Installing ", "") else "previous installation cleanup"
                     try {
                         indicator.text = step.message
                         step.fn(project)
-                        installedComponents.add(step.message.replace("Installing ", ""))
+                        if (installsComponent) installedComponents.add(component)
                     } catch (e: Exception) {
+                        failedComponents.add(component)
                         Logger.error("error in installing process ", e, project)
-                        NotificationService.notifyError(
-                            "Failed to install ${step.message.replace("Installing ", "")}: ${e.message}",
-                            project
-                        )
+                        val failureText = if (installsComponent) "Failed to install $component" else "Could not remove the previous installation"
+                        failureMessages.add(StringUtil.escapeXmlEntities("$failureText: ${e.message}"))
                     }
                 }
                 
-                Logger.log("Xygeni plugin installed on ${PluginContext().installDir}", project)
+                if (failedComponents.isEmpty()) {
+                    Logger.log("Xygeni plugin installed on ${PluginContext().installDir}", project)
+                } else {
+                    // One notification for the whole run, however many steps failed. Nothing re-triggers the
+                    // download once the user fixes the cause (e.g. trusts the corporate CA in Settings > Tools >
+                    // Server Certificates), so it offers the retry (#1976).
+                    NotificationService.notifyError(
+                        failureMessages.joinToString("<br>"),
+                        project,
+                        NotificationAction.createSimple("Retry installation") { installOrUpdate(project) }
+                    )
+                    Logger.error(
+                        "Xygeni installation incomplete — failed: ${failedComponents.joinToString(", ")}. " +
+                            "Fix the cause and retry from Tools > Xygeni > Install.",
+                        project
+                    )
+                }
                 
                 if (installedComponents.isNotEmpty()) {
                     val openMcpSetup = project?.let { p ->

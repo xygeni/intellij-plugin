@@ -1,6 +1,7 @@
 package com.github.xygeni.intellij.services.server
 
 import com.github.xygeni.intellij.logger.Logger
+import com.github.xygeni.intellij.services.XygeniHttpClient
 import com.github.xygeni.intellij.settings.XygeniSettings
 import com.vladsch.flexmark.html.HtmlRenderer
 import com.vladsch.flexmark.parser.Parser
@@ -54,7 +55,7 @@ class ServerClient(private val baseUrl: String, private val token: String) {
 
     }
 
-    private val client = OkHttpClient()
+    private val client: OkHttpClient = XygeniHttpClient.create()
     private val json = Json { prettyPrint = true }
 
     private inline fun <reified TRequest : Any, reified TResponse : Any> post(

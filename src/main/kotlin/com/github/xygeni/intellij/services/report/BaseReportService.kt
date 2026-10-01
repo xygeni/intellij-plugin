@@ -6,6 +6,7 @@ import com.github.xygeni.intellij.events.ScanStateListener
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.model.PluginContext
 import com.github.xygeni.intellij.model.report.BaseXygeniIssue
+import com.github.xygeni.intellij.services.ScanService
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
@@ -33,6 +34,9 @@ abstract class BaseReportService<T : BaseXygeniIssue>(
                 override fun scanStateChanged(project: Project?, status: Int) {
                     if (project != this@BaseReportService.project) return
                     if (status == 2) return cleanIssuesAndReturn()
+                    // A partial run (incremental) leaves the other report files untouched: keep those issues.
+                    val ranScanTypes = project.service<ScanService>().lastRunScanTypes
+                    if (ranScanTypes.isNotEmpty() && reportType !in ranScanTypes) return
                     reloadIssuesFromFile()
                 }
             })
@@ -74,7 +78,8 @@ abstract class BaseReportService<T : BaseXygeniIssue>(
     private fun readAndProcessFile(filename: String, callback: ReadIssuesCallback) {
         val file = File(filename)
         if (!file.exists()) {
-            Logger.log("File $filename not found in ${project.basePath}")
+            // Normal before the first scan (and for scan types the licence excludes): not console-worthy.
+            Logger.debug("File $filename not found in ${project.basePath}")
             return callback.onComplete(true, emptyList())
         }
 

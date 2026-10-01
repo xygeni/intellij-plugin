@@ -39,10 +39,11 @@ class ApisecReportParseTest {
         val issue = first.toIssue("Xygeni", report.currentBranch)
         assertEquals("apisec", issue.category)
         assertEquals("api_flaw", issue.kind)
-        // `title` (the human label) wins over the machine `flawType`.
+        // The tree label is the machine `flawType`; the human `title` is kept for the details panel.
+        assertEquals("excessive_data_exposure", issue.type)
         assertTrue(
-            "type must map to the flaw title",
-            issue.type.startsWith("Response DTO returns sensitive fields"),
+            "title must be mapped for the details panel",
+            issue.title.startsWith("Response DTO returns sensitive fields"),
         )
         assertEquals("POST /users/v1/login", issue.endpoint)
         assertNotEquals("explanation must not default to empty", "", issue.explanation)
@@ -54,17 +55,34 @@ class ApisecReportParseTest {
     @Test
     fun toleratesFlawsWithoutLocation() {
         val report = parseApisecReport(fixture())
+        // Without the inventory only `properties.handler_file` can resolve: endpoint-scoped flaws keep an
+        // empty file and line 0, and nothing crashes or gets dropped.
         val issues = report.flaws.map { it.toIssue("Xygeni", report.currentBranch) }
-
-        // Every flaw in the real report is endpoint-/module-/service-scoped with NO location:
-        // that must yield well-formed issues with an empty file, never a crash or a drop.
-        assertTrue("no location -> empty file", issues.all { it.file.isEmpty() })
+        val endpointScoped = issues.filter { it.endpointPath.isNotEmpty() }
+        assertTrue("no inventory -> endpoint flaws keep an empty file", endpointScoped.all { it.file.isEmpty() })
         assertTrue("no location -> line 0", issues.all { it.beginLine == 0 })
         // A module-scoped flaw (no endpoint) must still be listed.
         assertTrue(
             "module-/service-scoped flaws must not be dropped",
             issues.any { it.endpointPath.isEmpty() },
         )
+    }
+
+    @Test
+    fun resolvesLocationsFromTheApiInventory() {
+        val report = parseApisecReport(fixture())
+        val issues = report.flaws.map { it.toIssue("Xygeni", report.currentBranch, report.locations) }
+        // 6 of the 7 real flaws name an endpoint whose handler the inventory locates.
+        val endpointScoped = issues.filter { it.endpointPath.isNotEmpty() }
+        assertEquals(6, endpointScoped.size)
+        assertTrue("endpoint flaws get the handler file", endpointScoped.all { it.file.isNotEmpty() && it.beginLine > 0 })
+        val login = issues.single { it.endpoint == "POST /users/v1/login" }
+        assertEquals("api_views/users.py", login.file)
+        assertEquals(85, login.beginLine)
+        // The module-scoped flaw falls back to `properties.handler_file` (no line).
+        val moduleScoped = issues.single { it.endpointPath.isEmpty() }
+        assertEquals("api_views/users.py", moduleScoped.file)
+        assertEquals(0, moduleScoped.beginLine)
     }
 
     @Test

@@ -35,7 +35,7 @@ class AiIssueRenderer : BaseHtmlIssueRenderer<AiXygeniIssue>() {
                     unsafe { +renderDetailBranch(issue.branch) }
                     unsafe { +renderDetailTableLine(LOCATION_KEY, issue.file) }
                     unsafe { +renderDetailTableLine(FOUND_BY_KEY, issue.detector) }
-                    unsafe { +renderDetailTableLine("Remediation", issue.remediationHint) }
+                    unsafe { +renderDetailTableMarkdownLine("Remediation", issue.remediationHint) }
                     unsafe { +renderDetailTags(issue.tags) }
                 }
             }

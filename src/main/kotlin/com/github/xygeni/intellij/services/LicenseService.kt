@@ -50,7 +50,7 @@ class LicenseService : Disposable {
     @Serializable
     private data class LicenseState(val dataLicensePlan: LicenseStatePlan? = null)
 
-    private val client = OkHttpClient()
+    private val client: OkHttpClient = XygeniHttpClient.create()
     private val json = Json { prettyPrint = false; encodeDefaults = true; ignoreUnknownKeys = true }
     private val valid = AtomicBoolean(false)
     private val free = AtomicBoolean(false)

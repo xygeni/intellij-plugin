@@ -47,8 +47,10 @@ class AiReportParseTest {
         assertTrue("standards must resolve to control ids", issue.standards.contains("LLM01"))
         assertTrue(issue.redTeamVectors.contains("PromptInjection"))
         assertNotEquals("remediationHint must be mapped", "", issue.remediationHint)
-        // No `util rectify --ai`: the Fix action must stay hidden.
-        assertEquals("NONE", issue.remediableLevel)
+        // `util rectify --ai` exists (RectifyCommand.java): the Fix action must render and map to `--ai`.
+        assertEquals("AUTO", issue.remediableLevel)
+        assertEquals("ai", issue.toRemediationData().kind)
+        assertEquals(issue.detector, issue.toRemediationData().detector)
     }
 
     @Test

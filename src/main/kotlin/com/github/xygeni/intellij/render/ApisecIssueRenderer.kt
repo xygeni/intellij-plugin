@@ -29,6 +29,7 @@ class ApisecIssueRenderer : BaseHtmlIssueRenderer<ApisecXygeniIssue>() {
                 tbody {
                     unsafe { +renderDetailTableLine(EXPLANATION_KEY, issue.explanation) }
                     unsafe { +renderDetailTableLine("Type", issue.type) }
+                    unsafe { +renderDetailTableLine("Title", issue.title) }
                     unsafe { +renderDetailTableLine("Endpoint", issue.endpoint) }
                     unsafe { +renderDetailTableLine("Module", issue.moduleName) }
                     unsafe { +renderDetailTableLine("Service", issue.serviceName) }
@@ -37,7 +38,7 @@ class ApisecIssueRenderer : BaseHtmlIssueRenderer<ApisecXygeniIssue>() {
                     unsafe { +renderDetailBranch(issue.branch) }
                     unsafe { +renderDetailTableLine(LOCATION_KEY, issue.file) }
                     unsafe { +renderDetailTableLine(FOUND_BY_KEY, issue.detector) }
-                    unsafe { +renderDetailTableLine("Remediation", issue.remediation) }
+                    unsafe { +renderDetailTableMarkdownLine("Remediation", issue.remediation) }
                     unsafe { +renderDetailTags(issue.tags) }
                 }
             }
