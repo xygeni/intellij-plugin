@@ -22,6 +22,11 @@ object Logger {
         println("[INFO] $message")
     }
 
+    /** Developer-only trace: stdout only, never the user's Xygeni console. */
+    fun debug(message: String) {
+        println("[DEBUG] $message")
+    }
+
     fun warn(message: String, project: Project? = null) {
         if (project != null ) {
             service(project)?.print(cleanAnsi(message), ConsoleViewContentType.LOG_WARNING_OUTPUT)

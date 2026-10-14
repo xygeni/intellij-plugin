@@ -30,6 +30,8 @@ object Icons {
     @JvmField val SCA_ICON = getIcon("/icons/sca.svg", Icons::class.java)
     @JvmField val MALWARE_ICON = getIcon("/icons/malware.svg", Icons::class.java)
     @JvmField val QUALITY_ICON = getIcon("/icons/quality.svg", Icons::class.java)
+    @JvmField val APISEC_ICON = getIcon("/icons/apisec.svg", Icons::class.java)
+    @JvmField val AI_ICON = getIcon("/icons/ai.svg", Icons::class.java)
 
     @JvmField val CRITICAL_ICON = getIcon("/icons/error.svg", Icons::class.java)
     @JvmField val HIGH_ICON = getIcon("/icons/warning.svg", Icons::class.java)
