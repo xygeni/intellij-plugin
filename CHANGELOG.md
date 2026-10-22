@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 
 
 
+## [Unreleased]
+### Changed
+- The MCP server is installed in `~/.xygeni/mcp/xygeni-mcp-server.jar`, shared with the other Xygeni IDE plugins, so its path no longer changes when the plugin is updated. An existing copy in `~/.xygeni/plugins/<plugin>/<version>/mcp` is replaced by the shared one and a notification asks to update the path in the MCP client configuration (xygeni/xygeni-product-backlog#2382).
+- The MCP server JAR is written to a temporary file and renamed into place under a lock, so two IDEs installing at the same time never leave a half-written JAR (xygeni/xygeni-product-backlog#2382).
+
 ## [1.6.2] - 2026-09-09
 ### Added
 - API Security scan: API flaws are listed in a new "API Security" section, with endpoint, module, service, OWASP API Top 10 and CWE details (xygeni/xygeni-product-backlog#1691).

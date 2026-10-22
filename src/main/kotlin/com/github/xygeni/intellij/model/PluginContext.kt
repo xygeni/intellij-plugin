@@ -28,8 +28,9 @@ class PluginContext {
         installDir = File(this.initInstallationDir(), PluginInfo.id + "/" + PluginInfo.version)
         ensureTargetExists(installDir)
 
-        // mcp data (install dir, file)
-        mcpInstallDir = File(installDir, "mcp")
+        // mcp data (install dir, file): shared by every Xygeni IDE plugin and independent of the plugin
+        // version, so the path the user pasted into their MCP client survives plugin updates (#2382)
+        mcpInstallDir = File(System.getProperty("user.home"), ".xygeni/mcp")
         ensureTargetExists(mcpInstallDir)
         mcpJarFile = File(mcpInstallDir, mcpJarFileName)
 
@@ -44,6 +45,13 @@ class PluginContext {
         val userHome = System.getProperty("user.home")
         return "$userHome/.xygeni/plugins/"
     }
+
+    /** MCP folders left by versions before #2382, one per installed plugin version: ~/.xygeni/plugins/<name>/<version>/mcp. */
+    fun legacyMcpInstallDirs(): List<File> =
+        File(initInstallationDir()).listFiles().orEmpty()
+            .flatMap { pluginDir -> pluginDir.listFiles().orEmpty().toList() }
+            .map { versionDir -> File(versionDir, "mcp") }
+            .filter { legacyMcpDir -> File(legacyMcpDir, mcpJarFileName).exists() }
 
     private fun getXygeniCommandName(): String {
         var xygeniCommand = "xygeni"

@@ -16,8 +16,8 @@ object NotificationService {
         notify(content, NotificationType.ERROR, project, action)
     }
 
-    fun notifyWarn(content: String, project: Project? = null) {
-        notify(content, NotificationType.WARNING, project)
+    fun notifyWarn(content: String, project: Project? = null, action: NotificationAction? = null) {
+        notify(content, NotificationType.WARNING, project, action)
     }
 
     private fun notify(

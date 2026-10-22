@@ -20,12 +20,15 @@ import com.intellij.openapi.util.text.StringUtil
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.nio.file.FileAlreadyExistsException
 import java.nio.file.Files
+import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.FileVisitResult
 import java.nio.file.LinkOption
 import java.nio.file.SimpleFileVisitor
+import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.BasicFileAttributes
 import java.io.IOException
 import java.util.zip.ZipInputStream
@@ -40,6 +43,12 @@ import javax.swing.SwingUtilities
  **/
 @Service(Service.Level.APP)
 class InstallerService : ProcessExecutorService() {
+
+    private companion object {
+        const val MCP_LOCK_NAME = ".lock"
+        const val MCP_LOCK_STALE_MS = 10 * 60 * 1000L
+        const val MCP_LOCK_WAIT_MS = 2 * 60 * 1000L
+    }
 
     private val pluginContext = service<PluginContext>() 
     private val client: OkHttpClient = XygeniHttpClient.create(connectTimeoutSeconds = 15, readTimeoutSeconds = 30)
@@ -248,21 +257,96 @@ class InstallerService : ProcessExecutorService() {
         val fn: (Project?) -> Unit
     )
 
-    private fun installMCPFn(project: Project?) {
+    // installMCPFn installs the MCP server in the folder shared by every Xygeni IDE plugin: when it is
+    // missing, or always with `force` (reinstall)
+    private fun installMCPFn(project: Project?, force: Boolean) {
         Logger.log("==================================", project)
         Logger.log("== Running MCP installation ==", project)
         Logger.log("==================================", project)
-        val settings = XygeniSettings.getInstance()
-        val f = downloadFile( settings.getMcpDownloadUrl(),
-            this@InstallerService.pluginContext.mcpJarFileName,
-            settings.apiToken ?: "",
-            project)
-        if (f == null) {
-            throw IllegalStateException("could not download ${settings.getMcpDownloadUrl()}")
+        val mcpJarFile = this.pluginContext.mcpJarFile
+        withMcpLock {
+            // Another IDE may have installed it while this one waited for the lock.
+            if (!force && mcpJarFile.exists()) return@withMcpLock
+            val settings = XygeniSettings.getInstance()
+            val f = downloadFile( settings.getMcpDownloadUrl(),
+                this@InstallerService.pluginContext.mcpJarFileName,
+                settings.apiToken ?: "",
+                project)
+            if (f == null) {
+                throw IllegalStateException("could not download ${settings.getMcpDownloadUrl()}")
+            }
+            Logger.log("moving mcp to $mcpJarFile", project)
+            // Copy next to the JAR and rename it into place, so an MCP client never runs a half-written JAR.
+            val temporaryJar = File(mcpJarFile.parentFile, mcpJarFile.name + ".tmp").toPath()
+            f.copyTo(temporaryJar.toFile(), true)
+            try {
+                Files.move(temporaryJar, mcpJarFile.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+            } catch (e: IOException) {
+                Files.deleteIfExists(temporaryJar)
+                // On Windows a running MCP client locks the JAR; the copy already installed keeps working.
+                if (!mcpJarFile.exists()) throw e
+                Logger.warn("Could not replace $mcpJarFile (${e.message}). Close your MCP client and reinstall to update it.", project)
+                return@withMcpLock
+            }
+            Logger.log("Xygeni MCP installed successfully!", project)
         }
-        Logger.log("moving mcp to ${this.pluginContext.mcpJarFile}", project)
-        f.copyTo(this.pluginContext.mcpJarFile, true)
-        Logger.log("Xygeni MCP installed successfully!", project)
+        removeLegacyMcpInstalls(project)
+    }
+
+    // removeLegacyMcpInstalls deletes the MCP folders of versions before #2382. The path in the user's MCP
+    // client config still points to one of them, so they are told to update it.
+    private fun removeLegacyMcpInstalls(project: Project?) {
+        val legacyMcpDirs = this.pluginContext.legacyMcpInstallDirs()
+        if (legacyMcpDirs.isEmpty() || !this.pluginContext.mcpJarFile.exists()) return
+        for (legacyMcpDir in legacyMcpDirs) {
+            Logger.log("Removing previous MCP server folder: $legacyMcpDir", project)
+            try {
+                this.deleteRecursively(legacyMcpDir.absolutePath)
+            } catch (e: IOException) {
+                // An MCP client still running the old JAR locks it on Windows; it is retried on the next start.
+                Logger.warn("Could not remove $legacyMcpDir: ${e.message}", project)
+            }
+        }
+        val message = "The Xygeni MCP server moved to ${this.pluginContext.mcpJarFile.absolutePath}. " +
+            "Update the path in your MCP client configuration."
+        Logger.warn(message, project)
+        NotificationService.notifyWarn(
+            StringUtil.escapeXmlEntities(message),
+            project,
+            project?.let { p ->
+                NotificationAction.createSimple(MyBundle.message("mcp.setup.notification.openLink")) { McpSetupView.show(p) }
+            }
+        )
+    }
+
+    // withMcpLock runs `action` holding <mcp dir>/.lock, created atomically: the MCP folder is shared by every
+    // Xygeni IDE plugin. A lock held by another IDE is waited for; a stale one (crashed IDE) is taken over.
+    private fun withMcpLock(action: () -> Unit) {
+        val lockFile = File(this.pluginContext.mcpInstallDir, MCP_LOCK_NAME).toPath()
+        val waitUntil = System.currentTimeMillis() + MCP_LOCK_WAIT_MS
+        while (true) {
+            try {
+                Files.createFile(lockFile)
+                break
+            } catch (e: FileAlreadyExistsException) {
+                val lockAgeMs = try {
+                    System.currentTimeMillis() - Files.getLastModifiedTime(lockFile).toMillis()
+                } catch (e: NoSuchFileException) {
+                    continue
+                }
+                when {
+                    lockAgeMs > MCP_LOCK_STALE_MS -> Files.deleteIfExists(lockFile)
+                    System.currentTimeMillis() > waitUntil ->
+                        throw IllegalStateException("MCP server is being installed by another IDE ($lockFile)")
+                    else -> Thread.sleep(1000)
+                }
+            }
+        }
+        try {
+            action()
+        } finally {
+            Files.deleteIfExists(lockFile)
+        }
     }
 
     private fun installScannerFn(project: Project?) {
@@ -316,9 +400,13 @@ class InstallerService : ProcessExecutorService() {
             publishInstallerState(project)
         }
         if (!isInstalled(mcp = true)) {
-            steps.add(Step("Installing mcp", this::installMCPFn))
+            steps.add(Step("Installing mcp") { targetProject -> installMCPFn(targetProject, force = false) })
         } else {
             Logger.log(">> Xygeni MCP installed", project)
+            // Another IDE may have installed the shared MCP server while this one still has its own copy.
+            if (this.pluginContext.legacyMcpInstallDirs().isNotEmpty()) {
+                steps.add(Step("Removing previous MCP server folder", this::removeLegacyMcpInstalls))
+            }
         }
         if (steps.isNotEmpty()) {
             executeInBackground(project, steps)
@@ -335,7 +423,7 @@ class InstallerService : ProcessExecutorService() {
                 publishInstallerState(targetProject)
             },
             Step("Installing scanner", this::installScannerFn),
-            Step("Installing mcp", this::installMCPFn),
+            Step("Installing mcp") { targetProject -> installMCPFn(targetProject, force = true) },
         )
         executeInBackground(project, steps)
     }
