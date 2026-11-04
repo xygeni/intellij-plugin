@@ -76,6 +76,16 @@ interface InstallerStateListener {
 // ------------------- //
 // -- License state -- //
 // ------------------- //
+/** The MCP server install / update / restart-pending state changed (xygeni/xygeni-product-backlog#2382). */
+val MCP_STATE_TOPIC = Topic.create(
+    "Xygeni MCP state",
+    McpStateListener::class.java
+)
+
+interface McpStateListener {
+    fun mcpStateChanged()
+}
+
 val LICENSE_STATE_TOPIC = Topic.create(
     "Xygeni License State",
     LicenseStateListener::class.java

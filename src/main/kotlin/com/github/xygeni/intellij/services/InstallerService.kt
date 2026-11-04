@@ -3,6 +3,7 @@ package com.github.xygeni.intellij.services
 import com.github.xygeni.intellij.MyBundle
 import com.github.xygeni.intellij.events.CONNECTION_STATE_TOPIC
 import com.github.xygeni.intellij.events.INSTALLER_STATE_TOPIC
+import com.github.xygeni.intellij.events.MCP_STATE_TOPIC
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.model.PluginContext
 import com.github.xygeni.intellij.notifications.NotificationService
@@ -47,7 +48,10 @@ import javax.swing.SwingUtilities
 @Service(Service.Level.APP)
 class InstallerService : ProcessExecutorService() {
 
-    private companion object {
+    companion object {
+        /** What the user must do after an MCP update, in their words: the plugin only replaces the JAR, the assistant owns the process. */
+        const val MCP_RESTART_NOTE = "Your AI assistant (Copilot, Claude Code, Cursor…) will use it the next time it starts: if it is open now, restart it."
+
         const val MCP_LOCK_NAME = ".lock"
         const val MCP_LOCK_STALE_MS = 10 * 60 * 1000L
         const val MCP_LOCK_WAIT_MS = 2 * 60 * 1000L
@@ -292,6 +296,32 @@ class InstallerService : ProcessExecutorService() {
     /** What the last MCP server version check found; shown in the MCP Setup view. */
     data class McpUpdateCheck(val installed: String?, val available: String?, val updateAvailable: Boolean)
 
+    /** Tells the views the MCP state changed (installed, updated, restart note dismissed). */
+    fun publishMcpState() {
+        ApplicationManager.getApplication().invokeLater {
+            ApplicationManager.getApplication().messageBus.syncPublisher(MCP_STATE_TOPIC).mcpStateChanged()
+        }
+    }
+
+    /** The user restarted (or never had running) the AI assistant: the "restart pending" note goes away. */
+    fun dismissMcpRestart() {
+        XygeniSettings.getInstance().mcpRestartPending = null
+        publishMcpState()
+    }
+
+    /** The notification after an update: what happened, what to do, with "Show me how" (the setup guide) and OK (hides the note). */
+    private fun notifyMcpUpdated(version: String, project: Project?) {
+        XygeniSettings.getInstance().mcpRestartPending = version
+        publishMcpState()
+        val actions = mutableListOf<NotificationAction>()
+        project?.let { p -> actions.add(NotificationAction.createSimple("Show me how") { McpSetupView.show(p) }) }
+        actions.add(NotificationAction.createSimpleExpiring("OK") { dismissMcpRestart() })
+        NotificationService.notify(
+            StringUtil.escapeXmlEntities("Xygeni MCP server updated to $version. $MCP_RESTART_NOTE"),
+            NotificationType.INFORMATION, project, actions
+        )
+    }
+
     private enum class McpDownloadOutcome { INSTALLED, PENDING }
 
     @Volatile
@@ -315,7 +345,7 @@ class InstallerService : ProcessExecutorService() {
             // Another IDE may have installed it while this one waited for the lock.
             if (!force && mcpJarFile.exists()) return@withMcpLock
             when (downloadMcpJarLocked(project)) {
-                McpDownloadOutcome.INSTALLED -> Logger.log("Xygeni MCP installed successfully!", project)
+                McpDownloadOutcome.INSTALLED -> { Logger.log("Xygeni MCP installed successfully!", project); publishMcpState() }
                 McpDownloadOutcome.PENDING -> Logger.warn("Xygeni MCP update downloaded; it is applied on the next start.", project)
             }
         }
@@ -422,12 +452,7 @@ class InstallerService : ProcessExecutorService() {
         }
         if (this.pluginContext.mcpPendingJarFile.exists()) {
             val applied = withMcpLock { applyPendingMcpUpdateLocked(project) }
-            if (applied) {
-                NotificationService.notifyInfo(
-                    "Xygeni MCP server updated to ${installedMcpVersion() ?: "the downloaded version"}. Restart your MCP client to load it.",
-                    project
-                )
-            }
+            if (applied) notifyMcpUpdated(installedMcpVersion() ?: "the downloaded version", project)
         }
         val mode = settings.mcpUpdateMode
         if (!force && mode == McpUpdateMode.OFF) return
@@ -444,6 +469,7 @@ class InstallerService : ProcessExecutorService() {
         val installedVersion = installedMcpVersion()
         val check = McpUpdateCheck(installedVersion, remoteVersion, McpVersion.isNewer(remoteVersion, installedVersion))
         lastMcpUpdateCheck = check
+        publishMcpState()
         Logger.log("MCP server installed: ${installedVersion ?: "unknown"}, published: $remoteVersion", project)
         if (!check.updateAvailable) {
             if (force) NotificationService.notifyInfo("The Xygeni MCP server is up to date ($remoteVersion).", project)
@@ -485,9 +511,7 @@ class InstallerService : ProcessExecutorService() {
                         NotificationAction.createSimple(MyBundle.message("mcp.setup.notification.openLink")) { McpSetupView.show(p) }
                     }
                     when (outcome) {
-                        McpDownloadOutcome.INSTALLED -> NotificationService.notifyInfo(
-                            "Xygeni MCP server updated to $version. Restart your MCP client to load it.", project, openMcpSetup
-                        )
+                        McpDownloadOutcome.INSTALLED -> notifyMcpUpdated(version, project)
                         McpDownloadOutcome.PENDING -> NotificationService.notifyWarn(
                             "The Xygeni MCP server update was downloaded but the installed JAR is in use. Close your MCP client; " +
                                 "the update is applied the next time the IDE starts.", project, openMcpSetup

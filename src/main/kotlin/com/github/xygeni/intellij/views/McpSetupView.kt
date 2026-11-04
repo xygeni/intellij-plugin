@@ -62,6 +62,7 @@ object McpSetupView {
         val jsonConfig = buildJsonConfig(SERVER_NAME, mcpJarPath, scannerPathArg, javaHome, xygeniUrl, xygeniToken)
         val tomlConfig = buildTomlConfig(SERVER_NAME, mcpJarPath, scannerPathArg, javaHome, xygeniUrl, xygeniToken)
 
+        val restartGuide = buildRestartGuide()
         val showConfig = scannerInstalled && mcpInstalled
         val statusSection = if (mcpInstalled) buildStatusSection(installer, pluginContext, settings) else ""
         val tokenWarning = if (savedToken != null) {
@@ -101,12 +102,30 @@ object McpSetupView {
             <div class="step">
                 <div class="step-number">${escapeHtml(MyBundle.message("mcp.setup.step2.title"))}</div>
                 <p>${escapeHtml(MyBundle.message("mcp.setup.step2.body"))}</p>
-                <ol>
-                    <li>${escapeHtml(MyBundle.message("mcp.setup.step2.bullet1"))}</li>
-                    <li>${escapeHtml(MyBundle.message("mcp.setup.step2.bullet2"))}</li>
-                    <li>${escapeHtml(MyBundle.message("mcp.setup.step2.bullet3"))}</li>
-                </ol>
+                <ul>
+                    ${listOf("copilot", "claudeCode", "cursor", "claudeDesktop", "codex", "other").joinToString("\n") { "<li>${escapeHtml(MyBundle.message("mcp.setup.step2.$it"))}</li>" }}
+                </ul>
+                <p>${escapeHtml(MyBundle.message("mcp.setup.step2.then"))} <a href="#restart-guide">${escapeHtml(MyBundle.message("mcp.setup.restart.title"))}</a>.</p>
             </div>
+
+            <div class="step">
+                <div class="step-number">${escapeHtml(MyBundle.message("mcp.setup.step3.title"))}</div>
+                <ul>
+                    ${listOf("copilot", "claudeCode", "any").joinToString("\n") { "<li>${escapeHtml(MyBundle.message("mcp.setup.step3.$it"))}</li>" }}
+                </ul>
+            </div>
+
+            <div class="step">
+                <div class="step-number">${escapeHtml(MyBundle.message("mcp.setup.trouble.title"))}</div>
+                <ul>
+                    <li>${escapeHtml(MyBundle.message("mcp.setup.trouble.java"))}</li>
+                    <li>${escapeHtml(MyBundle.message("mcp.setup.trouble.noTools"))}</li>
+                    <li>${escapeHtml(MyBundle.message("mcp.setup.trouble.token"))}</li>
+                    <li>${escapeHtml(MyBundle.message("mcp.setup.trouble.manual"))} <code>java -jar ${escapeHtml(mcpJarPath)} ${escapeHtml(scannerPathArg)}</code></li>
+                </ul>
+            </div>
+
+            $restartGuide
             """.trimIndent()
         } else {
             """
@@ -163,6 +182,10 @@ object McpSetupView {
                     <div class="step-number">${escapeHtml(MyBundle.message("mcp.setup.prereq.title"))}</div>
                     <p>${escapeHtml(MyBundle.message("mcp.setup.prereq.body"))}</p>
                 </div>
+                <div class="step">
+                    <div class="step-number">${escapeHtml(MyBundle.message("mcp.setup.prereq.java.title"))}</div>
+                    <p>${escapeHtml(MyBundle.message("mcp.setup.prereq.java.body", javaHome))}</p>
+                </div>
 
                 $configSection
 
@@ -193,6 +216,20 @@ object McpSetupView {
     }
 
     /** Installed path and version plus what the last update check found (xygeni/xygeni-product-backlog#2382). */
+    /** How to make each AI assistant start the server again after the JAR was replaced (#2382). */
+    private fun restartSteps(): String =
+        "<ul>" + listOf("copilot", "claudeCode", "cursor", "claudeDesktop", "other")
+            .joinToString("") { "<li>${escapeHtml(MyBundle.message("mcp.setup.restart.$it"))}</li>" } + "</ul>"
+
+    private fun buildRestartGuide(): String = """
+            <div class="step" id="restart-guide">
+                <div class="step-number">${escapeHtml(MyBundle.message("mcp.setup.restart.title"))}</div>
+                <p>${escapeHtml(MyBundle.message("mcp.setup.restart.body"))}</p>
+                ${restartSteps()}
+                <p>${escapeHtml(MyBundle.message("mcp.setup.restart.none"))}</p>
+            </div>
+    """.trimIndent()
+
     private fun buildStatusSection(installer: InstallerService, pluginContext: PluginContext, settings: XygeniSettings): String {
         val installedVersion = installer.installedMcpVersion()
         val check = installer.lastMcpUpdateCheck
@@ -201,7 +238,14 @@ object McpSetupView {
             check.updateAvailable -> MyBundle.message("mcp.setup.status.updateAvailable", check.available ?: "")
             else -> MyBundle.message("mcp.setup.status.upToDate")
         }
+        val pending = settings.mcpRestartPending
+        val banner = if (pending != null) """
+            <div class="banner"><strong>${escapeHtml(MyBundle.message("mcp.setup.restart.banner", pending))}</strong>
+                ${restartSteps()}
+                <p>${escapeHtml(MyBundle.message("mcp.setup.restart.bannerFoot"))}</p></div>
+        """.trimIndent() else ""
         return """
+            $banner
             <div class="step">
                 <div class="step-number">${escapeHtml(MyBundle.message("mcp.setup.status.title"))}</div>
                 <p><strong>${escapeHtml(MyBundle.message("mcp.setup.status.path"))}</strong> <code>${escapeHtml(pluginContext.mcpJarFile.absolutePath)}</code></p>
@@ -342,6 +386,10 @@ object McpSetupView {
                 border-left: 4px solid var(--xy-link);
             }
             .step-number { font-weight: bold; color: var(--xy-link); margin-bottom: 6px; }
+            .banner { margin: 0 0 16px 0; padding: 10px 12px; border-left: 3px solid #cca700; background: rgba(204, 167, 0, 0.12); border-radius: 0 4px 4px 0; }
+            .banner strong { display: block; margin-bottom: 4px; }
+            .banner ul { margin: 6px 0; padding-left: 20px; }
+            .banner p { margin: 6px 0 0 0; }
             .note, .warning {
                 border-radius: 4px;
                 padding: 10px;

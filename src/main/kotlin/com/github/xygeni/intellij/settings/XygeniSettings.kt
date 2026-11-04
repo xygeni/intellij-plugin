@@ -34,7 +34,9 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
         // MCP server updates (xygeni/xygeni-product-backlog#2382): notify (default), auto or off
         var mcpUpdateMode: String = McpUpdateMode.NOTIFY.value,
         // A version the user chose to ignore in the update notification; empty when none
-        var mcpIgnoredVersion: String = ""
+        var mcpIgnoredVersion: String = "",
+        // Version installed by an update that the AI assistant has not loaded yet; empty once the user says OK
+        var mcpRestartPending: String = ""
     )
 
     private var state = State()
@@ -124,6 +126,13 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
         get() = state.mcpIgnoredVersion
         set(value) {
             state.mcpIgnoredVersion = value.trim()
+        }
+
+    /** Set after an MCP server update until the user confirms the AI assistant was restarted (#2382). */
+    var mcpRestartPending: String?
+        get() = state.mcpRestartPending.ifBlank { null }
+        set(value) {
+            state.mcpRestartPending = value?.trim().orEmpty()
         }
 
     /** The options placed before the scanner command (`xygeni <options> scan ...`). */

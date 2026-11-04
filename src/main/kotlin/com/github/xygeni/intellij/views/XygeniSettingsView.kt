@@ -8,6 +8,8 @@ package com.github.xygeni.intellij.views
  **/
 
 import com.github.xygeni.intellij.events.CONNECTION_STATE_TOPIC
+import com.github.xygeni.intellij.events.McpStateListener
+import com.github.xygeni.intellij.events.MCP_STATE_TOPIC
 import com.github.xygeni.intellij.events.ConnectionStateListener
 import com.github.xygeni.intellij.events.LICENSE_STATE_TOPIC
 import com.github.xygeni.intellij.events.LicenseStateListener
@@ -64,6 +66,10 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
     private lateinit var urlTextField: JBTextField
     private lateinit var tokenTextField: JBTextField
     private lateinit var statusLabel: JLabel
+    private lateinit var mcpStatusLabel: JLabel
+    private lateinit var mcpRestartNote: JLabel
+    private lateinit var mcpRestartRow: JPanel
+    private var connecting = false
     private lateinit var autoScanCheck : JBCheckBox
     private lateinit var upgradeLink : ActionLink
     private lateinit var skipSslVerifyCheck: JBCheckBox
@@ -76,9 +82,11 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
 
     /** The platform spinner next to "Connecting…" while a connection check is in flight. */
     private fun showConnecting() {
+        connecting = true
         statusLabel.icon = com.intellij.ui.AnimatedIcon.Default()
         statusLabel.iconTextGap = 6
         statusLabel.text = "Connecting…"
+        refreshMcpStatus()
     }
 
     init {
@@ -123,6 +131,13 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
                 }
             })
 
+        ApplicationManager.getApplication().messageBus.connect()
+            .subscribe(MCP_STATE_TOPIC, object : McpStateListener {
+                override fun mcpStateChanged() {
+                    ApplicationManager.getApplication().invokeLater { refreshMcpStatus() }
+                }
+            })
+
         // The license plan (Free vs paid) is resolved asynchronously after the seat is registered;
         // refresh the Auto Scan gating once it lands.
         ApplicationManager.getApplication().messageBus.connect()
@@ -134,7 +149,40 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
     }
 
     /** Updates the status label and collapses CONFIGURATION when valid / expands it when invalid. */
+    /**
+     * The MCP server line (#2382): "Installed" from the JAR on disk, plus what the last check found; "Checking…" while
+     * the connection check (which installs it) runs; and the note after an update until the user says OK.
+     */
+    private fun refreshMcpStatus() {
+        if (!::mcpStatusLabel.isInitialized) return
+        val installer = ApplicationManager.getApplication().getService(InstallerService::class.java)
+        val settings = XygeniSettings.getInstance()
+        val installed = installer.isInstalled(mcp = true)
+        val check = installer.lastMcpUpdateCheck
+        val pending = settings.mcpRestartPending
+        mcpStatusLabel.icon = if (!installed && connecting) com.intellij.ui.AnimatedIcon.Default() else null
+        mcpStatusLabel.iconTextGap = 6
+        mcpStatusLabel.text = when {
+            installed -> (installer.installedMcpVersion() ?: "Installed") +
+                (when {
+                    check == null -> ""
+                    check.updateAvailable -> " → ${check.available} available"
+                    else -> " · up to date"
+                }) + (if (pending != null) " · restart your AI assistant" else "")
+            connecting -> "Checking…"
+            else -> "Not installed yet"
+        }
+        mcpRestartNote.text = if (pending != null) "Updated to $pending. Restart your AI assistant (Copilot, Claude Code, Cursor…) so it uses the new version." else ""
+        mcpRestartNote.isVisible = pending != null
+        mcpRestartNote.parent?.isVisible = pending != null
+        mcpRestartRow.isVisible = pending != null
+        mcpRestartRow.parent?.isVisible = pending != null
+        refreshLayout()
+    }
+
     private fun applyConnectionState(urlOk: Boolean, tokenOk: Boolean) {
+        connecting = false
+        refreshMcpStatus()
         ApplicationManager.getApplication().invokeLater {
             statusLabel.icon = null
             val valid = urlOk && tokenOk
@@ -233,6 +281,40 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
             XygeniSettings.getInstance().verbose = false
         }
 
+        // MCP server line, links and the note shown after an update (#2382).
+        mcpStatusLabel = JLabel("Not installed yet").apply { alignmentX = LEFT_ALIGNMENT }
+        val mcpRow = JPanel().apply {
+            layout = BoxLayout(this, BoxLayout.X_AXIS)
+            alignmentX = Component.LEFT_ALIGNMENT
+            isOpaque = false
+            add(JLabel("MCP server: "))
+            add(mcpStatusLabel)
+            add(Box.createHorizontalGlue())
+            maximumSize = Dimension(Int.MAX_VALUE, preferredSize.height)
+        }
+        val mcpLinks = JPanel().apply {
+            layout = BoxLayout(this, BoxLayout.X_AXIS)
+            alignmentX = Component.LEFT_ALIGNMENT
+            isOpaque = false
+            add(ActionLink("MCP Setup") { McpSetupView.show(project) })
+            add(Box.createHorizontalStrut(JBUI.scale(10)))
+            add(ActionLink("Check for updates") { ApplicationManager.getApplication().getService(InstallerService::class.java).checkMcpUpdate(project, force = true) })
+            add(Box.createHorizontalGlue())
+            maximumSize = Dimension(Int.MAX_VALUE, preferredSize.height)
+        }
+        mcpRestartNote = Sections.description("").apply { foreground = JBColor.namedColor("Label.errorForeground", JBColor.RED) }
+        mcpRestartRow = JPanel().apply {
+            layout = BoxLayout(this, BoxLayout.X_AXIS)
+            alignmentX = Component.LEFT_ALIGNMENT
+            isOpaque = false
+            add(ActionLink("Show me how") { McpSetupView.show(project) })
+            add(Box.createHorizontalStrut(JBUI.scale(10)))
+            add(ActionLink("OK") { ApplicationManager.getApplication().getService(InstallerService::class.java).dismissMcpRestart() })
+            add(Box.createHorizontalGlue())
+            maximumSize = Dimension(Int.MAX_VALUE, preferredSize.height)
+            isVisible = false
+        }
+
         val formPanel = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             alignmentX = Component.LEFT_ALIGNMENT
@@ -251,11 +333,18 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
             add(verboseCheck)
             add(Box.createVerticalStrut(8))
             add(Sections.flush(statusLabel))
+            add(Box.createVerticalStrut(8))
+            add(Sections.flush(mcpRow))
+            add(Box.createVerticalStrut(2))
+            add(Sections.flush(mcpLinks))
+            add(Sections.flush(mcpRestartNote))
+            add(Sections.flush(mcpRestartRow))
         }
 
         content.add(formPanel)
 
         applyLicenseState()
+        refreshMcpStatus()
     }
 
     /** Disables Auto Scan on Save and reveals the upgrade link when the installed license is Free. */
