@@ -30,6 +30,8 @@ class XygeniStartup : ProjectActivity {
                 installer.publishConnectionState(project, urlOk, tokenOk)
                 if (urlOk && tokenOk) {
                     LicenseService.getInstance().register(project)
+                    // At most once a day across IDEs; a failed check is only logged (#2382).
+                    installer.checkMcpUpdate(project)
                 }
             }
         }

@@ -11,8 +11,11 @@ import com.github.xygeni.intellij.events.CONNECTION_STATE_TOPIC
 import com.github.xygeni.intellij.events.ConnectionStateListener
 import com.github.xygeni.intellij.events.LICENSE_STATE_TOPIC
 import com.github.xygeni.intellij.events.LicenseStateListener
+import com.github.xygeni.intellij.events.SCAN_CONFIG_CHANGED_TOPIC
+import com.github.xygeni.intellij.events.ScanConfigChangeListener
 import com.github.xygeni.intellij.events.SETTINGS_CHANGED_TOPIC
 import com.github.xygeni.intellij.events.SettingsChangeListener
+import com.github.xygeni.intellij.services.ScanConfig
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.services.InstallerService
 import com.github.xygeni.intellij.services.LicenseService
@@ -71,10 +74,16 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
     private var lastCheckedUrl: String? = null
     private var lastCheckedToken: String? = null
 
+    /** The platform spinner next to "Connecting…" while a connection check is in flight. */
+    private fun showConnecting() {
+        statusLabel.icon = com.intellij.ui.AnimatedIcon.Default()
+        statusLabel.iconTextGap = 6
+        statusLabel.text = "Connecting…"
+    }
+
     init {
         layout = BoxLayout(this, BoxLayout.Y_AXIS)
         alignmentX = Component.LEFT_ALIGNMENT
-        border = MatteBorder(0, 0, 1, 0, JBColor.GRAY)
     }
 
     fun initialize() {
@@ -88,8 +97,16 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
 
         // Apply the cached connection state so the panel reflects the startup validation even if it
         // was published before this (lazily created) view subscribed to CONNECTION_STATE_TOPIC.
-        ApplicationManager.getApplication().getService(InstallerService::class.java)
-            .getConnectionState()?.let { (urlOk, tokenOk) -> applyConnectionState(urlOk, tokenOk) }
+        // With no result yet the startup check is still running: say so instead of "Unknown".
+        val cachedState = ApplicationManager.getApplication().getService(InstallerService::class.java).getConnectionState()
+        if (cachedState != null) applyConnectionState(cachedState.first, cachedState.second) else showConnecting()
+
+        project.messageBus.connect()
+            .subscribe(SCAN_CONFIG_CHANGED_TOPIC, object : ScanConfigChangeListener {
+                override fun scanConfigChanged(project: Project?) {
+                    ApplicationManager.getApplication().invokeLater { autoScanCheck.isSelected = XygeniSettings.getInstance().autoScan }
+                }
+            })
 
         project.messageBus.connect()
             .subscribe(SETTINGS_CHANGED_TOPIC, object : SettingsChangeListener {
@@ -119,9 +136,12 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
     /** Updates the status label and collapses CONFIGURATION when valid / expands it when invalid. */
     private fun applyConnectionState(urlOk: Boolean, tokenOk: Boolean) {
         ApplicationManager.getApplication().invokeLater {
+            statusLabel.icon = null
             val valid = urlOk && tokenOk
+            val serverProblem = ApplicationManager.getApplication().getService(InstallerService::class.java).lastConnectionProblem
             statusLabel.text = when {
                 !urlOk -> "❌ Invalid URL"
+                !tokenOk && serverProblem != null -> "⚠️ $serverProblem. Click to retry"
                 !tokenOk -> "❌ Invalid token"
                 else -> "✅ Valid Connection and Token"
             }
@@ -135,26 +155,14 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
     }
 
     private fun createHeader() {
-        header = JLabel("CONFIGURATION").apply {
-            cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
-            alignmentX = LEFT_ALIGNMENT
-            icon = Icons.CHEVRON_RIGHT_ICON
-            iconTextGap = 10
-        }
-
-        header.addMouseListener(object : MouseAdapter() {
-            override fun mouseClicked(e: MouseEvent?) {
-                toggleContentVisibility()
-            }
-        })
-        header.alignmentX = Component.LEFT_ALIGNMENT
+        header = Sections.subHeader("Connection") { toggleContentVisibility() }
     }
 
     private fun createContent() {
         content = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             alignmentX = Component.LEFT_ALIGNMENT
-            border = JBUI.Borders.empty(5, 20, 10, 5)
+            border = JBUI.Borders.empty(2, Sections.BODY_LEFT, 6, 6)
             isVisible = false
         }
 
@@ -167,7 +175,7 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
 
             addMouseListener(object : MouseAdapter() {
                 override fun mouseClicked(e: MouseEvent?) {
-                    statusLabel.text = "⏳ Checking connection status..."
+                    showConnecting()
                     triggerConnectionCheck(force = true)
                 }
             })
@@ -184,10 +192,15 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
             })
         }
 
-        autoScanCheck = JBCheckBox("Scan project on save")
+        autoScanCheck = JBCheckBox("Scan project on save").apply { border = JBUI.Borders.empty() }
         autoScanCheck.addActionListener {
             val selected = autoScanCheck.isSelected
             XygeniSettings.getInstance().autoScan = selected
+            // Switched on with nothing chosen for on save: start from the default on-save types (#415).
+            if (selected && ScanConfig.load(project).onSave.isEmpty()) {
+                ScanConfig.save(project, ScanConfig.load(project).withDefaultOnSave())
+            }
+            project.messageBus.syncPublisher(SCAN_CONFIG_CHANGED_TOPIC).scanConfigChanged(project)
         }
 
         // Auto Scan on Save uses `--incremental`, rejected by the Free edition. On a Free license the
@@ -203,6 +216,7 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
         // TLS proxy case); the others show up only while they are on, so what changes the scanner is visible and one
         // click away from being turned off. All of them are in the settings dialog.
         skipSslVerifyCheck = JBCheckBox("Skip SSL verification").apply {
+            border = JBUI.Borders.empty()
             toolTipText = "Runs the scanner with --skip-ssl-verify, for corporate proxies that inspect TLS traffic"
             addActionListener {
                 if (isSelected) {
@@ -222,21 +236,21 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
         val formPanel = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             alignmentX = Component.LEFT_ALIGNMENT
-            add(JLabel("Xygeni API URL:"))
+            add(Sections.flush(JLabel("Xygeni API URL:")))
             add(Box.createVerticalStrut(2))
             add(urlTextField)
             add(Box.createVerticalStrut(8))
-            add(JLabel("Access Token:"))
+            add(Sections.flush(JLabel("Access Token:")))
             add(Box.createVerticalStrut(2))
             add(tokenTextField)
             add(Box.createVerticalStrut(8))
             add(autoScanCheck)
-            add(upgradeLink)
+            add(Sections.flush(upgradeLink))
             add(skipSslVerifyCheck)
             add(skipUpdateCheck)
             add(verboseCheck)
             add(Box.createVerticalStrut(8))
-            add(statusLabel)
+            add(Sections.flush(statusLabel))
         }
 
         content.add(formPanel)
@@ -293,6 +307,7 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
 
     /** A global option shown only while it is on: unchecking turns it off and hides it again. */
     private fun enabledOnlyOptionCheck(text: String, turnOff: () -> Unit): JBCheckBox = JBCheckBox(text).apply {
+        border = JBUI.Borders.empty()
         isVisible = false
         addActionListener {
             if (!isSelected) {

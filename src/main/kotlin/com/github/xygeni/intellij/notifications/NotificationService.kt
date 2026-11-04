@@ -9,29 +9,28 @@ object NotificationService {
     private const val GROUP_ID = "Xygeni Notification Group"
 
     fun notifyInfo(content: String, project: Project? = null, action: NotificationAction? = null) {
-        notify(content, NotificationType.INFORMATION, project, action)
+        notify(content, NotificationType.INFORMATION, project, listOfNotNull(action))
     }
 
     fun notifyError(content: String, project: Project? = null, action: NotificationAction? = null) {
-        notify(content, NotificationType.ERROR, project, action)
+        notify(content, NotificationType.ERROR, project, listOfNotNull(action))
     }
 
     fun notifyWarn(content: String, project: Project? = null, action: NotificationAction? = null) {
-        notify(content, NotificationType.WARNING, project, action)
+        notify(content, NotificationType.WARNING, project, listOfNotNull(action))
     }
 
-    private fun notify(
+    /** A notification with several actions, e.g. "Update" / "Ignore this version". */
+    fun notify(
         content: String,
         type: NotificationType,
         project: Project?,
-        action: NotificationAction? = null
+        actions: List<NotificationAction>
     ) {
         val notification = NotificationGroupManager.getInstance()
             .getNotificationGroup(GROUP_ID)
             .createNotification(content, type)
-        if (action != null) {
-            notification.addAction(action)
-        }
+        actions.forEach { notification.addAction(it) }
         notification.notify(project)
     }
 }

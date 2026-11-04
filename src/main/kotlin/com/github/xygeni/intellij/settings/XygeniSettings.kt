@@ -30,7 +30,11 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
         var skipSslVerify: Boolean = false,
         var skipUpdate: Boolean = false,
         var verbose: Boolean = false,
-        var additionalGlobalOptions: String = ""
+        var additionalGlobalOptions: String = "",
+        // MCP server updates (xygeni/xygeni-product-backlog#2382): notify (default), auto or off
+        var mcpUpdateMode: String = McpUpdateMode.NOTIFY.value,
+        // A version the user chose to ignore in the update notification; empty when none
+        var mcpIgnoredVersion: String = ""
     )
 
     private var state = State()
@@ -49,6 +53,7 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
 
     companion object {
         private const val TOKEN_KEY = "XygeniApiToken"
+        private const val MCP_SERVER_BASE_URL = "https://get.xygeni.io/latest/mcp-server"
 
         fun getInstance(): XygeniSettings =
             ApplicationManager.getApplication().getService(XygeniSettings::class.java)
@@ -109,6 +114,18 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
             state.additionalGlobalOptions = value.trim()
         }
 
+    var mcpUpdateMode: McpUpdateMode
+        get() = McpUpdateMode.fromValue(state.mcpUpdateMode)
+        set(value) {
+            state.mcpUpdateMode = value.value
+        }
+
+    var mcpIgnoredVersion: String
+        get() = state.mcpIgnoredVersion
+        set(value) {
+            state.mcpIgnoredVersion = value.trim()
+        }
+
     /** The options placed before the scanner command (`xygeni <options> scan ...`). */
     fun scannerGlobalOptions(): List<String> {
         val enabled = listOfNotNull(
@@ -155,9 +172,28 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
         }
     }
 
-    fun getMcpDownloadUrl(): String {
-        return "https://get.xygeni.io/latest/mcp-server/xygeni-mcp-server.jar"
+    fun getMcpDownloadUrl(): String = "$MCP_SERVER_BASE_URL/xygeni-mcp-server.jar"
+
+    /** `<hash>  xygeni-mcp-server.jar`, published next to the JAR (xygeni/xygeni-product-backlog#2381). */
+    fun getMcpChecksumUrl(): String = "$MCP_SERVER_BASE_URL/xygeni-mcp-server.jar.sha256"
+
+    /** The version of the published JAR on a single line (xygeni/xygeni-product-backlog#2381). */
+    fun getMcpVersionUrl(): String = "$MCP_SERVER_BASE_URL/version.txt"
+
+
+}
+/** How the plugin reacts to a newer MCP server being published (xygeni/xygeni-product-backlog#2382). */
+enum class McpUpdateMode(val value: String, val label: String) {
+    /** Notify with Update / Ignore this version actions. */
+    NOTIFY("notify", "Notify me"),
+    /** Update in the background and notify when done. */
+    AUTO("auto", "Update automatically"),
+    /** Never check. The manual "Check for MCP Server Updates" action still works. */
+    OFF("off", "Off");
+
+    override fun toString(): String = label
+
+    companion object {
+        fun fromValue(value: String?): McpUpdateMode = entries.firstOrNull { it.value == value } ?: NOTIFY
     }
-
-
 }

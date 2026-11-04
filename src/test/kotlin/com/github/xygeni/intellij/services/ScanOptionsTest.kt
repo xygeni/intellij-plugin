@@ -1,0 +1,106 @@
+package com.github.xygeni.intellij.services
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/** Scanner options the user may add from the IDE (xygeni/xygeni-product-backlog#415). */
+class ScanOptionsTest {
+
+    private fun ok(text: String): String {
+        val result = ScanOptions.validate(text)
+        assertTrue("$text: ${(result as? ScanOptions.Validation.Error)?.message}", result is ScanOptions.Validation.Ok)
+        return (result as ScanOptions.Validation.Ok).option
+    }
+
+    private fun bad(text: String, part: String) {
+        val result = ScanOptions.validate(text)
+        assertTrue("$text should be refused", result is ScanOptions.Validation.Error)
+        val message = (result as ScanOptions.Validation.Error).message
+        assertTrue("$text: $message", message.contains(part))
+    }
+
+    @Test
+    fun `the offered options and the managed ones never overlap`() {
+        for (spec in ScanOptions.SPECS) {
+            assertNull("${spec.name} is both offered and managed", ScanOptions.MANAGED[spec.name])
+            assertTrue(spec.name.startsWith("--"))
+            if (spec.kind == ScanOptions.Kind.ENUM) assertTrue(spec.values.size > 1)
+            if (spec.closed) assertTrue(spec.values.isNotEmpty())
+        }
+    }
+
+    @Test
+    fun `parse - name, name=value and name value`() {
+        assertNull(ScanOptions.parse("--ai-review")!!.value)
+        assertEquals("all", ScanOptions.parse("--ai-review=all")!!.value)
+        assertEquals("all", ScanOptions.parse("  --ai-review  all ")!!.value)
+        assertEquals("java, kotlin", ScanOptions.parse("--run-languages = java, kotlin")!!.value)
+        assertNull(ScanOptions.parse("java"))
+        assertNull(ScanOptions.parse(""))
+        assertEquals("--mute", ScanOptions.nameOf("--mute=.xygeni.mute.yml"))
+    }
+
+    @Test
+    fun `validate - canonical form for flags, enums, lists, text and paths`() {
+        assertEquals("--include-license-analysis", ok("--include-license-analysis"))
+        bad("--include-license-analysis=yes", "takes no value")
+        assertEquals("--ai-review=all", ok("--ai-review all"))
+        bad("--ai-review=sometimes", "is one of off, all, ai-detected")
+        bad("--ai-review", "needs a value")
+        assertEquals("--run-languages=java,kotlin", ok("--run-languages = java, kotlin"))
+        bad("--run-languages=java,cobol", "cobol not among")
+        bad("--run-languages=java,,kotlin", "none empty")
+        assertEquals("an open list accepts other items", "--ai-review-filter=high,!sql_injection", ok("--ai-review-filter=high,!sql_injection"))
+        assertEquals("the first = splits name and value", "--detectors=secrets=high|iac=all", ok("--detectors=secrets=high|iac=all"))
+        bad("--standard=owasp top10", "no spaces")
+        assertEquals("a path may have spaces", "--mute=mutes/my profile.yml", ok("--mute=mutes/my profile.yml"))
+    }
+
+    @Test
+    fun `validate - what the plugin manages and what the scanner does not have are refused with a reason`() {
+        for ((name, reason) in ScanOptions.MANAGED) bad("$name=x", reason)
+        bad("--turbo", "--turbo")
+        bad("java", "--")
+    }
+
+    @Test
+    fun `normalize keeps the valid entries in canonical form, one per option, the last one winning`() {
+        assertEquals(emptyList<String>(), ScanOptions.normalize(null))
+        assertEquals(
+            listOf("--ai-review=off", "--include-license-analysis"),
+            ScanOptions.normalize(listOf("--ai-review=all", "--run=secrets", "-o out.json", "--ai-review off", "--include-license-analysis", "--nope"))
+        )
+    }
+
+    @Test
+    fun `suggestions - option names first, then the values of an enum or a closed list`() {
+        assertEquals(ScanOptions.SPECS.size, ScanOptions.suggestions("--").size)
+        assertEquals(listOf("--ai-review=", "--ai-review-filter="), ScanOptions.suggestions("--ai-r"))
+        assertEquals(listOf("--include=", "--include-license-analysis"), ScanOptions.suggestions("--inc"))
+        assertEquals(listOf("--ai-review=off", "--ai-review=all", "--ai-review=ai-detected"), ScanOptions.suggestions("--ai-review="))
+        assertEquals(listOf("--ai-review=all", "--ai-review=ai-detected"), ScanOptions.suggestions("--ai-review=a"))
+        assertEquals(listOf("--run-languages=java,kotlin"), ScanOptions.suggestions("--run-languages=java,kot"))
+        assertFalse("already chosen items are not offered again", ScanOptions.suggestions("--run-languages=java,").contains("--run-languages=java,java"))
+        assertEquals(emptyList<String>(), ScanOptions.suggestions("--mute="))
+        assertEquals(emptyList<String>(), ScanOptions.suggestions("--turbo="))
+    }
+
+    @Test
+    fun `scan configuration - options are part of ide json, validated on read, and the defaults have none`() {
+        val parsed = ScanConfig.parse("""{"options": ["--ai-review=all", "--run=secrets", "--dir=/tmp"]}""")
+        assertEquals("a hand-edited file cannot bring managed options in", listOf("--ai-review=all"), parsed.options)
+        assertFalse(parsed.isDefault)
+        assertTrue(ScanConfig.normalize(listOf("sast"), null, null).options.isEmpty())
+
+        var config = ScanConfig.defaults().withScanOption("--ai-review=all").withScanOption("--ai-review=off").withScanOption("--run-languages=java")
+        assertEquals("in the order of the option list, replaced by name", listOf("--run-languages=java", "--ai-review=off"), config.options)
+        config = config.withoutScanOption("--ai-review")
+        assertEquals(listOf("--run-languages=java"), config.options)
+        assertTrue(config.toJson().contains("\"--run-languages=java\""))
+        assertEquals(config, ScanConfig.parse(config.toJson()))
+        assertTrue(config.withoutScanOption("--run-languages").isDefault)
+    }
+}

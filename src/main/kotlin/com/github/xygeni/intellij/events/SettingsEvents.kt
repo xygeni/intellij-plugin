@@ -20,6 +20,15 @@ interface SettingsChangeListener {
     fun settingsChanged()
 }
 
+/** The per-project scan configuration or Auto Scan on Save changed from a view: the others repaint (#415). */
+val SCAN_CONFIG_CHANGED_TOPIC = Topic.create(
+    "Xygeni Scan Configuration Changed",
+    ScanConfigChangeListener::class.java
+)
+interface ScanConfigChangeListener {
+    fun scanConfigChanged(project: Project?)
+}
+
 // ---------------------- //
 // -- Connection state -- //
 // ---------------------- //

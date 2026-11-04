@@ -34,6 +34,10 @@ class ScanService : ProcessExecutorService() {
     var lastRunScanTypes: Set<String> = emptySet()
         private set
 
+    /** Whether the run in progress / just finished was a full scan: its skipped categories are cleared, not kept (#415). */
+    var lastRunWasFull: Boolean = true
+        private set
+
     var processHandle: MyProcessHandle? = null
 
     private val baseArgs: Map<String, String> = mapOf(
@@ -45,24 +49,36 @@ class ScanService : ProcessExecutorService() {
         "--include-vulnerabilities" to ""
     )
 
-    private fun buildArgs(changingValue: String, incremental: Boolean = false): Map<String, String> {
-        return if (!incremental) {
-            baseArgs.toMutableMap().apply {
-                this["--run"] = "deps,secrets,misconf,iac,suspectdeps,sast,malware,quality,apisec,ai"
-                this["-d"] = changingValue
-            }
-        }else{
-            baseArgs.toMutableMap().apply {
-                this["-d"] = changingValue
-                this["--run"] = "secrets,iac,sast,malware"
-                this["--incremental"] = ""
-            }
+    /**
+     * The `--run=` list comes from the project's `.xygeni/ide.json` (xygeni/xygeni-product-backlog#415), or is
+     * [only] for a single scan type (the play button of a results view). The scanner options of the file go after
+     * it, each canonical entry (`--name=value`) as one argument.
+     */
+    fun buildArgs(changingValue: String, config: ScanConfig, incremental: Boolean = false, only: List<String>? = null): Map<String, String> {
+        val run = only?.takeIf { it.isNotEmpty() } ?: if (incremental) config.onSave else config.scans
+        return baseArgs.toMutableMap().apply {
+            this["--run"] = run.joinToString(",")
+            this["-d"] = changingValue
+            if (incremental) this["--incremental"] = ""
+            config.excludeAddValue()?.let { this["--exclude-add"] = it }
+            for (option in ScanOptions.normalize(config.options)) this[option] = ""
         }
+    }
+
+    /** The scan types plus the ones that run with them (SCA brings suspect dependencies), in CLI order. */
+    fun withCompanions(types: List<String>): List<String> {
+        val all = types.toMutableSet()
+        for (scanner in ScanConfig.SCANNERS) {
+            val parent = scanner.runsWith ?: continue
+            if (parent in all) all.add(scanner.key)
+        }
+        return ScanConfig.ALL_SCAN_TYPES.filter { it in all }
     }
 
     fun isUnlicensed(scanType: String): Boolean = scanType in _unlicensedScanTypes
 
-    fun scan(project: Project, incremental: Boolean = false) {
+    /** The full scan, the on-save incremental scan, or with [only] just those scan types (their findings alone are refreshed). */
+    fun scan(project: Project, incremental: Boolean = false, only: List<String>? = null) {
         if (scanning) {
             Logger.error("❌ Scanning is already running")
             return
@@ -70,10 +86,18 @@ class ScanService : ProcessExecutorService() {
 
         val path = project.basePath ?: // TODO: ver qué hacer aquí
         return
+        val config = ScanConfig.load(project)
+        if (incremental && config.onSave.isEmpty()) {
+            Logger.log("No scan type is configured to run on save (.xygeni/ide.json). Incremental scan skipped.", project)
+            return
+        }
         scanning = true
 
-        val scanArgs = this@ScanService.buildArgs(path, incremental)
+        val onlyTypes = only?.takeIf { it.isNotEmpty() }?.let { withCompanions(it) }
+        val scanArgs = this@ScanService.buildArgs(path, config, incremental, onlyTypes)
         lastRunScanTypes = scanArgs["--run"].orEmpty().split(',').filter { it.isNotBlank() }.toSet()
+        // A single scan type keeps the findings of the others, like an incremental run does.
+        lastRunWasFull = !incremental && onlyTypes == null
         // Only the scan types that run now can refresh their licence status: the incremental
         // scan skips apisec/ai, so clearing everything would turn "Not licensed" into "0 issues".
         _unlicensedScanTypes.removeAll(lastRunScanTypes)

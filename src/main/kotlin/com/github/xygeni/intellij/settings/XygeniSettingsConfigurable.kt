@@ -13,6 +13,7 @@ import com.github.xygeni.intellij.services.LicenseService
 import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.ComboBox
 import com.intellij.ui.components.ActionLink
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBPasswordField
@@ -34,6 +35,7 @@ class XygeniSettingsConfigurable(private val project: Project) : Configurable {
     private lateinit var skipUpdateField: JCheckBox
     private lateinit var verboseField: JCheckBox
     private lateinit var additionalGlobalOptionsField: JBTextField
+    private lateinit var mcpUpdateModeField: ComboBox<McpUpdateMode>
     private var mainPanel: JPanel? = null
 
     override fun getDisplayName(): String = "Xygeni Settings"
@@ -58,6 +60,9 @@ class XygeniSettingsConfigurable(private val project: Project) : Configurable {
         verboseField = JCheckBox("Verbose scanner output (--verbose)")
         additionalGlobalOptionsField = JBTextField().apply { emptyText.text = "e.g. -cop key=value" }
 
+        // MCP server updates (xygeni/xygeni-product-backlog#2382): the published version is checked once a day.
+        mcpUpdateModeField = ComboBox(McpUpdateMode.entries.toTypedArray())
+
         val form = FormBuilder.createFormBuilder()
             .addLabeledComponent(JBLabel("Xygeni API URL:"), apiUrlField, 1, false)
             .addLabeledComponent(JBLabel("Access token:"), tokenField, 1, false)
@@ -75,6 +80,12 @@ class XygeniSettingsConfigurable(private val project: Project) : Configurable {
             .addComponent(comment("Advanced: placed before the scanner command, separated by spaces. Leave empty unless " +
                 "Xygeni support asks for it. -q/--quiet (the plugin reads the scanner output) and --api-key (the token comes " +
                 "from these settings) are ignored."))
+            .addSeparator()
+            .addComponent(JBLabel("MCP server"))
+            .addLabeledComponent(JBLabel("MCP server updates:"), mcpUpdateModeField, 1, false)
+            .addComponent(comment("Checked once a day after the connection is validated. \"Notify me\" offers Update / Ignore " +
+                "this version; \"Update automatically\" installs it in the background. Tools > Xygeni > Check for MCP Server " +
+                "Updates checks now, whatever the setting."))
             .addComponentFillVertically(JPanel(), 0)
             .panel
         mainPanel = form
@@ -91,18 +102,26 @@ class XygeniSettingsConfigurable(private val project: Project) : Configurable {
                 skipSslVerifyField.isSelected != settings.skipSslVerify ||
                 skipUpdateField.isSelected != settings.skipUpdate ||
                 verboseField.isSelected != settings.verbose ||
-                additionalGlobalOptionsField.text.trim() != settings.additionalGlobalOptions
+                additionalGlobalOptionsField.text.trim() != settings.additionalGlobalOptions ||
+                mcpUpdateModeField.selectedItem != settings.mcpUpdateMode
     }
 
     override fun apply() {
         val settings = XygeniSettings.getInstance()
         settings.apiUrl = apiUrlField.text.trim()
         settings.apiToken = String(tokenField.password).trim()
+        val autoScanTurnedOn = autoScanField.isSelected && !settings.autoScan
         settings.autoScan = autoScanField.isSelected
+        // Switched on with nothing chosen for on save: start from the default on-save types (#415).
+        if (autoScanTurnedOn && com.github.xygeni.intellij.services.ScanConfig.load(project).onSave.isEmpty()) {
+            com.github.xygeni.intellij.services.ScanConfig.save(project, com.github.xygeni.intellij.services.ScanConfig.load(project).withDefaultOnSave())
+        }
+        this.project.messageBus.syncPublisher(com.github.xygeni.intellij.events.SCAN_CONFIG_CHANGED_TOPIC).scanConfigChanged(project)
         settings.skipSslVerify = skipSslVerifyField.isSelected
         settings.skipUpdate = skipUpdateField.isSelected
         settings.verbose = verboseField.isSelected
         settings.additionalGlobalOptions = additionalGlobalOptionsField.text
+        settings.mcpUpdateMode = mcpUpdateModeField.selectedItem as? McpUpdateMode ?: McpUpdateMode.NOTIFY
         Logger.log("Xygeni settings updated", project)
         this.project.messageBus.syncPublisher(SETTINGS_CHANGED_TOPIC).settingsChanged()
     }
@@ -116,6 +135,7 @@ class XygeniSettingsConfigurable(private val project: Project) : Configurable {
         skipUpdateField.isSelected = settings.skipUpdate
         verboseField.isSelected = settings.verbose
         additionalGlobalOptionsField.text = settings.additionalGlobalOptions
+        mcpUpdateModeField.selectedItem = settings.mcpUpdateMode
     }
 
     private fun comment(text: String): JBLabel = JBLabel("<html>$text</html>").apply {

@@ -14,6 +14,7 @@ import com.github.xygeni.intellij.events.ReadListener
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.model.report.BaseXygeniIssue
 import com.github.xygeni.intellij.render.BaseHtmlIssueRenderer
+import com.github.xygeni.intellij.services.LicenseService
 import com.github.xygeni.intellij.services.ScanService
 import com.github.xygeni.intellij.services.report.BaseReportService
 import com.intellij.openapi.application.ApplicationManager
@@ -92,12 +93,32 @@ abstract class BaseView<T : BaseXygeniIssue>(
             })
         }
 
+        // Runs this scan type alone and refreshes only its findings (xygeni/xygeni-product-backlog#415).
+        val runButton = JLabel(Icons.RUN_ICON).apply {
+            toolTipText = "Run the $title scan only"
+            cursor = java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR)
+            addMouseListener(object : MouseAdapter() {
+                override fun mouseClicked(e: MouseEvent) {
+                    if (!LicenseService.getInstance().isLicenseValid()) return
+                    com.intellij.openapi.wm.ToolWindowManager.getInstance(project).getToolWindow("Xygeni console")?.activate(null)
+                    project.service<ScanService>().scan(project, incremental = false, only = listOf(service.reportType))
+                }
+            })
+        }
+        val headerButtons = JPanel().apply {
+            isOpaque = false
+            layout = BoxLayout(this, BoxLayout.X_AXIS)
+            add(runButton)
+            add(Box.createHorizontalStrut(8))
+            add(refreshButton)
+        }
+
         val headerPanel = JPanel(BorderLayout()).apply {
             isOpaque = false
             alignmentX = Component.LEFT_ALIGNMENT
             border = EmptyBorder(8, 0, 0, 10)
             add(header, BorderLayout.WEST)
-            add(refreshButton, BorderLayout.EAST)
+            add(headerButtons, BorderLayout.EAST)
         }
 
         add(headerPanel)

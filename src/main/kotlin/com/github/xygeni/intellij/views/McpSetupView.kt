@@ -63,6 +63,7 @@ object McpSetupView {
         val tomlConfig = buildTomlConfig(SERVER_NAME, mcpJarPath, scannerPathArg, javaHome, xygeniUrl, xygeniToken)
 
         val showConfig = scannerInstalled && mcpInstalled
+        val statusSection = if (mcpInstalled) buildStatusSection(installer, pluginContext, settings) else ""
         val tokenWarning = if (savedToken != null) {
             MyBundle.message("mcp.setup.warning.tokenInClear")
         } else {
@@ -81,6 +82,8 @@ object McpSetupView {
             </div>
 
             <div class="warning">$tokenWarning</div>
+
+            $statusSection
 
             <div class="step">
                 <div class="step-number">${escapeHtml(MyBundle.message("mcp.setup.step1.title"))}</div>
@@ -186,6 +189,27 @@ object McpSetupView {
             </script>
         </body>
         </html>
+        """.trimIndent()
+    }
+
+    /** Installed path and version plus what the last update check found (xygeni/xygeni-product-backlog#2382). */
+    private fun buildStatusSection(installer: InstallerService, pluginContext: PluginContext, settings: XygeniSettings): String {
+        val installedVersion = installer.installedMcpVersion()
+        val check = installer.lastMcpUpdateCheck
+        val updateLine = when {
+            check == null -> MyBundle.message("mcp.setup.status.notChecked")
+            check.updateAvailable -> MyBundle.message("mcp.setup.status.updateAvailable", check.available ?: "")
+            else -> MyBundle.message("mcp.setup.status.upToDate")
+        }
+        return """
+            <div class="step">
+                <div class="step-number">${escapeHtml(MyBundle.message("mcp.setup.status.title"))}</div>
+                <p><strong>${escapeHtml(MyBundle.message("mcp.setup.status.path"))}</strong> <code>${escapeHtml(pluginContext.mcpJarFile.absolutePath)}</code></p>
+                <p><strong>${escapeHtml(MyBundle.message("mcp.setup.status.installedVersion"))}</strong> ${escapeHtml(installedVersion ?: MyBundle.message("mcp.setup.status.unknownVersion"))}</p>
+                <p><strong>${escapeHtml(MyBundle.message("mcp.setup.status.updates"))}</strong> ${escapeHtml(updateLine)}
+                   (${escapeHtml(MyBundle.message("mcp.setup.status.mode", settings.mcpUpdateMode.label))})</p>
+                <p>${escapeHtml(MyBundle.message("mcp.setup.status.howToCheck"))}</p>
+            </div>
         """.trimIndent()
     }
 
