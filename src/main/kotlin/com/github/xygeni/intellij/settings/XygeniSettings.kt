@@ -28,6 +28,8 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
         var autoScan: Boolean = false,
         // Scanner global options (xygeni/tech-support#378)
         var skipSslVerify: Boolean = false,
+        // An http server URL to a non-loopback host is refused unless this is on (xygeni/xygeni-product-backlog#1438)
+        var allowInsecureHttp: Boolean = false,
         var skipUpdate: Boolean = false,
         var verbose: Boolean = false,
         var additionalGlobalOptions: String = "",
@@ -90,6 +92,12 @@ class XygeniSettings : PersistentStateComponent<XygeniSettings.State> {
         get() = state.autoScan
         set(value) {
             state.autoScan = value
+        }
+
+    var allowInsecureHttp: Boolean
+        get() = state.allowInsecureHttp
+        set(value) {
+            state.allowInsecureHttp = value
         }
 
     var skipSslVerify: Boolean

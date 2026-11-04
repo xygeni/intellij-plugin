@@ -19,6 +19,7 @@ import com.github.xygeni.intellij.events.SETTINGS_CHANGED_TOPIC
 import com.github.xygeni.intellij.events.SettingsChangeListener
 import com.github.xygeni.intellij.services.ScanConfig
 import com.github.xygeni.intellij.logger.Logger
+import com.github.xygeni.intellij.services.InsecureUrl
 import com.github.xygeni.intellij.services.InstallerService
 import com.github.xygeni.intellij.services.LicenseService
 import com.github.xygeni.intellij.settings.SkipSslVerifySuggestion
@@ -187,10 +188,13 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
             statusLabel.icon = null
             val valid = urlOk && tokenOk
             val serverProblem = ApplicationManager.getApplication().getService(InstallerService::class.java).lastConnectionProblem
+            val insecure = InsecureUrl.isInsecureRemote(XygeniSettings.getInstance().apiUrl)
             statusLabel.text = when {
+                !urlOk && serverProblem == InsecureUrl.REFUSED -> "❌ ${InsecureUrl.REFUSED}"
                 !urlOk -> "❌ Invalid URL"
                 !tokenOk && serverProblem != null -> "⚠️ $serverProblem. Click to retry"
                 !tokenOk -> "❌ Invalid token"
+                insecure -> "⚠️ ${InsecureUrl.WARNING}"
                 else -> "✅ Valid Connection and Token"
             }
             // Invalid → reveal the form so the user can fix it; valid → collapse it to surface SCAN.

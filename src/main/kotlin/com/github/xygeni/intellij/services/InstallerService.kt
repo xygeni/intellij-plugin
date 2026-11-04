@@ -75,6 +75,14 @@ class InstallerService : ProcessExecutorService() {
     }
 
     private fun checkUrlAccessible(url: String, project: Project? = null, callback: (Boolean) -> Unit) {
+        // An http URL to a non-loopback host would send the token in clear: refused before any request (#1438).
+        InsecureUrl.problem(url, XygeniSettings.getInstance().allowInsecureHttp)?.let { problem ->
+            Logger.log("=== $problem", project)
+            lastConnectionProblem = problem
+            SwingUtilities.invokeLater { callback(false) }
+            return
+        }
+        if (InsecureUrl.isInsecureRemote(url)) Logger.log("=== WARNING: ${InsecureUrl.WARNING} ($url); allowed by the settings", project)
         ApplicationManager.getApplication().executeOnPooledThread {
             val validateUrl = if (url.endsWith("/")) "${url}ping" else "$url/ping"
             var accessible = false

@@ -32,6 +32,7 @@ class XygeniSettingsConfigurable(private val project: Project) : Configurable {
     private lateinit var tokenField: JBPasswordField
     private lateinit var autoScanField : JCheckBox
     private lateinit var skipSslVerifyField: JCheckBox
+    private lateinit var allowInsecureHttpField: JCheckBox
     private lateinit var skipUpdateField: JCheckBox
     private lateinit var verboseField: JCheckBox
     private lateinit var additionalGlobalOptionsField: JBTextField
@@ -55,6 +56,7 @@ class XygeniSettingsConfigurable(private val project: Project) : Configurable {
         }.apply { isVisible = isFree }
 
         // Scanner global options, placed before the command: xygeni <options> scan ... (xygeni/tech-support#378)
+        allowInsecureHttpField = JCheckBox("Allow insecure HTTP (token sent in clear)")
         skipSslVerifyField = JCheckBox("Skip SSL verification (--skip-ssl-verify)")
         skipUpdateField = JCheckBox("Skip scanner update (--skip-update)")
         verboseField = JCheckBox("Verbose scanner output (--verbose)")
@@ -66,6 +68,9 @@ class XygeniSettingsConfigurable(private val project: Project) : Configurable {
         val form = FormBuilder.createFormBuilder()
             .addLabeledComponent(JBLabel("Xygeni API URL:"), apiUrlField, 1, false)
             .addLabeledComponent(JBLabel("Access token:"), tokenField, 1, false)
+            .addComponent(allowInsecureHttpField)
+            .addComponent(comment("Only for a Xygeni server without TLS: with an http URL to a host other than localhost " +
+                "the API token travels in clear on every request. http://localhost is always allowed."))
             .addComponent(autoScanField)
             .addComponent(upgradeLink)
             .addSeparator()
@@ -100,6 +105,7 @@ class XygeniSettingsConfigurable(private val project: Project) : Configurable {
                 String(tokenField.password) != (settings.apiToken ?: "") ||
                 autoScanField.isSelected != settings.autoScan ||
                 skipSslVerifyField.isSelected != settings.skipSslVerify ||
+                allowInsecureHttpField.isSelected != settings.allowInsecureHttp ||
                 skipUpdateField.isSelected != settings.skipUpdate ||
                 verboseField.isSelected != settings.verbose ||
                 additionalGlobalOptionsField.text.trim() != settings.additionalGlobalOptions ||
@@ -118,6 +124,7 @@ class XygeniSettingsConfigurable(private val project: Project) : Configurable {
         }
         this.project.messageBus.syncPublisher(com.github.xygeni.intellij.events.SCAN_CONFIG_CHANGED_TOPIC).scanConfigChanged(project)
         settings.skipSslVerify = skipSslVerifyField.isSelected
+        settings.allowInsecureHttp = allowInsecureHttpField.isSelected
         settings.skipUpdate = skipUpdateField.isSelected
         settings.verbose = verboseField.isSelected
         settings.additionalGlobalOptions = additionalGlobalOptionsField.text
@@ -132,6 +139,7 @@ class XygeniSettingsConfigurable(private val project: Project) : Configurable {
         tokenField.text = settings.apiToken ?: ""
         autoScanField.isSelected = settings.autoScan
         skipSslVerifyField.isSelected = settings.skipSslVerify
+        allowInsecureHttpField.isSelected = settings.allowInsecureHttp
         skipUpdateField.isSelected = settings.skipUpdate
         verboseField.isSelected = settings.verbose
         additionalGlobalOptionsField.text = settings.additionalGlobalOptions

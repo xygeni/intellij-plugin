@@ -14,6 +14,10 @@ All notable changes to this project will be documented in this file.
   Saved as `options` in `.xygeni/ide.json` and validated again when the file is read.
 - Run one scan type alone: a play button in the header of each results section (SAST, SCA, Secrets…) runs just that
   scan and refreshes only its findings.
+- Security (xygeni/xygeni-product-backlog#1438): a server URL that uses `http://` to a host other than localhost is
+  refused, with the reason in the connection status, because the API token would travel in clear on every request.
+  `http://localhost` stays allowed. The new "Allow insecure HTTP" setting lets a server without TLS through on purpose;
+  the status then keeps warning that the token travels in clear.
 - MCP server updates (xygeni/xygeni-product-backlog#2382): after an update the notification says what to do in plain
   words (restart your AI assistant so it uses the new version), with "Show me how" opening a per-assistant guide (Copilot,
   Claude Code, Cursor, Claude Desktop) in MCP Setup and a note in the Configuration panel that stays until dismissed with
