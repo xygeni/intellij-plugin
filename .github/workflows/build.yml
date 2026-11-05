@@ -4,7 +4,6 @@
 # - Run Qodana inspections.
 # - Run the 'buildPlugin' task and prepare artifact for further tests.
 # - Run the 'runPluginVerifier' task.
-# - Create a draft release.
 #
 # The workflow is triggered on push and pull_request events.
 #
@@ -23,6 +22,10 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
+
+# Least privilege: the token is read-only for every job.
+permissions:
+  contents: read
   
 jobs:
 
@@ -105,14 +108,7 @@ jobs:
         with:
           name: tests-result
           path: ${{ github.workspace }}/build/reports/tests
-
-      # Upload the Coverage report to CodeCov
-      # https://github.com/marketplace/actions/codecov
-      - name: Upload Code Coverage Report
-        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
-        with:
-          files: ${{ github.workspace }}/build/reports/kover/report.xml
-          token: ${{ secrets.CODECOV_TOKEN }}
+     
 
   # Run plugin structure verification along with IntelliJ Plugin Verifier
   verify:
@@ -148,41 +144,3 @@ jobs:
         with:
           name: pluginVerifier-result
           path: ${{ github.workspace }}/build/reports/pluginVerifier
-
-  # Prepare a draft release for GitHub Releases page for the manual verification
-  # If accepted and published, the release workflow would be triggered
-  releaseDraft:
-    name: Release draft
-    if: github.event_name != 'pull_request'
-    # needs: [ build, test, inspectCode, verify ]
-    needs: [ build, test, verify ]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      # https://github.com/marketplace/actions/checkout
-      - name: Checkout the repo
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      # Remove old release drafts by using the curl request for the available releases with a draft flag
-      - name: Remove Old Release Drafts
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh api repos/{owner}/{repo}/releases \
-            --jq '.[] | select(.draft == true) | .id' \
-            | xargs -I '{}' gh api -X DELETE repos/{owner}/{repo}/releases/{}
-
-      # Create a new release draft which is not publicly visible and requires manual acceptance
-      - name: Create Release Draft
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          VERSION=$(./gradlew properties --property version --quiet --console=plain | tail -n 1 | cut -f2- -d ' ')
-          RELEASE_NOTE="./build/tmp/release_note.txt"
-          ./gradlew getChangelog --unreleased --no-header --quiet --console=plain --output-file=$RELEASE_NOTE
-          
-          gh release create $VERSION \
-            --draft \
-            --title $VERSION \
-            --notes-file $RELEASE_NOTE
