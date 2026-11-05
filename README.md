@@ -20,7 +20,7 @@
 <!-- Plugin description -->
 # Xygeni Security Plugin
 
-**Secure your codebase with Secrets, SAST, SCA, IaC & Supply Chain scanning directly within your VS Code environment.**
+**Secure your codebase with Secrets, SAST, SCA, IaC, Code Quality, API Security, AI Security & Supply Chain scanning directly within your JetBrains IDE.**
 
 **Xygeni Security Scanner** is a powerful extension that brings comprehensive security scanning to your fingertips. It integrates seamlessly with your development workflow, allowing you to identify and remediate security vulnerabilities early in the process.
 
@@ -31,6 +31,9 @@
   * **_SCA (Software Composition Analysis)_**: Identify vulnerabilities in your open-source dependencies.
   * **_IaC (Infrastructure as Code)_**: Scan your IaC files (e.g., Terraform, CloudFormation) for misconfigurations.
   * **_Misconfigurations_**: Detect security misconfigurations in your application and services.
+  * **_Code Quality_**: Find maintainability and reliability issues in your source code.
+  * **_API Security_**: Discover your API endpoints and detect flaws such as missing authentication, excessive data exposure or PII leaks (OWASP API Top 10).
+  * **_AI Security_**: Detect insecure prompts, agents and AI integrations (OWASP LLM Top 10 / Agentic ASI).
 * **Seamless Integration**: The extension adds a dedicated Xygeni view to your activity bar for easy access.
 * **Guided Setup**: A simple configuration process to connect to the Xygeni service.
 * **_In-Editor Issue Highlighting_**: View security findings directly in your code, making it easy to pinpoint and fix issues.

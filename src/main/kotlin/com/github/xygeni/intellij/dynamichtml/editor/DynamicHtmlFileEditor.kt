@@ -21,10 +21,10 @@ class DynamicHtmlFileEditor(
     val project: Project,
     val virtualFile: VirtualFile,
     private val browserContext: EditorBrowserContext
-) : UserDataHolderBase(), FileEditor {
+) : UserDataHolderBase(), FileEditor, HtmlDetailEditor {
 
-    fun loadHtml(html: String) = browserContext.loadHtml(html)
-    fun renderData(json: String) = browserContext.renderData(json)
+    override fun loadHtml(html: String) = browserContext.loadHtml(html)
+    override fun renderData(json: String) = browserContext.renderData(json)
 
     override fun getComponent(): JComponent = browserContext.browserComponent
     override fun getPreferredFocusedComponent(): JComponent? = browserContext.browserComponent

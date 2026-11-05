@@ -1,6 +1,8 @@
 package com.github.xygeni.intellij.services
 
 import com.github.xygeni.intellij.logger.Logger
+import com.github.xygeni.intellij.settings.SkipSslVerifySuggestion
+import com.github.xygeni.intellij.settings.XygeniSettings
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.process.OSProcessHandler
 import com.intellij.execution.process.ProcessEvent
@@ -84,6 +86,8 @@ abstract class ProcessExecutorService {
      * @param path Path to exe file
      * @param args process arguments
      * @param onComplete Callback with true when the process exits successfully, false if it failed.
+     * @param onOutputLine Optional observer for every stdout/stderr line, besides console logging.
+     * @param isSuccessExitCode Decides which exit codes count as success (default: only 0).
      */
     fun executeProcess(
         path: String,
@@ -91,7 +95,9 @@ abstract class ProcessExecutorService {
         envs: Map<String, String>?,
         workingDir: File? = null,
         project: Project? = null,
-        onComplete: (success: Boolean) -> Unit
+        onComplete: (success: Boolean) -> Unit,
+        onOutputLine: ((line: String) -> Unit)? = null,
+        isSuccessExitCode: (exitCode: Int) -> Boolean = { it == 0 }
     ): MyProcessHandle?  {
         val processHandle = MyProcessHandle()
 
@@ -120,7 +126,14 @@ abstract class ProcessExecutorService {
                     return@executeOnPooledThread
                 }
 
-                val command = buildCommand(path, args)
+                // Scanner global options go before the command (`xygeni <global> scan ...`). (xygeni/tech-support#378)
+                val settings = XygeniSettings.getInstance()
+                val globalArgs = settings.scannerGlobalOptions()
+                ScannerGlobalOptions.blockedIn(settings.additionalGlobalOptions).takeIf { it.isNotEmpty() }?.let {
+                    Logger.log("Ignoring scanner options ${it.joinToString(" ")}: -q/--quiet hide the scanner output the plugin reads; " +
+                        "the API token comes from the Xygeni settings.", project)
+                }
+                val command = buildCommand(path, globalArgs, args)
                 val commandLine = GeneralCommandLine(command)
                     .withWorkDirectory(workingDir)
                     .withEnvironment(envs ?: emptyMap())
@@ -158,6 +171,7 @@ abstract class ProcessExecutorService {
 
                 val process = handler.process
                 processHandle.attach(process, handler)
+                var sawCertificateError = false
 
                 handler.addProcessListener(object : ProcessListener {
 
@@ -169,22 +183,29 @@ abstract class ProcessExecutorService {
                                 ProcessOutputTypes.STDERR -> Logger.error(text, project)
                                 else -> Logger.log(text, project)
                             }
+                            if (!sawCertificateError && ScannerGlobalOptions.isCertificateError(text)) {
+                                sawCertificateError = true
+                            }
+                            onOutputLine?.invoke(text)
                         }
                     }
 
                     override fun processTerminated(event: ProcessEvent) {
                         val exitCode = event.exitCode
-                        success = exitCode == 0
+                        success = isSuccessExitCode(exitCode)
 
-                        if (success) {
-                            Logger.log("✅ Process finished successfully", project)
-                        } else {
-                            Logger.error("❌ Process finished with errors (exitCode=$exitCode)", project)
+                        when {
+                            exitCode == 0 -> Logger.log("✅ Process finished successfully", project)
+                            success -> Logger.log("✅ Process finished successfully (exitCode=$exitCode)", project)
+                            else -> Logger.error("❌ Process finished with errors (exitCode=$exitCode)", project)
                         }
 
                         // Notificamos en el hilo de la UI
                         ApplicationManager.getApplication().invokeLater {
                             onComplete(success)
+                            if (!success && sawCertificateError && ScannerGlobalOptions.SKIP_SSL_VERIFY !in globalArgs) {
+                                SkipSslVerifySuggestion.suggest(project)
+                            }
                         }
                     }
                 })
@@ -199,7 +220,7 @@ abstract class ProcessExecutorService {
         return processHandle
     }
 
-    private fun buildCommand(path: String, args: Map<String, String>): MutableList<String> {
+    private fun buildCommand(path: String, globalArgs: List<String>, args: Map<String, String>): MutableList<String> {
         val isWindows = System.getProperty("os.name").lowercase().contains("win")
         val file = File(path)
         val extension = file.extension.lowercase()
@@ -218,6 +239,7 @@ abstract class ProcessExecutorService {
             else -> mutableListOf(path) // exe
         }
 
+        baseCommand.addAll(globalArgs)
         args.forEach { (flag, value) ->
             baseCommand.add(flag)
             if (value.isNotBlank()) baseCommand.add(value)
