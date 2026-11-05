@@ -14,7 +14,7 @@ class InsecureUrlTest {
         for (host in listOf("localhost", "LOCALHOST", "app.localhost", "127.0.0.1", "127.1.2.3", "::1", "[::1]", "0:0:0:0:0:0:0:1")) {
             assertTrue(host, InsecureUrl.isLoopbackHost(host))
         }
-        for (host in listOf("xygeni.local", "10.0.0.5", "api.xygeni.io", "localhost.evil.com", "", null)) {
+        for (host in listOf("xygeni.local", "10.0.0.5", "api.xygeni.io", "localhost.evil.com", "127.evil.com", "127.0.0", "", null)) {
             assertFalse(host ?: "null", InsecureUrl.isLoopbackHost(host))
         }
     }

@@ -7,9 +7,11 @@ package com.github.xygeni.intellij.settings
  * @version : 7/10/25 (Carmendelope)
  **/
 
+import com.github.xygeni.intellij.events.SCAN_CONFIG_CHANGED_TOPIC
 import com.github.xygeni.intellij.events.SETTINGS_CHANGED_TOPIC
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.services.LicenseService
+import com.github.xygeni.intellij.services.ScanConfig
 import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.project.Project
@@ -119,10 +121,10 @@ class XygeniSettingsConfigurable(private val project: Project) : Configurable {
         val autoScanTurnedOn = autoScanField.isSelected && !settings.autoScan
         settings.autoScan = autoScanField.isSelected
         // Switched on with nothing chosen for on save: start from the default on-save types (#415).
-        if (autoScanTurnedOn && com.github.xygeni.intellij.services.ScanConfig.load(project).onSave.isEmpty()) {
-            com.github.xygeni.intellij.services.ScanConfig.save(project, com.github.xygeni.intellij.services.ScanConfig.load(project).withDefaultOnSave())
+        if (autoScanTurnedOn && ScanConfig.load(project).onSave.isEmpty()) {
+            ScanConfig.save(project, ScanConfig.load(project).withDefaultOnSave())
         }
-        this.project.messageBus.syncPublisher(com.github.xygeni.intellij.events.SCAN_CONFIG_CHANGED_TOPIC).scanConfigChanged(project)
+        this.project.messageBus.syncPublisher(SCAN_CONFIG_CHANGED_TOPIC).scanConfigChanged(project)
         settings.skipSslVerify = skipSslVerifyField.isSelected
         settings.allowInsecureHttp = allowInsecureHttpField.isSelected
         settings.skipUpdate = skipUpdateField.isSelected

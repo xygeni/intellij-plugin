@@ -75,6 +75,8 @@ class InstallerService : ProcessExecutorService() {
     }
 
     private fun checkUrlAccessible(url: String, project: Project? = null, callback: (Boolean) -> Unit) {
+        // Recomputed on every check: a problem of a previous URL (or before "Allow insecure HTTP") must not stick.
+        lastConnectionProblem = null
         // An http URL to a non-loopback host would send the token in clear: refused before any request (#1438).
         InsecureUrl.problem(url, XygeniSettings.getInstance().allowInsecureHttp)?.let { problem ->
             Logger.log("=== $problem", project)
@@ -86,6 +88,7 @@ class InstallerService : ProcessExecutorService() {
         ApplicationManager.getApplication().executeOnPooledThread {
             val validateUrl = if (url.endsWith("/")) "${url}ping" else "$url/ping"
             var accessible = false
+            var lastFailure = ""
             // A backend that is starting (a local one, a deploy) answers 5xx or refuses the connection for a few
             // seconds: retry before calling it disconnected, so the user does not have to click to reconnect.
             for (attempt in 1..PING_ATTEMPTS) {
@@ -97,17 +100,20 @@ class InstallerService : ProcessExecutorService() {
                         // PingController.max.cpu): the URL is right, the token check decides. Only an unreachable
                         // host or a wrong path (404) make the URL invalid.
                         accessible = response.isSuccessful || response.code in 300..399 || response.code == 503
+                        if (!accessible) lastFailure = "HTTP ${response.code}"
                         if (response.code == 503) Logger.log("=== The server is busy (503 on /ping); going on with the token check", project)
                         response.code >= 500 && response.code != 503
                     }
                 } catch (e: Exception) {
                     Logger.log("=== Connection check failed: ${e.message}", project)
+                    lastFailure = e.message ?: e.javaClass.simpleName
                     true
                 }
                 if (accessible || !transient || attempt == PING_ATTEMPTS) break
                 Logger.log("=== Retrying the connection in ${PING_RETRY_MS / 1000}s ($attempt/$PING_ATTEMPTS)", project)
                 Thread.sleep(PING_RETRY_MS)
             }
+            if (!accessible) lastConnectionProblem = "Could not reach $validateUrl ($lastFailure)"
 
             SwingUtilities.invokeLater {
                 callback(accessible)
@@ -247,6 +253,44 @@ class InstallerService : ProcessExecutorService() {
     // deleteRecursively removes the path WITHOUT following symlinks: the Hub wires the scanner
     // folder as a link to a folder outside the install dir, and `File.deleteRecursively()`
     // wiped that target (#1976). Links are removed as links; the walk never descends into them.
+    /**
+     * Moves the newest complete scanner of the old `~/.xygeni/plugins/xygeni/<plugin version>/` folders into the fixed
+     * folder, so an update needs no download, and drops the other versioned copies (one scanner is 250 MB). A
+     * scanner the Hub wired as a link is unlinked, never followed (#1976).
+     */
+    private fun migrateVersionedScannerInstall(project: Project?) {
+        val installDir = this.pluginContext.installDir
+        try {
+            val pluginDir = installDir.parentFile
+            val versioned = pluginDir.listFiles { file -> file.isDirectory && file.name != PluginContext.SCANNER_DIR && file.name.firstOrNull()?.isDigit() == true }
+                .orEmpty().sortedByDescending { it.name }
+            if (versioned.isEmpty()) return
+            val target = File(installDir, PluginContext.SCANNER_SUBDIR)
+            if (!Files.exists(target.toPath(), LinkOption.NOFOLLOW_LINKS)) {
+                // A scanner the Hub wired as a link keeps pointing where the Hub put it: the link is recreated, not followed.
+                val linked = versioned.map { File(it, PluginContext.SCANNER_SUBDIR).toPath() }.firstOrNull { Files.isSymbolicLink(it) }
+                val complete = versioned.map { File(it, PluginContext.SCANNER_SUBDIR) }
+                    .firstOrNull { !Files.isSymbolicLink(it.toPath()) && (File(it, "lib").listFiles { f -> f.name.endsWith(".jar") }?.size ?: 0) >= MIN_SCANNER_JARS }
+                installDir.mkdirs()
+                if (linked != null) {
+                    Files.createSymbolicLink(target.toPath(), Files.readSymbolicLink(linked))
+                    Logger.log("Scanner link moved to ${target.absolutePath}", project)
+                } else if (complete != null) {
+                    Files.move(complete.toPath(), target.toPath())
+                    Logger.log("Scanner moved from ${complete.absolutePath} to ${target.absolutePath}", project)
+                }
+            }
+            for (dir in versioned) {
+                this.deleteRecursively(File(dir, PluginContext.SCANNER_SUBDIR).absolutePath)
+                // The versioned folder is kept while it still holds something else (a legacy MCP copy, see #2382).
+                if (dir.listFiles().isNullOrEmpty()) dir.delete()
+            }
+        } catch (e: Exception) {
+            // A failed move only costs a download: the installer fills the fixed folder.
+            Logger.warn("Could not move the previous scanner install into ${installDir.absolutePath}: ${e.message}", project)
+        }
+    }
+
     private fun deleteRecursively(path: String): Boolean {
         val target = Paths.get(path)
         if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) return false
@@ -402,7 +446,7 @@ class InstallerService : ProcessExecutorService() {
                 // update waits as `.pending` until the next start.
                 Files.move(temporaryJar, this.pluginContext.mcpPendingJarFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
                 writeVersionFile(this.pluginContext.mcpPendingVersionFile, remoteVersion)
-                Logger.warn("Could not replace $mcpJarFile (${e.message}). Close your MCP client; the update is applied on the next start.", project)
+                Logger.warn("Could not replace $mcpJarFile (${e.message}): an AI assistant is still using it. The update is applied on the next IDE start.", project)
                 return McpDownloadOutcome.PENDING
             }
             writeVersionFile(this.pluginContext.mcpVersionFile, remoteVersion)
@@ -425,7 +469,7 @@ class InstallerService : ProcessExecutorService() {
             Logger.log("Pending Xygeni MCP server update applied (${pendingVersion ?: "unknown version"})", project)
             true
         } catch (e: IOException) {
-            Logger.warn("Pending Xygeni MCP server update not applied yet, the JAR is still in use: ${e.message}", project)
+            Logger.warn("Pending Xygeni MCP server update not applied yet, an AI assistant is still using the JAR: ${e.message}", project)
             false
         }
     }
@@ -521,8 +565,8 @@ class InstallerService : ProcessExecutorService() {
                     when (outcome) {
                         McpDownloadOutcome.INSTALLED -> notifyMcpUpdated(version, project)
                         McpDownloadOutcome.PENDING -> NotificationService.notifyWarn(
-                            "The Xygeni MCP server update was downloaded but the installed JAR is in use. Close your MCP client; " +
-                                "the update is applied the next time the IDE starts.", project, openMcpSetup
+                            "The Xygeni MCP server update was downloaded, but your AI assistant (Copilot, Claude Code, Cursor…) is still " +
+                                "using the installed version: close it. The update is applied the next time the IDE starts.", project, openMcpSetup
                         )
                     }
                 } catch (e: Exception) {
@@ -596,15 +640,18 @@ class InstallerService : ProcessExecutorService() {
     private fun removeLegacyMcpInstalls(project: Project?) {
         val legacyMcpDirs = this.pluginContext.legacyMcpInstallDirs()
         if (legacyMcpDirs.isEmpty() || !this.pluginContext.mcpJarFile.exists()) return
+        var removed = false
         for (legacyMcpDir in legacyMcpDirs) {
             Logger.log("Removing previous MCP server folder: $legacyMcpDir", project)
             try {
-                this.deleteRecursively(legacyMcpDir.absolutePath)
+                removed = this.deleteRecursively(legacyMcpDir.absolutePath) || removed
             } catch (e: IOException) {
-                // An MCP client still running the old JAR locks it on Windows; it is retried on the next start.
+                // An AI assistant still running the old JAR locks it on Windows; it is retried on the next start.
                 Logger.warn("Could not remove $legacyMcpDir: ${e.message}", project)
             }
         }
+        // Said once, when the old copy goes; while it stays locked the log line above is enough.
+        if (!removed) return
         val message = "The Xygeni MCP server moved to ${this.pluginContext.mcpJarFile.absolutePath}. " +
             "Update the path in your MCP client configuration."
         Logger.warn(message, project)
@@ -696,6 +743,9 @@ class InstallerService : ProcessExecutorService() {
 
     // install checks the xygeni command and install if it does not exist
     fun install(project: Project?) {
+        // Before looking at the fixed folder: an old versioned install is moved into it (no download). Runs here,
+        // on the startup pooled thread, and never where the context is first touched (that could be the EDT).
+        migrateVersionedScannerInstall(project)
         var steps = mutableListOf<Step>()
         if (!isInstalled()) {
             steps.add(Step("Installing scanner", this::installScannerFn,))

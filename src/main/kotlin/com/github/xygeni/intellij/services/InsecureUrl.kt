@@ -14,9 +14,12 @@ object InsecureUrl {
     const val REFUSED = "Insecure URL: the server URL uses http and the API token would travel in clear. " +
         "Use https, or enable \"Allow insecure HTTP\" in the Xygeni settings if this server really has no TLS"
 
+    /** The whole 127/8 block, as an address: a DNS name such as 127.example.com is not loopback. */
+    private val LOOPBACK_V4 = Regex("""127\.\d{1,3}\.\d{1,3}\.\d{1,3}""")
+
     fun isLoopbackHost(hostname: String?): Boolean {
         val host = hostname?.trim()?.lowercase()?.removePrefix("[")?.removeSuffix("]") ?: return false
-        return host == "localhost" || host.endsWith(".localhost") || host == "127.0.0.1" || host.startsWith("127.") ||
+        return host == "localhost" || host.endsWith(".localhost") || LOOPBACK_V4.matches(host) ||
             host == "::1" || host == "0:0:0:0:0:0:0:1"
     }
 

@@ -149,7 +149,6 @@ class XygeniSettingsView(private val project: Project) : JPanel() {
             })
     }
 
-    /** Updates the status label and collapses CONFIGURATION when valid / expands it when invalid. */
     /**
      * The MCP server line (#2382): "Installed" from the JAR on disk, plus what the last check found; "Checking…" while
      * the connection check (which installs it) runs; and the note after an update until the user says OK.

@@ -17,7 +17,6 @@ import com.intellij.ui.TextFieldWithAutoCompletion
 import com.intellij.ui.TextFieldWithAutoCompletionListProvider
 import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
-import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileChooser.FileChooser
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
@@ -125,7 +124,6 @@ class ScanConfigView(private val project: Project) : JPanel() {
 
         val actions = linkRow(
             ActionLink("Select all") { save(ScanConfig.load(project).withAllScanTypes(true)) },
-            ActionLink("Clear") { save(ScanConfig.load(project).withAllScanTypes(false)) },
             ActionLink("Restore defaults") { save(ScanConfig.defaults()) }
         )
 
@@ -136,8 +134,6 @@ class ScanConfigView(private val project: Project) : JPanel() {
             rows.add(JBLabel(text).apply { componentStyle = UIUtil.ComponentStyle.SMALL; fontColor = UIUtil.FontColor.BRIGHTER; toolTipText = tooltip }, constraints)
         }
         header("Scanner", 0, "")
-        constraints.gridx = 0; constraints.gridy = 0; constraints.weightx = 1.0; constraints.fill = GridBagConstraints.HORIZONTAL
-        constraints.weightx = 0.0; constraints.fill = GridBagConstraints.NONE
         header("Full scan", 1, "The scan types of Run Scan. With SCA on, suspect dependencies also run. At least one is required.")
         header("On save", 2, "The scan types of Scan project on save. Only the scan types that can analyze just the changed files " +
             "are offered; the others would scan the whole project on every save. A type must be in the full scan to run on save.")
@@ -165,6 +161,7 @@ class ScanConfigView(private val project: Project) : JPanel() {
             constraints.gridx = 1
             rows.add(ToggleSwitch().apply {
                 toolTipText = "Full scan"
+                accessibleContext.accessibleName = "${scanner.label} in the full scan"
                 addActionListener { save(ScanConfig.load(project).withScanType(scanner.key, isSelected)) }
                 fullChecks[scanner.key] = this
             }, constraints)
@@ -172,6 +169,7 @@ class ScanConfigView(private val project: Project) : JPanel() {
             if (scanner.onSave) {
                 rows.add(ToggleSwitch().apply {
                     toolTipText = "On save"
+                    accessibleContext.accessibleName = "${scanner.label} on save"
                     addActionListener { toggleOnSave(scanner.key, isSelected) }
                     onSaveChecks[scanner.key] = this
                 }, constraints)
@@ -489,6 +487,4 @@ class ScanConfigView(private val project: Project) : JPanel() {
         repaint()
     }
 
-    @Suppress("unused")
-    private fun openDocs() = BrowserUtil.browse("https://docs.xygeni.io")
 }

@@ -2,6 +2,7 @@ package com.github.xygeni.intellij.services
 
 import com.github.xygeni.intellij.events.SCAN_STATE_TOPIC
 import com.github.xygeni.intellij.logger.Logger
+import com.github.xygeni.intellij.notifications.NotificationService
 import com.github.xygeni.intellij.model.PluginContext
 import com.github.xygeni.intellij.settings.XygeniSettings
 import com.intellij.openapi.application.ApplicationManager
@@ -18,6 +19,8 @@ import java.util.concurrent.ConcurrentHashMap
  **/
 
 @Service(Service.Level.PROJECT)
+private val UNKNOWN_OPTION = Regex("Unknown options?: '([^']+)'")
+
 class ScanService : ProcessExecutorService() {
 
     private val pluginContext = service<PluginContext>() 
@@ -106,6 +109,7 @@ class ScanService : ProcessExecutorService() {
         // Whole second: a file system with 1s mtime granularity must not date a fresh report before the start.
         val scanStartedAt = System.currentTimeMillis() / 1000 * 1000
         publishScanUpdate(project, 2) // running
+        var unknownOption: String? = null // picocli: "Unknown option: '--x'" (exit code 2)
 
         try {
             processHandle = executeProcess(
@@ -121,12 +125,18 @@ class ScanService : ProcessExecutorService() {
                     if (success) {
                         publishScanUpdate(project, 1) // Finished
                     } else {
+                        // An option the installed scanner does not know, typically one added in Scan configuration
+                        // that needs a newer scanner: name it instead of the bare exit code (#415).
+                        unknownOption?.let {
+                            NotificationService.notifyError("The scanner does not accept $it (it may need scanner 6.23 or later): remove it from Scan configuration, or update the scanner", project)
+                        }
                         publishScanUpdate(project, 0) // Finished with errors
                     }
                     scanning = false
                 },
                 onOutputLine = { line ->
                     unlicensedScanTypeIn(line)?.let { _unlicensedScanTypes.add(it) }
+                    if (unknownOption == null) unknownOption = UNKNOWN_OPTION.find(line)?.groupValues?.get(1)
                 },
                 // Scanner convention, shared with the other plugins: 0 = clean scan, > 127 = completed
                 // with findings (134). 127 = some scan types not licensed: still a completed scan when

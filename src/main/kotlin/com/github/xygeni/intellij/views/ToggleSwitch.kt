@@ -14,6 +14,10 @@ import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
+import javax.accessibility.AccessibleContext
+import javax.accessibility.AccessibleRole
+import javax.accessibility.AccessibleState
+import javax.accessibility.AccessibleStateSet
 import javax.swing.JComponent
 
 /**
@@ -62,6 +66,18 @@ class ToggleSwitch : JComponent() {
             override fun focusGained(e: java.awt.event.FocusEvent?) = repaint()
             override fun focusLost(e: java.awt.event.FocusEvent?) = repaint()
         })
+    }
+
+    /** Read by screen readers as a check box with its on/off state; the name is set by the owner. */
+    override fun getAccessibleContext(): AccessibleContext {
+        if (accessibleContext == null) {
+            accessibleContext = object : AccessibleJComponent() {
+                override fun getAccessibleRole(): AccessibleRole = AccessibleRole.CHECK_BOX
+                override fun getAccessibleStateSet(): AccessibleStateSet =
+                    super.getAccessibleStateSet().also { if (isSelected) it.add(AccessibleState.CHECKED) }
+            }
+        }
+        return accessibleContext
     }
 
     fun addActionListener(listener: ActionListener) {

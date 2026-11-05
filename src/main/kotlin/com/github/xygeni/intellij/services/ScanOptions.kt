@@ -13,7 +13,7 @@ object ScanOptions {
     enum class Kind { FLAG, ENUM, LIST, TEXT, PATH }
 
     class Spec(
-        /** Long name, with the dashes (`--run-languages`). */
+        /** Long name, with the dashes (`--ai-review`). */
         val name: String,
         val kind: Kind,
         /** One line, as in the CLI help. */
@@ -25,21 +25,19 @@ object ScanOptions {
         val placeholder: String? = null
     )
 
-    private val LANGUAGES = listOf("csharp", "go", "html", "java", "javascript", "kotlin", "php", "python", "swift", "typescript")
     private val SEVERITIES = listOf("critical", "high", "low", "info")
 
     /** The options offered, in the order of the autocompletion. */
+    // Only options of `xygeni scan` itself: `--run-languages` / `--skip-languages` belong to `xygeni sast` and `xygeni quality`, and `scan` refuses them with "Unknown option" (exit 2).
     val SPECS: List<Spec> = listOf(
-        Spec("--run-languages", Kind.LIST, "Languages to analyze (SAST, Code Quality); all if not set", LANGUAGES, closed = true, placeholder = "java,typescript"),
-        Spec("--skip-languages", Kind.LIST, "Languages to leave out of the analysis", LANGUAGES, closed = true, placeholder = "html"),
         Spec("--include", Kind.LIST, "Include patterns, comma-separated (glob, ** at any depth)", placeholder = "src/**"),
         Spec("--detectors", Kind.TEXT, "Detectors to include per scan: <scan>=<ids, a severity or all>, | between scans", placeholder = "secrets=high|iac=all"),
         Spec("--skip-detectors", Kind.TEXT, "Detectors to leave out per scan, same syntax as --detectors", placeholder = "sast=hardcoded_password"),
         Spec("--mute", Kind.PATH, "Mute descriptor file (.xygeni.mute.yml) or #name of a named profile", placeholder = ".xygeni.mute.yml"),
         Spec("--standard", Kind.TEXT, "ID of the compliance standard to check", placeholder = "owasp-top10"),
-        Spec("--ai-review", Kind.ENUM, "Which findings an AI agent reviews (needs an AI agent configured)", listOf("off", "all", "ai-detected")),
-        Spec("--ai-review-filter", Kind.LIST, "Findings the AI review looks at: a severity (that one and higher), detector IDs, !<id> to leave one out, or all", SEVERITIES, placeholder = "high,!sql_injection"),
-        Spec("--ai-mode", Kind.ENUM, "Convention profile of the application before analyzing it (needs an AI agent configured)", listOf("off", "auto", "stored", "rebuild")),
+        Spec("--ai-review", Kind.ENUM, "Which findings an AI agent reviews (needs an AI agent configured; scanner 6.23 or later)", listOf("off", "all", "ai-detected")),
+        Spec("--ai-review-filter", Kind.LIST, "Findings the AI review looks at: a severity (that one and higher), detector IDs, !<id> to leave one out, or all (scanner 6.23 or later)", SEVERITIES, placeholder = "high,!sql_injection"),
+        Spec("--ai-mode", Kind.ENUM, "Convention profile of the application before analyzing it (needs an AI agent configured; scanner 6.23 or later)", listOf("off", "auto", "stored", "rebuild")),
         Spec("--include-license-analysis", Kind.FLAG, "Evaluate the licenses of the components (SCA)"),
         Spec("--conf", Kind.PATH, "Scan configuration file template (the filename is prefixed with SCAN.)", placeholder = "conf/custom.yml"),
         Spec("--custom-detectors-dir", Kind.PATH, "Directory with custom detectors", placeholder = ".xygeni/detectors"),

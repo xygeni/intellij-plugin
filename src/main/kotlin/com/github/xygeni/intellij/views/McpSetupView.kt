@@ -215,7 +215,6 @@ object McpSetupView {
         """.trimIndent()
     }
 
-    /** Installed path and version plus what the last update check found (xygeni/xygeni-product-backlog#2382). */
     /** How to make each AI assistant start the server again after the JAR was replaced (#2382). */
     private fun restartSteps(): String =
         "<ul>" + listOf("copilot", "claudeCode", "cursor", "claudeDesktop", "other")
