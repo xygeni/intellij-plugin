@@ -4,9 +4,12 @@ import com.intellij.util.net.JdkProxyProvider
 import com.intellij.util.net.ssl.CertificateManager
 import okhttp3.Authenticator
 import okhttp3.Credentials
+import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Response
 import okhttp3.Route
+import com.github.xygeni.intellij.settings.XygeniSettings
+import java.io.IOException
 import java.net.Authenticator.RequestorType
 import java.util.concurrent.TimeUnit
 
@@ -19,6 +22,8 @@ import java.util.concurrent.TimeUnit
  *   `OkHttpClient()` only sees the JBR cacerts and fails with `PKIX path building failed`
  *   behind an intercepting proxy (xygeni/tech-support#375).
  * - Proxy and proxy credentials come from the IDE HTTP proxy settings via [JdkProxyProvider].
+ * - Plain http to a non-loopback host is refused by [InsecureHttpInterceptor] unless "Allow insecure HTTP" is on
+ *   (xygeni/xygeni-product-backlog#1438): every request of the plugin goes through here, so no caller can forget it.
  */
 object XygeniHttpClient {
 
@@ -31,7 +36,28 @@ object XygeniHttpClient {
             .sslSocketFactory(certificateManager.sslContext.socketFactory, certificateManager.trustManager)
             .proxySelector(proxyProvider.proxySelector)
             .proxyAuthenticator(IdeProxyAuthenticator(proxyProvider))
+            .addInsecureHttpGuard { XygeniSettings.getInstance().allowInsecureHttp }
             .build()
+    }
+
+    /** As an application interceptor (before any connection) and a network one (each redirect hop). */
+    fun OkHttpClient.Builder.addInsecureHttpGuard(allowInsecureHttp: () -> Boolean): OkHttpClient.Builder {
+        val guard = InsecureHttpInterceptor(allowInsecureHttp)
+        return addInterceptor(guard).addNetworkInterceptor(guard)
+    }
+
+    /**
+     * Refuses a request to `http://` on a non-loopback host unless the user allowed insecure http. It reads the URL
+     * as OkHttp will send it, so a string `java.net.URI` cannot parse is still caught here.
+     */
+    class InsecureHttpInterceptor(private val allowInsecureHttp: () -> Boolean) : Interceptor {
+        override fun intercept(chain: Interceptor.Chain): Response {
+            val url = chain.request().url
+            if (!url.isHttps && !InsecureUrl.isLoopbackHost(url.host) && !allowInsecureHttp()) {
+                throw IOException("${InsecureUrl.REFUSED} (${url.scheme}://${url.host})")
+            }
+            return chain.proceed(chain.request())
+        }
     }
 
     /** Answers HTTP 407 with the credentials configured in the IDE proxy settings, if any. */

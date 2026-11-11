@@ -83,6 +83,13 @@ class LicenseService : Disposable {
                 updateState(project, false)
                 return@executeOnPooledThread
             }
+            // The seat registration sends the token: an http URL to a non-loopback host is refused here too, so no
+            // caller can reach the server in clear before the URL check does (#1438).
+            InsecureUrl.problem(apiUrl, settings.allowInsecureHttp)?.let { problem ->
+                Logger.log("License check skipped — $problem", project)
+                updateState(project, false)
+                return@executeOnPooledThread
+            }
 
             val fingerprint = loadOrCreateFingerprint()
             val body = json.encodeToString(fingerprint)
