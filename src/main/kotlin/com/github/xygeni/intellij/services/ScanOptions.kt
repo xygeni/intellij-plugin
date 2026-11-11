@@ -89,6 +89,24 @@ object ScanOptions {
     }
 
     /** Checks one entry. Refuses what is not in [SPECS], saying why when the plugin manages that option itself. */
+    /**
+     * A double quote or a control character. On Windows the scanner is started through `powershell -File xygeni.ps1`,
+     * which forwards its arguments to java without escaping an embedded quote: a quote in a value from
+     * `.xygeni/ide.json` (written by whoever authored the repository) would end the argument and pass the rest as
+     * options of its own, past the closed list. Values and excludes with one are refused.
+     */
+    fun hasUnsafeChars(value: String): Boolean = value.any { it == '"' || it.isISOControl() }
+
+    /**
+     * A path the scanner reads (`--conf`, `--custom-detectors-dir`, `--mute`) must stay inside the project: relative
+     * and without `..`. The file is committed, so an absolute path or `..` would let a repository load detectors or
+     * mute rules from anywhere on the developer's machine. `--mute=#name` names a profile, not a file.
+     */
+    fun isPathInsideProject(value: String): Boolean {
+        if (value.startsWith("/") || value.startsWith("\\") || value.startsWith("~") || Regex("^[A-Za-z]:").containsMatchIn(value)) return false
+        return value.split('/', '\\').none { it == ".." }
+    }
+
     fun validate(text: String): Validation {
         val parsed = parse(text) ?: return Validation.Error("An option starts with -- (type -- to see them)")
         MANAGED[parsed.name]?.let { return Validation.Error("${parsed.name} is not available here: $it") }
@@ -100,6 +118,10 @@ object ScanOptions {
         if (value.isEmpty()) {
             val like = spec.placeholder?.let { ", like $it" } ?: ""
             return Validation.Error("${spec.name} needs a value$like")
+        }
+        if (hasUnsafeChars(value)) return Validation.Error("${spec.name}: no quotes or control characters in the value")
+        if (spec.kind == Kind.PATH && !(spec.name == "--mute" && value.startsWith("#")) && !isPathInsideProject(value)) {
+            return Validation.Error("${spec.name}: a path inside the project (relative, without ..)")
         }
         if (spec.kind == Kind.ENUM && value !in spec.values) {
             return Validation.Error("${spec.name} is one of ${spec.values.joinToString(", ")}")

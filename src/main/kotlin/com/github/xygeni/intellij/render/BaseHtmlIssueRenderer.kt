@@ -359,17 +359,21 @@ abstract class BaseHtmlIssueRenderer<T : BaseXygeniIssue> : IssueRenderer<T> {
                 
                 nodeGroups
                   .on("mouseover", (event, d) => {
-                    tooltip
-                      .style("opacity", 1)
-                      .html(`
-                        ${'$'}{d.filePath ? `<strong>${'$'}{d.filePath}</strong><br>` : ''}
-                        ${'$'}{d.line ? `Line: ${'$'}{d.line}<br>` : ''}
-                        ${'$'}{d.type ? `Type: ${'$'}{d.type}<br>` : ''}
-                        ${'$'}{d.category ? `Category: ${'$'}{d.category}<br>` : ''}  
-                        ${'$'}{d.container ? `Container: ${'$'}{d.container}<br>` : ''}
-                        ${'$'}{d.injectionPoint ? `InjectionPoint: ${'$'}{d.injectionPoint}<br>` : ''}
-                        ${'$'}{d.code ? `<pre><code>${'$'}{d.code}</code></pre>` : ''}
-                      `);
+                    // Report strings (paths, code from the report) are text, never markup: built with .text().
+                    tooltip.style("opacity", 1).html("");
+                    const row = (label, value, strong) => {
+                      if (value === undefined || value === null || value === "") { return; }
+                      const line = tooltip.append("div");
+                      if (label) { line.append("span").text(label + ": "); }
+                      line.append(strong ? "strong" : "span").text(String(value));
+                    };
+                    row("", d.filePath, true);
+                    row("Line", d.line);
+                    row("Type", d.type);
+                    row("Category", d.category);
+                    row("Container", d.container);
+                    row("InjectionPoint", d.injectionPoint);
+                    if (d.code) { tooltip.append("pre").append("code").text(d.code); }
                   })
                   .on("mousemove", (event) => {
                     tooltip

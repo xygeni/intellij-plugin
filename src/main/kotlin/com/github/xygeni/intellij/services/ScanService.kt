@@ -18,9 +18,11 @@ import java.util.concurrent.ConcurrentHashMap
  * @version : 9/10/25 (Carmendelope)
  **/
 
-@Service(Service.Level.PROJECT)
+/** picocli: "Unknown option: '--x'" (exit code 2). Kept above the annotation: between `@Service` and the class
+ *  it would take the annotation and leave `ScanService` unregistered. */
 private val UNKNOWN_OPTION = Regex("Unknown options?: '([^']+)'")
 
+@Service(Service.Level.PROJECT)
 class ScanService : ProcessExecutorService() {
 
     private val pluginContext = service<PluginContext>() 
@@ -63,7 +65,9 @@ class ScanService : ProcessExecutorService() {
             this["--run"] = run.joinToString(",")
             this["-d"] = changingValue
             if (incremental) this["--incremental"] = ""
-            config.excludeAddValue()?.let { this["--exclude-add"] = it }
+            // One argument, `--exclude-add=<patterns>`: as a separate value, an exclude starting with @ would be read by
+            // picocli as a file of arguments (the CLI has at-files on), so a repository could add any option from it.
+            config.excludeAddValue()?.let { this["--exclude-add=$it"] = "" }
             for (option in ScanOptions.normalize(config.options)) this[option] = ""
         }
     }

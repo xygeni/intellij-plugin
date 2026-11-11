@@ -1,6 +1,6 @@
 package com.github.xygeni.intellij.services
 
-import java.net.URI
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /**
  * Plain-http server URLs (xygeni/xygeni-product-backlog#1438). The plugin sends the API token as a bearer header on
@@ -23,15 +23,16 @@ object InsecureUrl {
             host == "::1" || host == "0:0:0:0:0:0:0:1"
     }
 
-    /** True for an `http://` URL whose host is not loopback: the token would leave the machine in clear. */
+    /**
+     * True for an `http://` URL whose host is not loopback: the token would leave the machine in clear. Parsed the way
+     * OkHttp sends it (it percent-encodes spaces, `|`, `{` that `java.net.URI` rejects), and an `http:` string nothing
+     * can parse counts as insecure: the check must not fail open.
+     */
     fun isInsecureRemote(url: String?): Boolean {
         if (url.isNullOrBlank()) return false
-        return try {
-            val parsed = URI(url.trim())
-            parsed.scheme.equals("http", ignoreCase = true) && !isLoopbackHost(parsed.host)
-        } catch (e: Exception) {
-            false
-        }
+        val trimmed = url.trim()
+        trimmed.toHttpUrlOrNull()?.let { return !it.isHttps && !isLoopbackHost(it.host) }
+        return trimmed.startsWith("http:", ignoreCase = true)
     }
 
     /** Why the URL cannot be used, or null when it can (https, loopback, or insecure but allowed). */

@@ -376,6 +376,10 @@ class ScanConfigView(private val project: Project) : JPanel() {
             Messages.showWarningDialog(project, "One pattern at a time (no commas).", "Xygeni")
             return
         }
+        if (ScanOptions.hasUnsafeChars(pattern)) {
+            Messages.showWarningDialog(project, "No quotes or control characters in a pattern.", "Xygeni")
+            return
+        }
         save(ScanConfig.load(project).withExclude(pattern))
     }
 
@@ -467,6 +471,12 @@ class ScanConfigView(private val project: Project) : JPanel() {
     private fun openFile() {
         val file = ScanConfig.file(project) ?: return
         if (!file.exists()) {
+            try {
+                ScanConfig.checkNotLinked(file)
+            } catch (e: java.io.IOException) {
+                Messages.showWarningDialog(project, e.message ?: "", "Xygeni")
+                return
+            }
             file.parentFile.mkdirs()
             file.writeText(ScanConfig.load(project).toJson())
         }

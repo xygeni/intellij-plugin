@@ -85,4 +85,32 @@ class ScanConfigTest {
         // What VS Code writes (key order and formatting may differ) is read the same way.
         assertEquals(config, ScanConfig.parse("""{"excludes":["vendor/**"],"onSave":["secrets","iac","sast","malware"],"scans":${config.scans.joinToString(",", "[", "]") { "\"$it\"" }}}"""))
     }
+
+    @Test
+    fun `keys this version does not know survive a save`() {
+        val existing = """{"scans":["sast"],"future":{"x":1},"note":"from another plugin"}"""
+        val json = ScanConfig.defaults().withScanType("quality", false).toJson(existing)
+        assertTrue(json, json.contains("\"future\"") && json.contains("\"note\": \"from another plugin\""))
+        assertFalse("the known keys are replaced", ScanConfig.parse(json).scans == listOf("sast"))
+        assertEquals("not JSON: the known keys only", ScanConfig.defaults().toJson(), ScanConfig.defaults().toJson("not json"))
+    }
+
+    @Test
+    fun `a symlinked xygeni folder or ide json is not written through`() {
+        val root = java.nio.file.Files.createTempDirectory("xygeni-scan-config")
+        val outside = java.nio.file.Files.createTempDirectory("xygeni-outside")
+        try {
+            val victim = outside.resolve("victim.txt").also { java.nio.file.Files.writeString(it, "keep me") }
+            val dir = java.nio.file.Files.createDirectory(root.resolve(ScanConfig.CONFIG_DIR))
+            val file = java.nio.file.Files.createSymbolicLink(dir.resolve(ScanConfig.CONFIG_FILE), victim).toFile()
+            val refused = runCatching { ScanConfig.checkNotLinked(file) }.exceptionOrNull()
+            assertTrue(refused?.message.orEmpty(), refused is java.io.IOException && refused.message!!.contains("symbolic link"))
+
+            java.nio.file.Files.delete(file.toPath())
+            ScanConfig.checkNotLinked(file) // a plain path is fine
+        } finally {
+            root.toFile().deleteRecursively()
+            outside.toFile().deleteRecursively()
+        }
+    }
 }

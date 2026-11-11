@@ -2,6 +2,7 @@ package com.github.xygeni.intellij.activity
 
 import com.github.xygeni.intellij.dynamichtml.browser.JcefSupport
 import com.github.xygeni.intellij.logger.Logger
+import com.github.xygeni.intellij.services.InsecureUrl
 import com.github.xygeni.intellij.services.InstallerService
 import com.github.xygeni.intellij.services.LicenseService
 import com.github.xygeni.intellij.settings.XygeniSettings
@@ -23,8 +24,11 @@ class XygeniStartup : ProjectActivity {
         ApplicationManager.getApplication().executeOnPooledThread {
             val installer = ApplicationManager.getApplication().getService(InstallerService::class.java)
             val settings = XygeniSettings.getInstance()
-            // install xygeni
-            installer.install(project)
+            // install xygeni. Not with a URL the http guard refuses: a custom server's download sends the token (#1438);
+            // validateConnection below reports the refused URL.
+            if (InsecureUrl.problem(settings.apiUrl, settings.allowInsecureHttp) == null) {
+                installer.install(project)
+            }
             // check connection
             installer.validateConnection(settings.apiUrl, settings.apiToken, project) { urlOk, tokenOk ->
                 installer.publishConnectionState(project, urlOk, tokenOk)

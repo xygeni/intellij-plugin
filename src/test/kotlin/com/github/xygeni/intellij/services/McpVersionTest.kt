@@ -52,4 +52,19 @@ class McpVersionTest {
         assertNull(McpVersion.fromChecksumFile("not a checksum"))
         assertNull(McpVersion.fromChecksumFile("<Error>AccessDenied</Error>"))
     }
+
+    @Test
+    fun `an installed JAR is never replaced without a valid checksum`() {
+        val hash = "a".repeat(64)
+        for (installed in listOf(true, false)) {
+            assertEquals(McpVersion.ChecksumAction.VERIFY, McpVersion.checksumAction(200, hash, installed))
+            assertEquals("unreadable checksum", McpVersion.ChecksumAction.SKIP, McpVersion.checksumAction(200, null, installed))
+            assertEquals("timeout / proxy", McpVersion.ChecksumAction.SKIP, McpVersion.checksumAction(null, null, installed))
+            assertEquals("server error", McpVersion.ChecksumAction.SKIP, McpVersion.checksumAction(503, null, installed))
+        }
+        assertEquals("update without checksum", McpVersion.ChecksumAction.SKIP, McpVersion.checksumAction(403, null, true))
+        assertEquals("update without checksum", McpVersion.ChecksumAction.SKIP, McpVersion.checksumAction(404, null, true))
+        assertEquals("first install before #2381 is promoted", McpVersion.ChecksumAction.INSTALL_UNVERIFIED, McpVersion.checksumAction(403, null, false))
+        assertEquals(McpVersion.ChecksumAction.INSTALL_UNVERIFIED, McpVersion.checksumAction(404, null, false))
+    }
 }

@@ -111,4 +111,18 @@ class ScanOptionsTest {
         assertEquals(config, ScanConfig.parse(config.toJson()))
         assertTrue(config.withoutScanOption("--include").isDefault)
     }
+
+    @Test
+    fun `a value from ide json cannot break out of its argument or reach outside the project`() {
+        // On Windows xygeni.ps1 forwards its arguments to java without escaping an embedded quote.
+        assertFalse(ScanOptions.validate("--mute=x\" \"--set-baseline") is ScanOptions.Validation.Ok)
+        assertFalse(ScanOptions.validate("--standard=a\u0001b") is ScanOptions.Validation.Ok)
+        assertEquals(listOf("vendor/**"), ScanConfig.normalize(null, null, listOf("vendor/**", "x\" --upload \"y")).excludes)
+        for (path in listOf("/etc/detectors", "\\\\server\\share", "C:\\conf", "~/detectors", "../other", "conf/../../x")) {
+            assertFalse(path, ScanOptions.isPathInsideProject(path))
+            assertFalse(path, ScanOptions.validate("--custom-detectors-dir=$path") is ScanOptions.Validation.Ok)
+        }
+        assertTrue(ScanOptions.validate("--conf=conf/custom.yml") is ScanOptions.Validation.Ok)
+        assertTrue("a named mute profile", ScanOptions.validate("--mute=#team-profile") is ScanOptions.Validation.Ok)
+    }
 }

@@ -68,12 +68,24 @@ data class ScanConfig(
      */
     fun excludeAddValue(): String? = excludes.takeIf { it.isNotEmpty() }?.joinToString(",")
 
-    fun toJson(): String = buildJsonObject {
-        put("scans", JsonArray(scans.map { JsonPrimitive(it) }))
-        put("onSave", JsonArray(onSave.map { JsonPrimitive(it) }))
-        put("excludes", JsonArray(excludes.map { JsonPrimitive(it) }))
-        put("options", JsonArray(options.map { JsonPrimitive(it) }))
-    }.let { PRETTY_JSON.encodeToString(JsonObject.serializer(), it) } + "\n"
+    /**
+     * The file content. The file is shared by the four plugins and committed: the keys of [existing] this version does
+     * not know (added by another plugin or a later version) are kept, only the four known ones are replaced.
+     */
+    fun toJson(existing: String? = null): String {
+        val others = try {
+            existing?.takeIf { it.isNotBlank() }?.let { Json.parseToJsonElement(it).jsonObject }?.filterKeys { it !in KNOWN_KEYS }
+        } catch (e: Exception) {
+            null
+        }.orEmpty()
+        return buildJsonObject {
+            put("scans", JsonArray(scans.map { JsonPrimitive(it) }))
+            put("onSave", JsonArray(onSave.map { JsonPrimitive(it) }))
+            put("excludes", JsonArray(excludes.map { JsonPrimitive(it) }))
+            put("options", JsonArray(options.map { JsonPrimitive(it) }))
+            others.forEach { (key, value) -> put(key, value) }
+        }.let { PRETTY_JSON.encodeToString(JsonObject.serializer(), it) } + "\n"
+    }
 
     /** One row per switch of the Scan configuration section, in the order shown. */
     class Scanner(
@@ -90,6 +102,9 @@ data class ScanConfig(
     companion object {
         const val CONFIG_DIR = ".xygeni"
         const val CONFIG_FILE = "ide.json"
+
+        /** The keys this version reads and writes; any other key in the file is kept as it is. */
+        val KNOWN_KEYS = setOf("scans", "onSave", "excludes", "options")
 
         val SCANNERS: List<Scanner> = listOf(
             Scanner("secrets", "Secrets", "Hardcoded credentials and tokens", onSave = true),
@@ -136,7 +151,8 @@ data class ScanConfig(
             val requestedOnSave = (onSave ?: DEFAULT_ON_SAVE_SCAN_TYPES).toSet()
             val onSaveTypes = ON_SAVE_SCANNERS.map { it.key }
             val effectiveOnSave = ALL_SCAN_TYPES.filter { it in requestedOnSave && it in onSaveTypes && it in effectiveScans }
-            val effectiveExcludes = (excludes ?: emptyList()).map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+            // A quote or control character could end the argument on Windows (ScanOptions.hasUnsafeChars): dropped.
+            val effectiveExcludes = (excludes ?: emptyList()).map { it.trim() }.filter { it.isNotEmpty() && !ScanOptions.hasUnsafeChars(it) }.distinct()
             return ScanConfig(effectiveScans, effectiveOnSave, effectiveExcludes, ScanOptions.normalize(options))
         }
 
@@ -160,6 +176,18 @@ data class ScanConfig(
                 emptyList()
             }
         }
+
+        /**
+         * Refuses to write through a link: a repository can commit `.xygeni` or `ide.json` as a symbolic link, and a
+         * switch in the IDE would then overwrite the file it points to (`~/.bashrc`…), outside the project.
+         */
+        fun checkNotLinked(file: File) {
+            for (path in listOf(file.parentFile.toPath(), file.toPath())) {
+                if (java.nio.file.Files.isSymbolicLink(path)) throw IOException("$path $LINKED")
+            }
+        }
+
+        private const val LINKED = "is a symbolic link: not written, so a change cannot land outside the project"
 
         fun file(project: Project): File? = project.basePath?.let { File(File(it, CONFIG_DIR), CONFIG_FILE) }
 
@@ -188,19 +216,23 @@ data class ScanConfig(
             }
         }
 
-        /** Writes the configuration; the defaults remove the file instead, so an untouched project leaves nothing behind. */
+        /**
+         * Writes the configuration, keeping the keys of the file this version does not know. The defaults do not create
+         * the file (an untouched project leaves nothing behind), but an existing one is rewritten, never deleted: it is
+         * usually committed, and "Restore defaults" must not show up as a deleted file.
+         */
         fun save(project: Project, config: ScanConfig) {
             val file = file(project) ?: return
             val normalized = normalize(config.scans, config.onSave, config.excludes, config.options)
             try {
-                if (normalized.isDefault) {
-                    file.delete()
-                    return
-                }
+                checkNotLinked(file)
+                if (normalized.isDefault && !file.exists()) return
+                val existing = if (file.exists()) file.readText() else null
                 file.parentFile.mkdirs()
-                file.writeText(normalized.toJson())
+                file.writeText(normalized.toJson(existing))
             } catch (e: IOException) {
                 Logger.error("Could not save the scan configuration to $file", e, project)
+                com.github.xygeni.intellij.notifications.NotificationService.notifyError("Could not save the Xygeni scan configuration: ${e.message}", project)
             }
         }
     }

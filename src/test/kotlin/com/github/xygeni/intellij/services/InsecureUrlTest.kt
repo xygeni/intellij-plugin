@@ -29,6 +29,10 @@ class InsecureUrlTest {
         assertTrue("a missing s is the typical typo", InsecureUrl.isInsecureRemote("http://api.xygeni.io"))
         assertFalse(InsecureUrl.isInsecureRemote(null))
         assertFalse("a malformed URL is somebody else's error", InsecureUrl.isInsecureRemote("not a url"))
+        assertTrue("scheme case does not matter", InsecureUrl.isInsecureRemote("HTTP://xygeni.corp.local"))
+        assertTrue("an underscore host is still sent", InsecureUrl.isInsecureRemote("http://my_server/x"))
+        assertTrue("OkHttp encodes the space and sends it", InsecureUrl.isInsecureRemote("http://xygeni.corp.local/deps doctor"))
+        assertTrue("unparsable http fails closed", InsecureUrl.isInsecureRemote("http://[bad"))
     }
 
     @Test

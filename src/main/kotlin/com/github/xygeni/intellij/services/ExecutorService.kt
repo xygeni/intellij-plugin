@@ -118,6 +118,15 @@ abstract class ProcessExecutorService {
                     ApplicationManager.getApplication().invokeLater { onComplete(false) }
                     return@executeOnPooledThread
                 }
+                // The scanner sends XYGENI_TOKEN to XYGENI_URL: never hand it an http URL the settings refuse (#1438).
+                // Checked here, where every scan, rectify and AI explain starts, not at each caller.
+                envs?.get("XYGENI_URL")?.let { url ->
+                    InsecureUrl.problem(url, XygeniSettings.getInstance().allowInsecureHttp)?.let { problem ->
+                        Logger.error("❌ $problem", project)
+                        ApplicationManager.getApplication().invokeLater { onComplete(false) }
+                        return@executeOnPooledThread
+                    }
+                }
 
                 val file = File(path)
                 if (!file.exists()) {

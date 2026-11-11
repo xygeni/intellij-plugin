@@ -254,16 +254,19 @@ class InstallerService : ProcessExecutorService() {
     // folder as a link to a folder outside the install dir, and `File.deleteRecursively()`
     // wiped that target (#1976). Links are removed as links; the walk never descends into them.
     /**
-     * Moves the newest complete scanner of the old `~/.xygeni/plugins/xygeni/<plugin version>/` folders into the fixed
-     * folder, so an update needs no download, and drops the other versioned copies (one scanner is 250 MB). A
-     * scanner the Hub wired as a link is unlinked, never followed (#1976).
+     * Copies the newest complete scanner of the old `~/.xygeni/plugins/xygeni/<plugin version>/` folders into the fixed
+     * folder, so an update needs no download. The versioned folders are left as they are: they are shared by every
+     * JetBrains IDE of the machine, and one still on an older plugin version runs its scanner from there (moving or
+     * deleting it broke that IDE and made the two re-download 250 MB in turns). A scanner the Hub wired as a link is
+     * recreated as a link, never followed (#1976).
      */
     private fun migrateVersionedScannerInstall(project: Project?) {
         val installDir = this.pluginContext.installDir
         try {
             val pluginDir = installDir.parentFile
             val versioned = pluginDir.listFiles { file -> file.isDirectory && file.name != PluginContext.SCANNER_DIR && file.name.firstOrNull()?.isDigit() == true }
-                .orEmpty().sortedByDescending { it.name }
+                // Numeric order: by name, 1.6.10 would sort before 1.6.9.
+                .orEmpty().sortedWith { first, second -> McpVersion.compare(second.name, first.name) }
             if (versioned.isEmpty()) return
             val target = File(installDir, PluginContext.SCANNER_SUBDIR)
             if (!Files.exists(target.toPath(), LinkOption.NOFOLLOW_LINKS)) {
@@ -276,19 +279,32 @@ class InstallerService : ProcessExecutorService() {
                     Files.createSymbolicLink(target.toPath(), Files.readSymbolicLink(linked))
                     Logger.log("Scanner link moved to ${target.absolutePath}", project)
                 } else if (complete != null) {
-                    Files.move(complete.toPath(), target.toPath())
-                    Logger.log("Scanner moved from ${complete.absolutePath} to ${target.absolutePath}", project)
+                    // Copied next to the target and renamed into place: a copy cut short never looks installed.
+                    val partial = File(installDir, PluginContext.SCANNER_SUBDIR + ".tmp")
+                    this.deleteRecursively(partial.absolutePath)
+                    copyRecursively(complete.toPath(), partial.toPath())
+                    Files.move(partial.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE)
+                    Logger.log("Scanner copied from ${complete.absolutePath} to ${target.absolutePath}", project)
                 }
             }
-            for (dir in versioned) {
-                this.deleteRecursively(File(dir, PluginContext.SCANNER_SUBDIR).absolutePath)
-                // The versioned folder is kept while it still holds something else (a legacy MCP copy, see #2382).
-                if (dir.listFiles().isNullOrEmpty()) dir.delete()
-            }
         } catch (e: Exception) {
-            // A failed move only costs a download: the installer fills the fixed folder.
-            Logger.warn("Could not move the previous scanner install into ${installDir.absolutePath}: ${e.message}", project)
+            // A failed copy only costs a download: the installer fills the fixed folder.
+            Logger.warn("Could not copy the previous scanner install into ${installDir.absolutePath}: ${e.message}", project)
         }
+    }
+
+    /** Copies a folder with its attributes (the executable bit of the launcher); links are copied as links, never followed. */
+    private fun copyRecursively(source: Path, target: Path) {
+        Files.walkFileTree(source, object : SimpleFileVisitor<Path>() {
+            override fun preVisitDirectory(dir: Path, attrs: BasicFileAttributes): FileVisitResult {
+                Files.createDirectories(target.resolve(source.relativize(dir).toString()))
+                return FileVisitResult.CONTINUE
+            }
+            override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
+                Files.copy(file, target.resolve(source.relativize(file).toString()), StandardCopyOption.COPY_ATTRIBUTES, LinkOption.NOFOLLOW_LINKS)
+                return FileVisitResult.CONTINUE
+            }
+        })
     }
 
     private fun deleteRecursively(path: String): Boolean {
@@ -417,12 +433,24 @@ class InstallerService : ProcessExecutorService() {
         val remoteVersion = fetchText(settings.getMcpVersionUrl(), project)?.let { McpVersion.fromVersionFile(it) }
         Logger.log("MCP server published version: ${remoteVersion ?: "unknown"}", project)
 
-        val f = downloadFile(settings.getMcpDownloadUrl(), this.pluginContext.mcpJarFileName, settings.apiToken ?: "", project)
+        // Checksum first: without one an update is not even downloaded (see McpVersion.checksumAction).
+        val (checksumStatus, checksumBody) = fetchTextWithStatus(settings.getMcpChecksumUrl(), project)
+        val expectedChecksum = if (checksumStatus == 200) McpVersion.fromChecksumFile(checksumBody) else null
+        val jarInstalled = mcpJarFile.exists()
+        val checksumAction = McpVersion.checksumAction(checksumStatus, expectedChecksum, jarInstalled)
+        if (checksumAction == McpVersion.ChecksumAction.SKIP) {
+            throw IllegalStateException("the MCP server checksum is not available at ${settings.getMcpChecksumUrl()} (${checksumStatus ?: "no answer"}); " +
+                if (jarInstalled) "the installed copy is kept and the update is retried at the next check" else "nothing installed, retried at the next start")
+        }
+
+        // Public CDN: the API token is not sent there.
+        val f = downloadFile(settings.getMcpDownloadUrl(), this.pluginContext.mcpJarFileName, "", project)
             ?: throw IllegalStateException("could not download ${settings.getMcpDownloadUrl()}")
         try {
-            val expectedChecksum = fetchText(settings.getMcpChecksumUrl(), project)?.let { McpVersion.fromChecksumFile(it) }
-            if (expectedChecksum == null) {
-                Logger.warn("MCP server checksum is not available at ${settings.getMcpChecksumUrl()}; the download is not verified", project)
+            if (checksumAction == McpVersion.ChecksumAction.INSTALL_UNVERIFIED) {
+                Logger.warn("MCP server checksum is not published yet at ${settings.getMcpChecksumUrl()} ($checksumStatus); first install not verified", project)
+                NotificationService.notifyWarn("The Xygeni MCP server was installed without checksum verification: the checksum is not published yet. " +
+                    "Updates are only installed once it is.", project)
             } else {
                 val actualChecksum = sha256(f)
                 if (actualChecksum != expectedChecksum) {
@@ -587,19 +615,23 @@ class InstallerService : ProcessExecutorService() {
     }
 
     /** GET a small text resource (version, checksum); null on any failure, which is logged and never thrown. */
-    private fun fetchText(url: String, project: Project?): String? {
+    private fun fetchText(url: String, project: Project?): String? =
+        fetchTextWithStatus(url, project).let { (status, body) -> if (status == 200) body else null }
+
+    /** The HTTP status (null when there was no answer) and the body of a 2xx; failures are logged, never thrown. */
+    private fun fetchTextWithStatus(url: String, project: Project?): Pair<Int?, String?> {
         return try {
             val request = Request.Builder().url(url).get().build()
             textClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
                     Logger.log("GET $url: ${response.code}", project)
-                    return null
+                    return response.code to null
                 }
-                response.body?.string()
+                response.code to response.body?.string()
             }
         } catch (e: Exception) {
             Logger.log("GET $url failed: ${e.message}", project)
-            null
+            null to null
         }
     }
 

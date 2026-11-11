@@ -48,4 +48,22 @@ object McpVersion {
         val token = content?.trim()?.split(Regex("\\s+"))?.firstOrNull() ?: return null
         return if (SHA256_PATTERN.matches(token)) token.lowercase() else null
     }
+
+    /** What to do with the MCP download given the published `.sha256` (#2382). */
+    enum class ChecksumAction { VERIFY, INSTALL_UNVERIFIED, SKIP }
+
+    /**
+     * Never replaces an installed JAR with an unverified one: an update without a valid checksum keeps the installed
+     * copy and is retried at the next check. A first install goes ahead unverified only when the server answers that
+     * the `.sha256` is not published (403/404, the state until #2381 is promoted to get.xygeni.io); a timeout, 5xx or
+     * an unreadable checksum installs nothing.
+     *
+     * @param status HTTP status of the `.sha256` GET, null when there was no answer
+     * @param expected the hash read from a 200 body, null when it is not one
+     */
+    fun checksumAction(status: Int?, expected: String?, jarInstalled: Boolean): ChecksumAction = when {
+        status == 200 && expected != null -> ChecksumAction.VERIFY
+        !jarInstalled && (status == 403 || status == 404) -> ChecksumAction.INSTALL_UNVERIFIED
+        else -> ChecksumAction.SKIP
+    }
 }
