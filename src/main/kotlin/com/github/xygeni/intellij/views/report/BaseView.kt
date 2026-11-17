@@ -8,12 +8,23 @@ package com.github.xygeni.intellij.views.report
  **/
 
 
+import com.github.xygeni.intellij.events.INSTALLER_STATE_TOPIC
+import com.github.xygeni.intellij.events.InstallerStateListener
+import com.github.xygeni.intellij.events.LICENSE_STATE_TOPIC
+import com.github.xygeni.intellij.events.LicenseStateListener
+import com.github.xygeni.intellij.events.SCAN_STATE_TOPIC
+import com.github.xygeni.intellij.events.ScanStateListener
+import com.github.xygeni.intellij.events.SCAN_CONFIG_CHANGED_TOPIC
+import com.github.xygeni.intellij.events.ScanConfigChangeListener
+import com.github.xygeni.intellij.services.InstallerService
+import com.github.xygeni.intellij.services.ScanConfig
 import com.github.xygeni.intellij.dynamichtml.editor.HtmlDetailEditor
 import com.github.xygeni.intellij.events.READ_TOPIC
 import com.github.xygeni.intellij.events.ReadListener
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.model.report.BaseXygeniIssue
 import com.github.xygeni.intellij.render.BaseHtmlIssueRenderer
+import com.github.xygeni.intellij.services.LicenseService
 import com.github.xygeni.intellij.services.ScanService
 import com.github.xygeni.intellij.services.report.BaseReportService
 import com.intellij.openapi.application.ApplicationManager
@@ -55,6 +66,11 @@ abstract class BaseView<T : BaseXygeniIssue>(
 ) : JPanel() {
 
     private val header = JLabel(title)
+    private val runButton = JLabel(Icons.RUN_ICON)
+    // Same gating as the main Run Scan button (ScanView): the play is disabled, with the reason, not silent.
+    private var scannerInstalled = ApplicationManager.getApplication().getService(InstallerService::class.java).isInstalled()
+    private var licenseValid = LicenseService.getInstance().isLicenseValid()
+    private var scanRunning = false
     val treeScrollPane: JBScrollPane
     protected val root = DefaultMutableTreeNode(title)
     protected val model = DefaultTreeModel(root)
@@ -92,12 +108,29 @@ abstract class BaseView<T : BaseXygeniIssue>(
             })
         }
 
+        // Runs this scan type alone and refreshes only its findings (xygeni/xygeni-product-backlog#415).
+        runButton.addMouseListener(object : MouseAdapter() {
+            override fun mouseClicked(e: MouseEvent) {
+                if (!runButton.isEnabled) return
+                com.intellij.openapi.wm.ToolWindowManager.getInstance(project).getToolWindow("Xygeni console")?.activate(null)
+                project.service<ScanService>().scan(project, incremental = false, only = listOf(service.reportType))
+            }
+        })
+        updateRunButton()
+        val headerButtons = JPanel().apply {
+            isOpaque = false
+            layout = BoxLayout(this, BoxLayout.X_AXIS)
+            add(runButton)
+            add(Box.createHorizontalStrut(8))
+            add(refreshButton)
+        }
+
         val headerPanel = JPanel(BorderLayout()).apply {
             isOpaque = false
             alignmentX = Component.LEFT_ALIGNMENT
             border = EmptyBorder(8, 0, 0, 10)
             add(header, BorderLayout.WEST)
-            add(refreshButton, BorderLayout.EAST)
+            add(headerButtons, BorderLayout.EAST)
         }
 
         add(headerPanel)
@@ -156,6 +189,7 @@ abstract class BaseView<T : BaseXygeniIssue>(
 
         val summaryText = when {
             unlicensed -> "Not licensed — contact your Xygeni administrator"
+            items.isEmpty() && service.reportType !in ScanConfig.load(project).scans -> "Not in the scan configuration"
             items.isEmpty() -> "0 issues found"
             else -> "${items.size} issues found"
         }
@@ -457,7 +491,47 @@ abstract class BaseView<T : BaseXygeniIssue>(
     }
 
     // subscribeToMessage subscribes to READ_TOPIC to load issues when the scan finish
+    /** Enabled only when a scan can actually start; otherwise greyed with the reason in the tooltip. */
+    private fun updateRunButton() {
+        val reason = when {
+            !scannerInstalled -> "Install the Xygeni scanner first (Tools > Xygeni > Install)"
+            !licenseValid -> "Xygeni IDE seat is not registered. Check your token and try again"
+            scanRunning -> "A scan is already running"
+            else -> null
+        }
+        runButton.isEnabled = reason == null
+        runButton.toolTipText = reason ?: "Run the $title scan only"
+        runButton.cursor = java.awt.Cursor.getPredefinedCursor(if (reason == null) java.awt.Cursor.HAND_CURSOR else java.awt.Cursor.DEFAULT_CURSOR)
+    }
+
     protected open fun subscribeToMessage() {
+        project.messageBus.connect().subscribe(INSTALLER_STATE_TOPIC, object : InstallerStateListener {
+            override fun installerStateChanged(project: Project?, installed: Boolean) {
+                if (project != this@BaseView.project) return
+                scannerInstalled = installed
+                SwingUtilities.invokeLater { updateRunButton() }
+            }
+        })
+        project.messageBus.connect().subscribe(LICENSE_STATE_TOPIC, object : LicenseStateListener {
+            override fun licenseStateChanged(project: Project?, valid: Boolean) {
+                licenseValid = valid
+                SwingUtilities.invokeLater { updateRunButton() }
+            }
+        })
+        project.messageBus.connect().subscribe(SCAN_STATE_TOPIC, object : ScanStateListener {
+            override fun scanStateChanged(project: Project?, status: Int) {
+                if (project != this@BaseView.project) return
+                scanRunning = status == 2
+                SwingUtilities.invokeLater { updateRunButton() }
+            }
+        })
+        // A scan type switched off in Scan configuration shows "Not in the scan configuration", not "0 issues".
+        project.messageBus.connect().subscribe(SCAN_CONFIG_CHANGED_TOPIC, object : ScanConfigChangeListener {
+            override fun scanConfigChanged(project: Project?) {
+                if (project != this@BaseView.project) return
+                SwingUtilities.invokeLater { if (treeScrollPane.isVisible) populateIssueTree() }
+            }
+        })
         project.messageBus.connect().subscribe(READ_TOPIC, object : ReadListener {
             override fun readCompleted(project: Project?, reportType: String?) {
                 if (project != this@BaseView.project || reportType != service.reportType) return

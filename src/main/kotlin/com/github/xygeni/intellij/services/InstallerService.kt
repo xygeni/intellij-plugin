@@ -3,12 +3,15 @@ package com.github.xygeni.intellij.services
 import com.github.xygeni.intellij.MyBundle
 import com.github.xygeni.intellij.events.CONNECTION_STATE_TOPIC
 import com.github.xygeni.intellij.events.INSTALLER_STATE_TOPIC
+import com.github.xygeni.intellij.events.MCP_STATE_TOPIC
 import com.github.xygeni.intellij.logger.Logger
 import com.github.xygeni.intellij.model.PluginContext
 import com.github.xygeni.intellij.notifications.NotificationService
+import com.github.xygeni.intellij.settings.McpUpdateMode
 import com.github.xygeni.intellij.settings.XygeniSettings
 import com.github.xygeni.intellij.views.McpSetupView
 import com.intellij.notification.NotificationAction
+import com.intellij.notification.NotificationType
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
@@ -20,14 +23,18 @@ import com.intellij.openapi.util.text.StringUtil
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.nio.file.FileAlreadyExistsException
 import java.nio.file.Files
+import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.FileVisitResult
 import java.nio.file.LinkOption
 import java.nio.file.SimpleFileVisitor
+import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.BasicFileAttributes
 import java.io.IOException
+import java.security.MessageDigest
 import java.util.zip.ZipInputStream
 import javax.swing.SwingUtilities
 
@@ -41,8 +48,25 @@ import javax.swing.SwingUtilities
 @Service(Service.Level.APP)
 class InstallerService : ProcessExecutorService() {
 
+    companion object {
+        /** What the user must do after an MCP update, in their words: the plugin only replaces the JAR, the assistant owns the process. */
+        const val MCP_RESTART_NOTE = "Your AI assistant (Copilot, Claude Code, Cursor…) will use it the next time it starts: if it is open now, restart it."
+
+        const val MCP_LOCK_NAME = ".lock"
+        const val MCP_LOCK_STALE_MS = 10 * 60 * 1000L
+        const val MCP_LOCK_WAIT_MS = 2 * 60 * 1000L
+        /** The remote version is checked at most this often, whichever Xygeni IDE plugin did the last check. */
+        const val MCP_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000L
+        /** The scanner ships ~245 jars; fewer than this means a truncated download or extraction. */
+        const val MIN_SCANNER_JARS = 50
+        const val PING_ATTEMPTS = 3
+        const val PING_RETRY_MS = 3000L
+    }
+
     private val pluginContext = service<PluginContext>() 
     private val client: OkHttpClient = XygeniHttpClient.create(connectTimeoutSeconds = 15, readTimeoutSeconds = 30)
+    // version.txt / .sha256 are tiny and checked at startup: fail fast rather than hold anything up.
+    private val textClient: OkHttpClient = XygeniHttpClient.create(connectTimeoutSeconds = 5, readTimeoutSeconds = 10)
 
 
     private fun uninstallIfNeeded(project: Project? = null) {
@@ -51,27 +75,56 @@ class InstallerService : ProcessExecutorService() {
     }
 
     private fun checkUrlAccessible(url: String, project: Project? = null, callback: (Boolean) -> Unit) {
+        // Recomputed on every check: a problem of a previous URL (or before "Allow insecure HTTP") must not stick.
+        lastConnectionProblem = null
+        // An http URL to a non-loopback host would send the token in clear: refused before any request (#1438).
+        InsecureUrl.problem(url, XygeniSettings.getInstance().allowInsecureHttp)?.let { problem ->
+            Logger.log("=== $problem", project)
+            lastConnectionProblem = problem
+            SwingUtilities.invokeLater { callback(false) }
+            return
+        }
+        if (InsecureUrl.isInsecureRemote(url)) Logger.log("=== WARNING: ${InsecureUrl.WARNING} ($url); allowed by the settings", project)
         ApplicationManager.getApplication().executeOnPooledThread {
-            val accessible = try {
-                val validateUrl = if (url.endsWith("/")) "${url}ping" else "$url/ping"
-                val request = Request.Builder()
-                    .url(validateUrl)
-                    .get()
-                    .build()
-
-                client.newCall(request).execute().use { response ->
-                    Logger.log("=== Connection ready: ${response.code}", project)
-                    response.isSuccessful || response.code in 300..399
+            val validateUrl = if (url.endsWith("/")) "${url}ping" else "$url/ping"
+            var accessible = false
+            var lastFailure = ""
+            // A backend that is starting (a local one, a deploy) answers 5xx or refuses the connection for a few
+            // seconds: retry before calling it disconnected, so the user does not have to click to reconnect.
+            for (attempt in 1..PING_ATTEMPTS) {
+                val transient = try {
+                    val request = Request.Builder().url(validateUrl).get().build()
+                    client.newCall(request).execute().use { response ->
+                        Logger.log("=== Connection ready: ${response.code}", project)
+                        // 503 = the server answered but is busy (its /ping reports 503 above a CPU threshold, see
+                        // PingController.max.cpu): the URL is right, the token check decides. Only an unreachable
+                        // host or a wrong path (404) make the URL invalid.
+                        accessible = response.isSuccessful || response.code in 300..399 || response.code == 503
+                        if (!accessible) lastFailure = "HTTP ${response.code}"
+                        if (response.code == 503) Logger.log("=== The server is busy (503 on /ping); going on with the token check", project)
+                        response.code >= 500 && response.code != 503
+                    }
+                } catch (e: Exception) {
+                    Logger.log("=== Connection check failed: ${e.message}", project)
+                    lastFailure = e.message ?: e.javaClass.simpleName
+                    true
                 }
-            } catch (e: Exception) {
-                false
+                if (accessible || !transient || attempt == PING_ATTEMPTS) break
+                Logger.log("=== Retrying the connection in ${PING_RETRY_MS / 1000}s ($attempt/$PING_ATTEMPTS)", project)
+                Thread.sleep(PING_RETRY_MS)
             }
+            if (!accessible) lastConnectionProblem = "Could not reach $validateUrl ($lastFailure)"
 
             SwingUtilities.invokeLater {
                 callback(accessible)
             }
         }
     }
+
+    /** Why the last token check failed when the server, not the token, was the problem; null otherwise. */
+    @Volatile
+    var lastConnectionProblem: String? = null
+        private set
 
     private fun checkTokenValid(apiUrl: String, token: String, project: Project? = null, callback: (Boolean) -> Unit) {
         ApplicationManager.getApplication().executeOnPooledThread {
@@ -86,9 +139,13 @@ class InstallerService : ProcessExecutorService() {
 
                 client.newCall(request).execute().use { response ->
                     Logger.log("=== Token authorized: ${response.code}", project)
+                    // The server is there but cannot answer (down behind a proxy, overloaded): not a bad token.
+                    lastConnectionProblem = if (response.code >= 500) "The Xygeni server is unavailable (HTTP ${response.code}). Try again later" else null
                     response.isSuccessful || response.code in 300..399
                 }
             } catch (e: Exception) {
+                Logger.log("=== Token check failed: ${e.message}", project)
+                lastConnectionProblem = "The Xygeni server is unreachable (${e.message}). Try again later"
                 false
             }
 
@@ -196,6 +253,60 @@ class InstallerService : ProcessExecutorService() {
     // deleteRecursively removes the path WITHOUT following symlinks: the Hub wires the scanner
     // folder as a link to a folder outside the install dir, and `File.deleteRecursively()`
     // wiped that target (#1976). Links are removed as links; the walk never descends into them.
+    /**
+     * Copies the newest complete scanner of the old `~/.xygeni/plugins/xygeni/<plugin version>/` folders into the fixed
+     * folder, so an update needs no download. The versioned folders are left as they are: they are shared by every
+     * JetBrains IDE of the machine, and one still on an older plugin version runs its scanner from there (moving or
+     * deleting it broke that IDE and made the two re-download 250 MB in turns). A scanner the Hub wired as a link is
+     * recreated as a link, never followed (#1976).
+     */
+    private fun migrateVersionedScannerInstall(project: Project?) {
+        val installDir = this.pluginContext.installDir
+        try {
+            val pluginDir = installDir.parentFile
+            val versioned = pluginDir.listFiles { file -> file.isDirectory && file.name != PluginContext.SCANNER_DIR && file.name.firstOrNull()?.isDigit() == true }
+                // Numeric order: by name, 1.6.10 would sort before 1.6.9.
+                .orEmpty().sortedWith { first, second -> McpVersion.compare(second.name, first.name) }
+            if (versioned.isEmpty()) return
+            val target = File(installDir, PluginContext.SCANNER_SUBDIR)
+            if (!Files.exists(target.toPath(), LinkOption.NOFOLLOW_LINKS)) {
+                // A scanner the Hub wired as a link keeps pointing where the Hub put it: the link is recreated, not followed.
+                val linked = versioned.map { File(it, PluginContext.SCANNER_SUBDIR).toPath() }.firstOrNull { Files.isSymbolicLink(it) }
+                val complete = versioned.map { File(it, PluginContext.SCANNER_SUBDIR) }
+                    .firstOrNull { !Files.isSymbolicLink(it.toPath()) && (File(it, "lib").listFiles { f -> f.name.endsWith(".jar") }?.size ?: 0) >= MIN_SCANNER_JARS }
+                installDir.mkdirs()
+                if (linked != null) {
+                    Files.createSymbolicLink(target.toPath(), Files.readSymbolicLink(linked))
+                    Logger.log("Scanner link moved to ${target.absolutePath}", project)
+                } else if (complete != null) {
+                    // Copied next to the target and renamed into place: a copy cut short never looks installed.
+                    val partial = File(installDir, PluginContext.SCANNER_SUBDIR + ".tmp")
+                    this.deleteRecursively(partial.absolutePath)
+                    copyRecursively(complete.toPath(), partial.toPath())
+                    Files.move(partial.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE)
+                    Logger.log("Scanner copied from ${complete.absolutePath} to ${target.absolutePath}", project)
+                }
+            }
+        } catch (e: Exception) {
+            // A failed copy only costs a download: the installer fills the fixed folder.
+            Logger.warn("Could not copy the previous scanner install into ${installDir.absolutePath}: ${e.message}", project)
+        }
+    }
+
+    /** Copies a folder with its attributes (the executable bit of the launcher); links are copied as links, never followed. */
+    private fun copyRecursively(source: Path, target: Path) {
+        Files.walkFileTree(source, object : SimpleFileVisitor<Path>() {
+            override fun preVisitDirectory(dir: Path, attrs: BasicFileAttributes): FileVisitResult {
+                Files.createDirectories(target.resolve(source.relativize(dir).toString()))
+                return FileVisitResult.CONTINUE
+            }
+            override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
+                Files.copy(file, target.resolve(source.relativize(file).toString()), StandardCopyOption.COPY_ATTRIBUTES, LinkOption.NOFOLLOW_LINKS)
+                return FileVisitResult.CONTINUE
+            }
+        })
+    }
+
     private fun deleteRecursively(path: String): Boolean {
         val target = Paths.get(path)
         if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) return false
@@ -237,7 +348,9 @@ class InstallerService : ProcessExecutorService() {
             val elapsed = System.currentTimeMillis() - start
             Logger.log("Unzip finished:  ${elapsed}ms", project)
         } catch (e: Exception) {
+            // Swallowing this left half-extracted scanners (a `lib` with 24 of 245 jars) reported as installed.
             Logger.error("error unzipping $zipFile", e, project)
+            throw IllegalStateException("could not extract the scanner: ${e.message}", e)
         }
     }
 
@@ -248,21 +361,369 @@ class InstallerService : ProcessExecutorService() {
         val fn: (Project?) -> Unit
     )
 
-    private fun installMCPFn(project: Project?) {
+    /** What the last MCP server version check found; shown in the MCP Setup view. */
+    data class McpUpdateCheck(val installed: String?, val available: String?, val updateAvailable: Boolean)
+
+    /** Tells the views the MCP state changed (installed, updated, restart note dismissed). */
+    fun publishMcpState() {
+        ApplicationManager.getApplication().invokeLater {
+            ApplicationManager.getApplication().messageBus.syncPublisher(MCP_STATE_TOPIC).mcpStateChanged()
+        }
+    }
+
+    /** The user restarted (or never had running) the AI assistant: the "restart pending" note goes away. */
+    fun dismissMcpRestart() {
+        XygeniSettings.getInstance().mcpRestartPending = null
+        publishMcpState()
+    }
+
+    /** The notification after an update: what happened, what to do, with "Show me how" (the setup guide) and OK (hides the note). */
+    private fun notifyMcpUpdated(version: String, project: Project?) {
+        XygeniSettings.getInstance().mcpRestartPending = version
+        publishMcpState()
+        val actions = mutableListOf<NotificationAction>()
+        project?.let { p -> actions.add(NotificationAction.createSimple("Show me how") { McpSetupView.show(p) }) }
+        actions.add(NotificationAction.createSimpleExpiring("OK") { dismissMcpRestart() })
+        NotificationService.notify(
+            StringUtil.escapeXmlEntities("Xygeni MCP server updated to $version. $MCP_RESTART_NOTE"),
+            NotificationType.INFORMATION, project, actions
+        )
+    }
+
+    private enum class McpDownloadOutcome { INSTALLED, PENDING }
+
+    @Volatile
+    var lastMcpUpdateCheck: McpUpdateCheck? = null
+        private set
+
+    /** The version written next to the installed JAR, or null when the JAR is missing or predates version.txt. */
+    fun installedMcpVersion(): String? {
+        if (!this.pluginContext.mcpJarFile.exists()) return null
+        return readTextOrNull(this.pluginContext.mcpVersionFile)?.let { McpVersion.fromVersionFile(it) }
+    }
+
+    // installMCPFn installs the MCP server in the folder shared by every Xygeni IDE plugin: when it is
+    // missing, or always with `force` (reinstall)
+    private fun installMCPFn(project: Project?, force: Boolean) {
         Logger.log("==================================", project)
         Logger.log("== Running MCP installation ==", project)
         Logger.log("==================================", project)
-        val settings = XygeniSettings.getInstance()
-        val f = downloadFile( settings.getMcpDownloadUrl(),
-            this@InstallerService.pluginContext.mcpJarFileName,
-            settings.apiToken ?: "",
-            project)
-        if (f == null) {
-            throw IllegalStateException("could not download ${settings.getMcpDownloadUrl()}")
+        val mcpJarFile = this.pluginContext.mcpJarFile
+        withMcpLock {
+            // Another IDE may have installed it while this one waited for the lock.
+            if (!force && mcpJarFile.exists()) return@withMcpLock
+            when (downloadMcpJarLocked(project)) {
+                McpDownloadOutcome.INSTALLED -> { Logger.log("Xygeni MCP installed successfully!", project); publishMcpState() }
+                McpDownloadOutcome.PENDING -> Logger.warn("Xygeni MCP update downloaded; it is applied on the next start.", project)
+            }
         }
-        Logger.log("moving mcp to ${this.pluginContext.mcpJarFile}", project)
-        f.copyTo(this.pluginContext.mcpJarFile, true)
-        Logger.log("Xygeni MCP installed successfully!", project)
+        removeLegacyMcpInstalls(project)
+    }
+
+    /**
+     * Downloads the published JAR and puts it in place. Runs under the MCP lock. The remote `version.txt` is
+     * read first and written next to the JAR once it is installed; the download is verified against the
+     * published `.sha256` when that file is available, and a mismatch keeps the JAR already installed (#2382).
+     * On Windows a running MCP client locks the JAR: the download is then kept as `.pending` and applied on
+     * the next start.
+     */
+    private fun downloadMcpJarLocked(project: Project?): McpDownloadOutcome {
+        val settings = XygeniSettings.getInstance()
+        val mcpJarFile = this.pluginContext.mcpJarFile
+        val remoteVersion = fetchText(settings.getMcpVersionUrl(), project)?.let { McpVersion.fromVersionFile(it) }
+        Logger.log("MCP server published version: ${remoteVersion ?: "unknown"}", project)
+
+        // Checksum first: without one an update is not even downloaded (see McpVersion.checksumAction).
+        val (checksumStatus, checksumBody) = fetchTextWithStatus(settings.getMcpChecksumUrl(), project)
+        val expectedChecksum = if (checksumStatus == 200) McpVersion.fromChecksumFile(checksumBody) else null
+        val jarInstalled = mcpJarFile.exists()
+        val checksumAction = McpVersion.checksumAction(checksumStatus, expectedChecksum, jarInstalled)
+        if (checksumAction == McpVersion.ChecksumAction.SKIP) {
+            throw IllegalStateException("the MCP server checksum is not available at ${settings.getMcpChecksumUrl()} (${checksumStatus ?: "no answer"}); " +
+                if (jarInstalled) "the installed copy is kept and the update is retried at the next check" else "nothing installed, retried at the next start")
+        }
+
+        // Public CDN: the API token is not sent there.
+        val f = downloadFile(settings.getMcpDownloadUrl(), this.pluginContext.mcpJarFileName, "", project)
+            ?: throw IllegalStateException("could not download ${settings.getMcpDownloadUrl()}")
+        try {
+            if (checksumAction == McpVersion.ChecksumAction.INSTALL_UNVERIFIED) {
+                Logger.warn("MCP server checksum is not published yet at ${settings.getMcpChecksumUrl()} ($checksumStatus); first install not verified", project)
+                NotificationService.notifyWarn("The Xygeni MCP server was installed without checksum verification: the checksum is not published yet. " +
+                    "Updates are only installed once it is.", project)
+            } else {
+                val actualChecksum = sha256(f)
+                if (actualChecksum != expectedChecksum) {
+                    throw IllegalStateException("MCP server checksum mismatch (expected $expectedChecksum, got $actualChecksum); the installed copy is kept")
+                }
+                Logger.log("MCP server checksum verified", project)
+            }
+
+            Logger.log("moving mcp to $mcpJarFile", project)
+            // Copy next to the JAR and rename it into place, so an MCP client never runs a half-written JAR.
+            val temporaryJar = File(mcpJarFile.parentFile, mcpJarFile.name + ".tmp").toPath()
+            f.copyTo(temporaryJar.toFile(), true)
+            try {
+                Files.move(temporaryJar, mcpJarFile.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+            } catch (e: IOException) {
+                if (!mcpJarFile.exists()) {
+                    Files.deleteIfExists(temporaryJar)
+                    throw e
+                }
+                // On Windows a running MCP client locks the JAR; the copy already installed keeps working and the
+                // update waits as `.pending` until the next start.
+                Files.move(temporaryJar, this.pluginContext.mcpPendingJarFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                writeVersionFile(this.pluginContext.mcpPendingVersionFile, remoteVersion)
+                Logger.warn("Could not replace $mcpJarFile (${e.message}): an AI assistant is still using it. The update is applied on the next IDE start.", project)
+                return McpDownloadOutcome.PENDING
+            }
+            writeVersionFile(this.pluginContext.mcpVersionFile, remoteVersion)
+            discardPendingMcpUpdate()
+            return McpDownloadOutcome.INSTALLED
+        } finally {
+            Files.deleteIfExists(f.toPath())
+        }
+    }
+
+    /** Puts a `.pending` download in place once the MCP client that locked the JAR is gone. Under the MCP lock. */
+    private fun applyPendingMcpUpdateLocked(project: Project?): Boolean {
+        val pendingJar = this.pluginContext.mcpPendingJarFile
+        if (!pendingJar.exists()) return false
+        return try {
+            Files.move(pendingJar.toPath(), this.pluginContext.mcpJarFile.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+            val pendingVersion = readTextOrNull(this.pluginContext.mcpPendingVersionFile)?.let { McpVersion.fromVersionFile(it) }
+            writeVersionFile(this.pluginContext.mcpVersionFile, pendingVersion)
+            Files.deleteIfExists(this.pluginContext.mcpPendingVersionFile.toPath())
+            Logger.log("Pending Xygeni MCP server update applied (${pendingVersion ?: "unknown version"})", project)
+            true
+        } catch (e: IOException) {
+            Logger.warn("Pending Xygeni MCP server update not applied yet, an AI assistant is still using the JAR: ${e.message}", project)
+            false
+        }
+    }
+
+    private fun discardPendingMcpUpdate() {
+        Files.deleteIfExists(this.pluginContext.mcpPendingJarFile.toPath())
+        Files.deleteIfExists(this.pluginContext.mcpPendingVersionFile.toPath())
+    }
+
+    /**
+     * Checks whether a newer MCP server is published and acts on the "MCP server updates" setting: notify
+     * (Update / Ignore this version), update in the background, or nothing. Runs at most once every 24 h
+     * across IDEs unless `force` (the manual action, which also reports "up to date" and failures). A failed
+     * check (no network, 403 while the version file is not published) is only logged (#2382).
+     */
+    fun checkMcpUpdate(project: Project?, force: Boolean = false) {
+        ApplicationManager.getApplication().executeOnPooledThread {
+            try {
+                doCheckMcpUpdate(project, force)
+            } catch (e: Exception) {
+                Logger.error("MCP server update check failed", e, project)
+                if (force) NotificationService.notifyWarn(StringUtil.escapeXmlEntities("Could not check for MCP server updates: ${e.message}"), project)
+            }
+        }
+    }
+
+    private fun doCheckMcpUpdate(project: Project?, force: Boolean) {
+        val settings = XygeniSettings.getInstance()
+        if (!isInstalled(mcp = true)) {
+            if (force) NotificationService.notifyWarn("The Xygeni MCP server is not installed yet. Run Tools > Xygeni > Install first.", project)
+            return
+        }
+        if (this.pluginContext.mcpPendingJarFile.exists()) {
+            val applied = withMcpLock { applyPendingMcpUpdateLocked(project) }
+            if (applied) notifyMcpUpdated(installedMcpVersion() ?: "the downloaded version", project)
+        }
+        val mode = settings.mcpUpdateMode
+        if (!force && mode == McpUpdateMode.OFF) return
+        if (!force && !isMcpCheckDue()) return
+
+        val remoteVersion = fetchText(settings.getMcpVersionUrl(), project)?.let { McpVersion.fromVersionFile(it) }
+        if (remoteVersion == null) {
+            Logger.log("MCP server version not available at ${settings.getMcpVersionUrl()}; update check skipped", project)
+            if (force) NotificationService.notifyWarn("Could not check for MCP server updates: the published version is not available.", project)
+            return
+        }
+        writeTextQuietly(this.pluginContext.mcpLastCheckFile, System.currentTimeMillis().toString())
+
+        val installedVersion = installedMcpVersion()
+        val check = McpUpdateCheck(installedVersion, remoteVersion, McpVersion.isNewer(remoteVersion, installedVersion))
+        lastMcpUpdateCheck = check
+        publishMcpState()
+        Logger.log("MCP server installed: ${installedVersion ?: "unknown"}, published: $remoteVersion", project)
+        if (!check.updateAvailable) {
+            if (force) NotificationService.notifyInfo("The Xygeni MCP server is up to date ($remoteVersion).", project)
+            return
+        }
+        if (!force && settings.mcpIgnoredVersion == remoteVersion) {
+            Logger.log("MCP server $remoteVersion is ignored by the user", project)
+            return
+        }
+        if (!force && mode == McpUpdateMode.AUTO) {
+            updateMcp(project)
+            return
+        }
+        val message = "A new version of the Xygeni MCP server is available (${installedVersion ?: "unknown"} → $remoteVersion)."
+        NotificationService.notify(
+            StringUtil.escapeXmlEntities(message),
+            NotificationType.INFORMATION,
+            project,
+            listOf(
+                NotificationAction.createSimpleExpiring("Update") { updateMcp(project) },
+                NotificationAction.createSimpleExpiring("Ignore this version") {
+                    settings.mcpIgnoredVersion = remoteVersion
+                    Logger.log("MCP server $remoteVersion will not be offered again", project)
+                }
+            )
+        )
+    }
+
+    /** Downloads the published MCP server over the installed one, in the background, and says when it is loaded. */
+    fun updateMcp(project: Project?) {
+        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Updating Xygeni MCP server...") {
+            override fun run(indicator: ProgressIndicator) {
+                indicator.isIndeterminate = true
+                try {
+                    val outcome = withMcpLock { downloadMcpJarLocked(project) }
+                    val version = installedMcpVersion() ?: "the published version"
+                    lastMcpUpdateCheck = lastMcpUpdateCheck?.let { McpUpdateCheck(installedMcpVersion(), it.available, outcome == McpDownloadOutcome.PENDING) }
+                    val openMcpSetup = project?.let { p ->
+                        NotificationAction.createSimple(MyBundle.message("mcp.setup.notification.openLink")) { McpSetupView.show(p) }
+                    }
+                    when (outcome) {
+                        McpDownloadOutcome.INSTALLED -> notifyMcpUpdated(version, project)
+                        McpDownloadOutcome.PENDING -> NotificationService.notifyWarn(
+                            "The Xygeni MCP server update was downloaded, but your AI assistant (Copilot, Claude Code, Cursor…) is still " +
+                                "using the installed version: close it. The update is applied the next time the IDE starts.", project, openMcpSetup
+                        )
+                    }
+                } catch (e: Exception) {
+                    Logger.error("error updating the MCP server", e, project)
+                    NotificationService.notifyError(
+                        StringUtil.escapeXmlEntities("Failed to update the Xygeni MCP server: ${e.message}"),
+                        project,
+                        NotificationAction.createSimple("Retry") { updateMcp(project) }
+                    )
+                }
+            }
+        })
+    }
+
+    private fun isMcpCheckDue(): Boolean {
+        val lastCheck = readTextOrNull(this.pluginContext.mcpLastCheckFile)?.trim()?.toLongOrNull() ?: return true
+        return System.currentTimeMillis() - lastCheck > MCP_CHECK_INTERVAL_MS
+    }
+
+    /** GET a small text resource (version, checksum); null on any failure, which is logged and never thrown. */
+    private fun fetchText(url: String, project: Project?): String? =
+        fetchTextWithStatus(url, project).let { (status, body) -> if (status == 200) body else null }
+
+    /** The HTTP status (null when there was no answer) and the body of a 2xx; failures are logged, never thrown. */
+    private fun fetchTextWithStatus(url: String, project: Project?): Pair<Int?, String?> {
+        return try {
+            val request = Request.Builder().url(url).get().build()
+            textClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Logger.log("GET $url: ${response.code}", project)
+                    return response.code to null
+                }
+                response.code to response.body?.string()
+            }
+        } catch (e: Exception) {
+            Logger.log("GET $url failed: ${e.message}", project)
+            null to null
+        }
+    }
+
+    private fun sha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(64 * 1024)
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                digest.update(buffer, 0, read)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    private fun readTextOrNull(file: File): String? = try {
+        if (file.exists()) file.readText() else null
+    } catch (e: IOException) {
+        null
+    }
+
+    private fun writeTextQuietly(file: File, content: String) {
+        try {
+            file.writeText(content)
+        } catch (e: IOException) {
+            Logger.warn("Could not write $file: ${e.message}")
+        }
+    }
+
+    /** Writes the version next to the JAR; an unknown version removes the file so the next check updates it. */
+    private fun writeVersionFile(file: File, version: String?) {
+        if (version == null) Files.deleteIfExists(file.toPath()) else writeTextQuietly(file, version + "\n")
+    }
+
+    // removeLegacyMcpInstalls deletes the MCP folders of versions before #2382. The path in the user's MCP
+    // client config still points to one of them, so they are told to update it.
+    private fun removeLegacyMcpInstalls(project: Project?) {
+        val legacyMcpDirs = this.pluginContext.legacyMcpInstallDirs()
+        if (legacyMcpDirs.isEmpty() || !this.pluginContext.mcpJarFile.exists()) return
+        var removed = false
+        for (legacyMcpDir in legacyMcpDirs) {
+            Logger.log("Removing previous MCP server folder: $legacyMcpDir", project)
+            try {
+                removed = this.deleteRecursively(legacyMcpDir.absolutePath) || removed
+            } catch (e: IOException) {
+                // An AI assistant still running the old JAR locks it on Windows; it is retried on the next start.
+                Logger.warn("Could not remove $legacyMcpDir: ${e.message}", project)
+            }
+        }
+        // Said once, when the old copy goes; while it stays locked the log line above is enough.
+        if (!removed) return
+        val message = "The Xygeni MCP server moved to ${this.pluginContext.mcpJarFile.absolutePath}. " +
+            "Update the path in your MCP client configuration."
+        Logger.warn(message, project)
+        NotificationService.notifyWarn(
+            StringUtil.escapeXmlEntities(message),
+            project,
+            project?.let { p ->
+                NotificationAction.createSimple(MyBundle.message("mcp.setup.notification.openLink")) { McpSetupView.show(p) }
+            }
+        )
+    }
+
+    // withMcpLock runs `action` holding <mcp dir>/.lock, created atomically: the MCP folder is shared by every
+    // Xygeni IDE plugin. A lock held by another IDE is waited for; a stale one (crashed IDE) is taken over.
+    private fun <T> withMcpLock(action: () -> T): T {
+        val lockFile = File(this.pluginContext.mcpInstallDir, MCP_LOCK_NAME).toPath()
+        val waitUntil = System.currentTimeMillis() + MCP_LOCK_WAIT_MS
+        while (true) {
+            try {
+                Files.createFile(lockFile)
+                break
+            } catch (e: FileAlreadyExistsException) {
+                val lockAgeMs = try {
+                    System.currentTimeMillis() - Files.getLastModifiedTime(lockFile).toMillis()
+                } catch (e: NoSuchFileException) {
+                    continue
+                }
+                when {
+                    lockAgeMs > MCP_LOCK_STALE_MS -> Files.deleteIfExists(lockFile)
+                    System.currentTimeMillis() > waitUntil ->
+                        throw IllegalStateException("MCP server is being installed by another IDE ($lockFile)")
+                    else -> Thread.sleep(1000)
+                }
+            }
+        }
+        try {
+            return action()
+        } finally {
+            Files.deleteIfExists(lockFile)
+        }
     }
 
     private fun installScannerFn(project: Project?) {
@@ -287,7 +748,13 @@ class InstallerService : ProcessExecutorService() {
         // + x to xygeni command
         val commandFile = File(this@InstallerService.pluginContext.xygeniCommand)
         commandFile.setExecutable(true)
-        Logger.log("Xygeni scanner installed successfully!", project)
+        // A scanner without its libraries cannot even run its updater: fail the install so it is retried.
+        val libDir = File(commandFile.parentFile, "lib")
+        val jars = libDir.listFiles { file -> file.name.endsWith(".jar") }?.size ?: 0
+        if (jars < MIN_SCANNER_JARS) {
+            throw IllegalStateException("incomplete scanner install: $jars jar(s) in ${libDir.absolutePath}")
+        }
+        Logger.log("Xygeni scanner installed successfully! ($jars libraries)", project)
     }
 
     // isInstalled checks if the xygeni command already exists
@@ -308,6 +775,9 @@ class InstallerService : ProcessExecutorService() {
 
     // install checks the xygeni command and install if it does not exist
     fun install(project: Project?) {
+        // Before looking at the fixed folder: an old versioned install is moved into it (no download). Runs here,
+        // on the startup pooled thread, and never where the context is first touched (that could be the EDT).
+        migrateVersionedScannerInstall(project)
         var steps = mutableListOf<Step>()
         if (!isInstalled()) {
             steps.add(Step("Installing scanner", this::installScannerFn,))
@@ -316,9 +786,13 @@ class InstallerService : ProcessExecutorService() {
             publishInstallerState(project)
         }
         if (!isInstalled(mcp = true)) {
-            steps.add(Step("Installing mcp", this::installMCPFn))
+            steps.add(Step("Installing mcp") { targetProject -> installMCPFn(targetProject, force = false) })
         } else {
             Logger.log(">> Xygeni MCP installed", project)
+            // Another IDE may have installed the shared MCP server while this one still has its own copy.
+            if (this.pluginContext.legacyMcpInstallDirs().isNotEmpty()) {
+                steps.add(Step("Removing previous MCP server folder", this::removeLegacyMcpInstalls))
+            }
         }
         if (steps.isNotEmpty()) {
             executeInBackground(project, steps)
@@ -335,7 +809,7 @@ class InstallerService : ProcessExecutorService() {
                 publishInstallerState(targetProject)
             },
             Step("Installing scanner", this::installScannerFn),
-            Step("Installing mcp", this::installMCPFn),
+            Step("Installing mcp") { targetProject -> installMCPFn(targetProject, force = true) },
         )
         executeInBackground(project, steps)
     }

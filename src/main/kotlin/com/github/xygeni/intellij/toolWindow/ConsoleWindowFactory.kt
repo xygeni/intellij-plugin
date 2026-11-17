@@ -24,6 +24,8 @@ class ConsoleWindowFactory : ToolWindowFactory {
         panel.add(console.component, BorderLayout.CENTER)
 
         val content = ContentFactory.getInstance().createContent(panel, "", false)
+        // The console view is a Disposable: tie it to the content, or the IDE reports a leak on shutdown.
+        content.setDisposer(console)
         toolWindow.contentManager.addContent(content)
 
         val consoleSvc = project.getService(ConsoleService::class.java)

@@ -20,6 +20,15 @@ interface SettingsChangeListener {
     fun settingsChanged()
 }
 
+/** The per-project scan configuration or Auto Scan on Save changed from a view: the others repaint (#415). */
+val SCAN_CONFIG_CHANGED_TOPIC = Topic.create(
+    "Xygeni Scan Configuration Changed",
+    ScanConfigChangeListener::class.java
+)
+interface ScanConfigChangeListener {
+    fun scanConfigChanged(project: Project?)
+}
+
 // ---------------------- //
 // -- Connection state -- //
 // ---------------------- //
@@ -67,6 +76,16 @@ interface InstallerStateListener {
 // ------------------- //
 // -- License state -- //
 // ------------------- //
+/** The MCP server install / update / restart-pending state changed (xygeni/xygeni-product-backlog#2382). */
+val MCP_STATE_TOPIC = Topic.create(
+    "Xygeni MCP state",
+    McpStateListener::class.java
+)
+
+interface McpStateListener {
+    fun mcpStateChanged()
+}
+
 val LICENSE_STATE_TOPIC = Topic.create(
     "Xygeni License State",
     LicenseStateListener::class.java

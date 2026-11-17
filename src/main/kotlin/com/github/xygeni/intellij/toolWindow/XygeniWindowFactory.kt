@@ -1,6 +1,8 @@
 package com.github.xygeni.intellij.toolWindow
 
+import com.github.xygeni.intellij.views.ConfigurationPanel
 import com.github.xygeni.intellij.views.HelpBlockView
+import com.github.xygeni.intellij.views.ScanConfigView
 import com.github.xygeni.intellij.views.ScanView
 import com.github.xygeni.intellij.views.XygeniSettingsView
 import com.github.xygeni.intellij.views.report.*
@@ -20,18 +22,25 @@ import javax.swing.JPanel
 class XygeniWindowFactory : ToolWindowFactory {
 
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
-        val menuPanel = JPanel()
+        // Tracks the viewport width (a plain JPanel keeps its preferred width, so a long URL made the column wider
+        // than the tool window and clipped what was on the right: the toggles, the ends of the descriptions).
+        val menuPanel = object : JPanel(), javax.swing.Scrollable {
+            override fun getPreferredScrollableViewportSize() = preferredSize
+            override fun getScrollableUnitIncrement(visibleRect: java.awt.Rectangle, orientation: Int, direction: Int) = 16
+            override fun getScrollableBlockIncrement(visibleRect: java.awt.Rectangle, orientation: Int, direction: Int) = visibleRect.height
+            override fun getScrollableTracksViewportWidth() = true
+            override fun getScrollableTracksViewportHeight() = false
+        }
         menuPanel.layout = BoxLayout(menuPanel, BoxLayout.Y_AXIS)
 
-        // ----------------- configuration panel -----------------
+        // ----------------- CONFIGURATION: Connection, Scan, Scan configuration (#415) -----------------
         val settingsView = XygeniSettingsView(project)
         settingsView.initialize()
-        menuPanel.add(settingsView)
-
-        // ----------------- Scan -----------------
         val scanView = ScanView(project)
         scanView.initialize()
-        menuPanel.add(scanView)
+        val scanConfigView = ScanConfigView(project)
+        scanConfigView.initialize()
+        menuPanel.add(ConfigurationPanel(listOf(settingsView, scanView, scanConfigView)))
 
         // ----------------- Reports -----------------
 

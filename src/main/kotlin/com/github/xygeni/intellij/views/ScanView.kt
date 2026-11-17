@@ -39,7 +39,6 @@ class ScanView(private val project: Project) : JPanel() {
     init {
         layout = BoxLayout(this, BoxLayout.Y_AXIS)
         alignmentX = Component.LEFT_ALIGNMENT
-        border = MatteBorder(0, 0, 1, 0, JBColor.GRAY)
     }
 
     fun initialize() {
@@ -170,27 +169,15 @@ class ScanView(private val project: Project) : JPanel() {
         content = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             alignmentX = Component.LEFT_ALIGNMENT
-            border = JBUI.Borders.empty(5, 20, 10, 5)
+            border = JBUI.Borders.empty(2, Sections.BODY_LEFT, 6, 6)
             isVisible = false
         }
-        content.add(button)
+        content.add(Sections.flush(button))
 
     }
 
     private fun createHeader() {
-        header = JLabel("SCAN").apply {
-            cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
-            alignmentX = LEFT_ALIGNMENT
-            icon = Icons.CHEVRON_RIGHT_ICON
-            iconTextGap = 10
-            border = JBUI.Borders.emptyTop(8)
-        }
-
-        header.addMouseListener(object : MouseAdapter() {
-            override fun mouseClicked(e: MouseEvent?) {
-                toggleContentVisibility()
-            }
-        })
+        header = Sections.subHeader("Scan") { toggleContentVisibility() }
     }
 
     private fun toggleContentVisibility() {

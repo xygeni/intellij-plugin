@@ -2,6 +2,7 @@ package com.github.xygeni.intellij.services
 
 import com.github.xygeni.intellij.events.SCAN_STATE_TOPIC
 import com.github.xygeni.intellij.logger.Logger
+import com.github.xygeni.intellij.notifications.NotificationService
 import com.github.xygeni.intellij.model.PluginContext
 import com.github.xygeni.intellij.settings.XygeniSettings
 import com.intellij.openapi.application.ApplicationManager
@@ -16,6 +17,10 @@ import java.util.concurrent.ConcurrentHashMap
  * @author : Carmendelope
  * @version : 9/10/25 (Carmendelope)
  **/
+
+/** picocli: "Unknown option: '--x'" (exit code 2). Kept above the annotation: between `@Service` and the class
+ *  it would take the annotation and leave `ScanService` unregistered. */
+private val UNKNOWN_OPTION = Regex("Unknown options?: '([^']+)'")
 
 @Service(Service.Level.PROJECT)
 class ScanService : ProcessExecutorService() {
@@ -34,6 +39,10 @@ class ScanService : ProcessExecutorService() {
     var lastRunScanTypes: Set<String> = emptySet()
         private set
 
+    /** Whether the run in progress / just finished was a full scan: its skipped categories are cleared, not kept (#415). */
+    var lastRunWasFull: Boolean = true
+        private set
+
     var processHandle: MyProcessHandle? = null
 
     private val baseArgs: Map<String, String> = mapOf(
@@ -45,24 +54,38 @@ class ScanService : ProcessExecutorService() {
         "--include-vulnerabilities" to ""
     )
 
-    private fun buildArgs(changingValue: String, incremental: Boolean = false): Map<String, String> {
-        return if (!incremental) {
-            baseArgs.toMutableMap().apply {
-                this["--run"] = "deps,secrets,misconf,iac,suspectdeps,sast,malware,quality,apisec,ai"
-                this["-d"] = changingValue
-            }
-        }else{
-            baseArgs.toMutableMap().apply {
-                this["-d"] = changingValue
-                this["--run"] = "secrets,iac,sast,malware"
-                this["--incremental"] = ""
-            }
+    /**
+     * The `--run=` list comes from the project's `.xygeni/ide.json` (xygeni/xygeni-product-backlog#415), or is
+     * [only] for a single scan type (the play button of a results view). The scanner options of the file go after
+     * it, each canonical entry (`--name=value`) as one argument.
+     */
+    fun buildArgs(changingValue: String, config: ScanConfig, incremental: Boolean = false, only: List<String>? = null): Map<String, String> {
+        val run = only?.takeIf { it.isNotEmpty() } ?: if (incremental) config.onSave else config.scans
+        return baseArgs.toMutableMap().apply {
+            this["--run"] = run.joinToString(",")
+            this["-d"] = changingValue
+            if (incremental) this["--incremental"] = ""
+            // One argument, `--exclude-add=<patterns>`: as a separate value, an exclude starting with @ would be read by
+            // picocli as a file of arguments (the CLI has at-files on), so a repository could add any option from it.
+            config.excludeAddValue()?.let { this["--exclude-add=$it"] = "" }
+            for (option in ScanOptions.normalize(config.options)) this[option] = ""
         }
+    }
+
+    /** The scan types plus the ones that run with them (SCA brings suspect dependencies), in CLI order. */
+    fun withCompanions(types: List<String>): List<String> {
+        val all = types.toMutableSet()
+        for (scanner in ScanConfig.SCANNERS) {
+            val parent = scanner.runsWith ?: continue
+            if (parent in all) all.add(scanner.key)
+        }
+        return ScanConfig.ALL_SCAN_TYPES.filter { it in all }
     }
 
     fun isUnlicensed(scanType: String): Boolean = scanType in _unlicensedScanTypes
 
-    fun scan(project: Project, incremental: Boolean = false) {
+    /** The full scan, the on-save incremental scan, or with [only] just those scan types (their findings alone are refreshed). */
+    fun scan(project: Project, incremental: Boolean = false, only: List<String>? = null) {
         if (scanning) {
             Logger.error("❌ Scanning is already running")
             return
@@ -70,10 +93,18 @@ class ScanService : ProcessExecutorService() {
 
         val path = project.basePath ?: // TODO: ver qué hacer aquí
         return
+        val config = ScanConfig.load(project)
+        if (incremental && config.onSave.isEmpty()) {
+            Logger.log("No scan type is configured to run on save (.xygeni/ide.json). Incremental scan skipped.", project)
+            return
+        }
         scanning = true
 
-        val scanArgs = this@ScanService.buildArgs(path, incremental)
+        val onlyTypes = only?.takeIf { it.isNotEmpty() }?.let { withCompanions(it) }
+        val scanArgs = this@ScanService.buildArgs(path, config, incremental, onlyTypes)
         lastRunScanTypes = scanArgs["--run"].orEmpty().split(',').filter { it.isNotBlank() }.toSet()
+        // A single scan type keeps the findings of the others, like an incremental run does.
+        lastRunWasFull = !incremental && onlyTypes == null
         // Only the scan types that run now can refresh their licence status: the incremental
         // scan skips apisec/ai, so clearing everything would turn "Not licensed" into "0 issues".
         _unlicensedScanTypes.removeAll(lastRunScanTypes)
@@ -82,6 +113,7 @@ class ScanService : ProcessExecutorService() {
         // Whole second: a file system with 1s mtime granularity must not date a fresh report before the start.
         val scanStartedAt = System.currentTimeMillis() / 1000 * 1000
         publishScanUpdate(project, 2) // running
+        var unknownOption: String? = null // picocli: "Unknown option: '--x'" (exit code 2)
 
         try {
             processHandle = executeProcess(
@@ -97,12 +129,18 @@ class ScanService : ProcessExecutorService() {
                     if (success) {
                         publishScanUpdate(project, 1) // Finished
                     } else {
+                        // An option the installed scanner does not know, typically one added in Scan configuration
+                        // that needs a newer scanner: name it instead of the bare exit code (#415).
+                        unknownOption?.let {
+                            NotificationService.notifyError("The scanner does not accept $it (it may need scanner 6.23 or later): remove it from Scan configuration, or update the scanner", project)
+                        }
                         publishScanUpdate(project, 0) // Finished with errors
                     }
                     scanning = false
                 },
                 onOutputLine = { line ->
                     unlicensedScanTypeIn(line)?.let { _unlicensedScanTypes.add(it) }
+                    if (unknownOption == null) unknownOption = UNKNOWN_OPTION.find(line)?.groupValues?.get(1)
                 },
                 // Scanner convention, shared with the other plugins: 0 = clean scan, > 127 = completed
                 // with findings (134). 127 = some scan types not licensed: still a completed scan when

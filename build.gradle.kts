@@ -149,6 +149,8 @@ intellijPlatform {
             // EAP builds live in the intellij-repository/snapshots Maven repo with an
             // -EAP-SNAPSHOT suffix and resolve only with useInstaller = false.
             ide(IntelliJPlatformType.IntellijIdeaCommunity, "262.10315.19-EAP-SNAPSHOT", useInstaller = false)
+            // An IDE installed on this machine, e.g. ./gradlew verifyPlugin -PlocalVerifierIde="/Applications/Android Studio.app"
+            providers.gradleProperty("localVerifierIde").orNull?.let { local(file(it)) }
         }
     }
 }

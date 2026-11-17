@@ -79,6 +79,11 @@
                     icon="Icons.XYGENI_ICON"
                     description="Open the Xygeni MCP server setup guide">
             </action>
+            <action id="Xygeni.CheckMcpUpdates"
+                    class="com.github.xygeni.intellij.actions.CheckMcpUpdatesAction"
+                    text="Check for MCP Server Updates"
+                    description="Check whether a newer Xygeni MCP server is published and offer to install it">
+            </action>
         </group>
     </actions>
     <applicationListeners>

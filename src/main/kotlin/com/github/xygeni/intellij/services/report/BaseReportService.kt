@@ -35,11 +35,24 @@ abstract class BaseReportService<T : BaseXygeniIssue>(
                     if (project != this@BaseReportService.project) return
                     if (status == 2) return cleanIssuesAndReturn()
                     // A partial run (incremental) leaves the other report files untouched: keep those issues.
-                    val ranScanTypes = project.service<ScanService>().lastRunScanTypes
-                    if (ranScanTypes.isNotEmpty() && reportType !in ranScanTypes) return
+                    // A full scan limited to the configured scan types (#415) drops the ones it did not run.
+                    val scanService = project.service<ScanService>()
+                    val ranScanTypes = scanService.lastRunScanTypes
+                    if (ranScanTypes.isNotEmpty() && reportType !in ranScanTypes) {
+                        if (scanService.lastRunWasFull) clearIssues()
+                        return
+                    }
                     reloadIssuesFromFile()
                 }
             })
+    }
+
+    /** Drops the findings of a scan type the last full scan did not run and tells the views. */
+    private fun clearIssues() {
+        this._issues.clear()
+        ApplicationManager.getApplication().messageBus
+            .syncPublisher(READ_TOPIC)
+            .readCompleted(project, this@BaseReportService.reportType)
     }
 
     private fun cleanIssuesAndReturn(){

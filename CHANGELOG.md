@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 
 
 
+## [1.6.3] - 2026-11-05
+
+### Added
+- Scanner options (xygeni/xygeni-product-backlog#415): a command-line-like field in Scan configuration adds `xygeni scan` options with
+  autocompletion and validation (a closed list: include patterns, detectors, mute, standard, AI review,
+  license analysis, custom configuration); the options the plugin sets itself (`--run`, `-o`, excludes…) are refused.
+  Saved as `options` in `.xygeni/ide.json` and validated again when the file is read.
+- `.xygeni/ide.json` is treated as input from the repository (xygeni/xygeni-product-backlog#415): an option or exclude with a quote or a control character is refused (on Windows it could add scanner options of its own), `--conf`, `--custom-detectors-dir` and `--mute` take a path inside the project (or `--mute=#profile`), the file is never written through a symbolic link, a save keeps the keys another plugin added, and "Restore defaults" rewrites the file instead of deleting it.
+- Run one scan type alone: a play button in the header of each results section (SAST, SCA, Secrets…) runs just that
+  scan and refreshes only its findings.
+- Security (xygeni/xygeni-product-backlog#1438): a server URL that uses `http://` to a host other than localhost is
+  refused, with the reason in the connection status, because the API token would travel in clear on every request.
+  `http://localhost` stays allowed. The new "Allow insecure HTTP" setting lets a server without TLS through on purpose;
+  the status then keeps warning that the token travels in clear.
+- MCP server updates (xygeni/xygeni-product-backlog#2382): after an update the notification says what to do in plain
+  words (restart your AI assistant so it uses the new version), with "Show me how" opening a per-assistant guide (Copilot,
+  Claude Code, Cursor, Claude Desktop) in MCP Setup and a note in the Configuration panel that stays until dismissed with
+  OK. The Configuration panel gains an "MCP server" line (installed version, update state, MCP Setup and Check for
+  updates links) that says "Checking…" while the connection check runs. The MCP Setup guide gains the Java prerequisite,
+  where the configuration goes for each assistant (`servers` vs `mcpServers`), a check-that-it-works step and troubleshooting.
+- Scan configuration per project (xygeni/xygeni-product-backlog#415): a new SCAN CONFIGURATION panel in the Xygeni tool window chooses which scan types the full scan runs (one switch per scanner; SCA brings suspect dependencies) and which of the file-scoped ones (Secrets, SAST, IaC, Malware, Code Quality) also run on save, and which folders or glob patterns are excluded from every scan (passed as `--exclude-add`, so the scanner's default excludes are kept; needs scanner 6.23 or later). Saved in `.xygeni/ide.json` at the project root, shared with the other Xygeni IDE plugins and meant to be committed; the defaults (every scan type, Secrets / SAST / IaC / Malware on save, nothing excluded) write nothing. A full scan now shows only the findings of the scan types it ran.
+- MCP server updates (xygeni/xygeni-product-backlog#2382): once a day, after the connection is validated, the plugin reads the published MCP server version and, according to the new "MCP server updates" setting (Settings > Tools > Xygeni), notifies with Update / Ignore this version actions (default), updates in the background, or does nothing. Tools > Xygeni > Check for MCP Server Updates checks now. The check is shared with the other Xygeni IDE plugins through `~/.xygeni/mcp/last-check.txt`; when the published version cannot be read (no network, not published yet) nothing is shown, it is only logged.
+- The installed MCP server version is written to `~/.xygeni/mcp/version.txt` and shown with the path and the update status in the MCP Server Setup view (xygeni/xygeni-product-backlog#2382).
+- The MCP server download is verified against the published SHA-256 checksum; a mismatch, or an update whose checksum cannot be read, keeps the JAR already installed. Until the checksum is published, a first install goes ahead with a visible warning. An update that cannot replace a JAR locked by a running MCP client (Windows) is kept as `.pending` and applied on the next IDE start (xygeni/xygeni-product-backlog#2382).
+### Changed
+- The scanner is installed in `~/.xygeni/plugins/xygeni/scanner/`, a folder that no longer carries the plugin version, so a plugin update no longer downloads the ~250 MB scanner again (the VS Code extension already worked this way). The newest complete scanner of the old `<version>` folders is copied there on the first start; those folders are left in place, since another JetBrains IDE still on an older plugin version runs its scanner from them.
+- The tool window groups Connection, Scan and Scan configuration under a single CONFIGURATION panel (xygeni/xygeni-product-backlog#415).
+- A 503 from the backend's `/ping` no longer marks the URL as invalid: the endpoint answers 503 while the server's CPU is above its threshold, so the plugin goes on with the token check instead of asking for a reconnect. When that token check itself gets a 5xx or no answer, the status says the server is unavailable and to retry, instead of "invalid token". The startup check also retries up to three times on other 5xx or a refused connection, and the CONFIGURATION panel shows "Connecting…" meanwhile instead of "Unknown".
+- The MCP server is installed in `~/.xygeni/mcp/xygeni-mcp-server.jar`, shared with the other Xygeni IDE plugins, so its path no longer changes when the plugin is updated. An existing copy in `~/.xygeni/plugins/<plugin>/<version>/mcp` is replaced by the shared one and a notification asks to update the path in the MCP client configuration (xygeni/xygeni-product-backlog#2382).
+- The MCP server JAR is written to a temporary file and renamed into place under a lock, so two IDEs installing at the same time never leave a half-written JAR (xygeni/xygeni-product-backlog#2382).
+### Fixed
+- A scanner download or extraction that stops halfway (a `lib` folder with a handful of jars, so not even the scanner's updater starts) is now reported as a failed installation with the Retry action, instead of "installed successfully".
+- The Xygeni console view is disposed with its tool window content; the IDE no longer reports a memory leak for the plugin on shutdown.
+
 ## [1.6.2] - 2026-09-09
 ### Added
 - API Security scan: API flaws are listed in a new "API Security" section, with endpoint, module, service, OWASP API Top 10 and CWE details (xygeni/xygeni-product-backlog#1691).
